@@ -1,17 +1,26 @@
-import { ENV } from "../config/env";
-import { getAuthToken } from "../services/authStorage";
+import { ENV } from '../config/env.js';
+import { getAuthToken } from '../services/authStorage.js';
 
 export async function apiRequest(path, options = {}) {
   const token = getAuthToken();
+  const headers = {
+    'Content-Type': 'application/json',
+    ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    ...(options.headers || {}),
+  };
 
-  const response = await fetch(`${ENV.API_BASE_URL}${path}`, {
-    method: options.method || "GET",
-    headers: {
-      "Content-Type": "application/json",
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
-      ...(options.headers || {}),
-    },
-    body: options.body ? JSON.stringify(options.body) : undefined,
+  const body = options.body
+    ? typeof options.body === 'string'
+      ? options.body
+      : JSON.stringify(options.body)
+    : undefined;
+
+  const url = `${ENV.API_BASE_URL}${path}`;
+
+  const response = await fetch(url, {
+    method: options.method || 'GET',
+    headers,
+    body,
   });
 
   let data = null;
@@ -23,7 +32,10 @@ export async function apiRequest(path, options = {}) {
   }
 
   if (!response.ok) {
-    throw new Error(data?.error || data?.message || "API request failed");
+    const message = data?.error || data?.message || 'API request failed';
+    const error = new Error(message);
+    error.status = response.status;
+    throw error;
   }
 
   return data;
