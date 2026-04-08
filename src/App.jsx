@@ -1,5 +1,5 @@
 import AppRoutes from './routes/AppRoutes.jsx';
-import { AuthProvider } from './hooks/useAuth.js';
+import { AuthProvider } from './hooks/useAuth.jsx';
 
 export default function App() {
   return (
