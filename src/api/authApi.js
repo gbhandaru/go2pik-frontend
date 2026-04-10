@@ -23,6 +23,13 @@ export function customerLogin(payload) {
   });
 }
 
+export function updateCustomerPassword(payload) {
+  return safeRequest('/auth/customers/profile', {
+    method: 'PUT',
+    body: payload,
+  });
+}
+
 export function customerLogout(refreshToken) {
   return safeRequest('/auth/customers/logout', {
     method: 'POST',

@@ -1,12 +1,12 @@
 import { useState } from 'react';
-import { useLocation, useNavigate } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth.jsx';
 
 export default function LoginPage() {
   const { login, error, loading } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
-  const [form, setForm] = useState({ email: '', password: '' });
+  const [form, setForm] = useState(() => ({ email: location.state?.email || '', password: '' }));
   const [localError, setLocalError] = useState(null);
 
   const handleChange = (event) => {
@@ -24,6 +24,10 @@ export default function LoginPage() {
     } catch (err) {
       setLocalError(err.message);
     }
+  };
+
+  const handleContinueAsGuest = () => {
+    navigate('/home');
   };
 
   return (
@@ -57,6 +61,19 @@ export default function LoginPage() {
         <button className="primary-btn" type="submit" disabled={loading}>
           {loading ? 'Signing in…' : 'Sign in'}
         </button>
+        <div className="auth-secondary-actions">
+          <button type="button" className="primary-btn ghost" onClick={handleContinueAsGuest}>
+            Continue as guest
+          </button>
+          <div className="auth-links">
+            <Link className="text-link" to="/password-update" state={{ email: form.email }}>
+              Forgot password?
+            </Link>
+            <Link className="text-link" to="/signup" state={{ email: form.email }}>
+              Create account
+            </Link>
+          </div>
+        </div>
       </form>
     </main>
   );

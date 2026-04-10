@@ -41,7 +41,11 @@ export default function LandingPage() {
   const availableNow = useMemo(() => (restaurants || []).slice(0, 3), [restaurants]);
 
   function handleStartOrdering() {
-    navigate('/home');
+    navigate('/login');
+  }
+
+  function handleCreateAccount() {
+    navigate('/signup');
   }
 
   function handleBrowse() {
@@ -102,7 +106,7 @@ export default function LandingPage() {
               <button type="button" onClick={handleStartOrdering}>
                 Customer Login
               </button>
-              <button type="button" onClick={handleStartOrdering}>
+              <button type="button" onClick={handleCreateAccount}>
                 Create Account
               </button>
             </div>
@@ -173,6 +177,9 @@ export default function LandingPage() {
           </div>
           <button type="button" className="primary-btn" onClick={handleStartOrdering}>
             Start Ordering
+          </button>
+          <button type="button" className="primary-btn secondary" onClick={handleCreateAccount}>
+            Create Account
           </button>
         </section>
 

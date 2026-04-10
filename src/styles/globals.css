@@ -85,6 +85,27 @@ img {
   font-weight: 600;
 }
 
+.auth-secondary-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.auth-links {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  align-items: flex-end;
+}
+
+.text-link {
+  color: #2563eb;
+  font-weight: 600;
+  text-decoration: underline;
+}
+
 input,
 select,
 textarea {
