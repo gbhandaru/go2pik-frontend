@@ -1,4 +1,5 @@
 import { useLocation, useNavigate } from 'react-router-dom';
+import { useAuth } from '../hooks/useAuth.jsx';
 import { formatCurrency } from '../utils/formatCurrency.js';
 
 function formatPickupLabel(order) {
@@ -81,9 +82,59 @@ function getConfirmationNumber(order) {
   return order.id || 'Order';
 }
 
+function getCustomerName(entity) {
+  if (!entity) {
+    return '';
+  }
+
+  const directFields = [
+    entity.firstName,
+    entity.first_name,
+    entity.full_name,
+    entity.fullName,
+    entity.name,
+    entity.customerName,
+    entity.customer_name,
+    entity.displayName,
+  ];
+
+  const directMatch = directFields.find((value) => typeof value === 'string' && value.trim());
+  if (directMatch) {
+    return directMatch.trim();
+  }
+
+  const composite =
+    [entity.first_name || entity.firstName, entity.last_name || entity.lastName]
+      .filter(Boolean)
+      .join(' ');
+  if (composite.trim()) {
+    return composite.trim();
+  }
+
+  return (
+    getCustomerName(entity.profile) ||
+    getCustomerName(entity.user) ||
+    getCustomerName(entity.customer) ||
+    ''
+  );
+}
+
+function resolveCustomerName({ user, order }) {
+  return getCustomerName(user) || getCustomerName(order?.customer) || getCustomerName(order) || '';
+}
+
+function getBrowseMenuPath(order) {
+  if (!order) {
+    return '/home';
+  }
+  const restaurantId = order.restaurantId || order.restaurant?.id;
+  return restaurantId ? `/restaurants/${restaurantId}/menu` : '/home';
+}
+
 export default function OrderConfirmationPage() {
   const navigate = useNavigate();
   const location = useLocation();
+  const { user } = useAuth();
   const order = location.state?.order;
 
   if (!order) {
@@ -105,68 +156,134 @@ export default function OrderConfirmationPage() {
   const restaurantName = order.restaurant?.name || 'your restaurant';
   const destination = order.restaurant?.location || order.restaurant?.address || '';
   const confirmationNumber = getConfirmationNumber(order);
-  const subtotal = order.subtotal ?? order.total ?? items.reduce((sum, item) => sum + (item.price || 0) * (item.quantity || 1), 0);
+  const customerName = resolveCustomerName({ user, order });
+  const subtotal =
+    order.subtotal ??
+    order.total ??
+    items.reduce((sum, item) => sum + (item.price || 0) * (item.quantity || 1), 0);
   const tax = order.tax ?? 0;
   const total = order.total ?? subtotal + tax;
+  const browseMenuPath = getBrowseMenuPath(order);
+
+  const heroSubhead = customerName
+    ? (
+        <>
+          <strong>Thank you, {customerName}!</strong> Your order is being prepared.
+        </>
+      )
+    : 'Thank you! Your order is being prepared.';
+
+  const handleBrowseMenu = () => navigate(browseMenuPath);
+  const handleBrowseRestaurants = () => navigate('/home');
 
   return (
-    <main className="page-section" style={{ alignItems: 'center' }}>
-      <section className="card center confirmation-card">
-        <div className="check">✓</div>
-        <h2>Order Confirmed! 🎉</h2>
-        <p className="muted">Your pickup order is on its way to the kitchen.</p>
-        <div className="summary-grid">
-          <article className="summary-card">
+    <main className="page-section confirmation-page">
+      <section className="confirmation-shell">
+        <div className="confirmation-icon" aria-hidden="true">
+          ✓
+        </div>
+        <h1>
+          Order Confirmed <span role="img" aria-label="celebration">🎉</span>
+        </h1>
+        <p className="confirmation-lede">{heroSubhead}</p>
+        <p className="muted confirmation-subtext">We'll notify you when your order is ready for pickup.</p>
+
+        <div className="confirmation-info-grid">
+          <article className="confirmation-info-card">
             <p className="eyebrow">Pickup window</p>
             <strong>{pickupLabel}</strong>
-            <p className="muted">{destination || 'Ready when you arrive'}</p>
+            <p className="info-subtext">{destination || 'Ready when you arrive'}</p>
           </article>
-          <article className="summary-card">
-            <p className="eyebrow">Confirmation</p>
+          <article className="confirmation-info-card">
+            <p className="eyebrow">Order #</p>
             <strong>{confirmationNumber}</strong>
-            <p className="muted">Show this at {restaurantName}</p>
+            <p className="info-subtext with-icon">
+              <LocationPinIcon /> Pickup location: {restaurantName}
+            </p>
           </article>
         </div>
 
-        {items.length > 0 && (
-          <div className="order-breakdown">
-            <p className="eyebrow">What you ordered</p>
-            <ul className="line-items compact">
+        <div className="order-summary-modern">
+          <p className="eyebrow">What you ordered</p>
+          {items.length > 0 ? (
+            <ul className="order-items">
               {items.map((item) => (
                 <li key={item.id || item.sku || item.name}>
-                  <span>
-                    {item.quantity || 1} × {item.name}
-                  </span>
+                  <div>
+                    <span>
+                      {item.quantity || 1} × {item.name}
+                    </span>
+                  </div>
                   <strong>{formatCurrency((item.price || 0) * (item.quantity || 1))}</strong>
                 </li>
               ))}
             </ul>
-            <div className="totals order-totals">
-              <div>
-                <span>Subtotal</span>
-                <span>{formatCurrency(subtotal)}</span>
-              </div>
-              <div>
-                <span>Tax</span>
-                <span>{formatCurrency(tax)}</span>
-              </div>
-              <div className="grand">
-                <strong>Total</strong>
-                <strong>{formatCurrency(total)}</strong>
-              </div>
+          ) : (
+            <p className="muted">This order's line items are not available right now.</p>
+          )}
+
+          <div className="order-totals">
+            <div>
+              <span>Subtotal</span>
+              <span>{formatCurrency(subtotal)}</span>
+            </div>
+            <div>
+              <span>Tax</span>
+              <span>{formatCurrency(tax)}</span>
+            </div>
+            <div className="grand">
+              <strong>Total</strong>
+              <strong>{formatCurrency(total)}</strong>
             </div>
           </div>
-        )}
+        </div>
 
-        <div className="actions">
-          <button type="button" className="primary-btn" onClick={() => navigate('/home')}>
+        <div className="confirmation-actions">
+          <button type="button" className="primary-btn" onClick={handleBrowseMenu}>
+            <PlateIcon aria-hidden="true" className="btn-icon" />
+            Browse menu
+          </button>
+          <button type="button" className="primary-btn secondary" onClick={handleBrowseRestaurants}>
+            <StorefrontIcon aria-hidden="true" className="btn-icon" />
             Browse restaurants
           </button>
-          <button type="button" className="primary-btn secondary" onClick={() => navigate('/orders')}>
-            Track orders
-          </button>
         </div>
+
+        <p className="support-text">
+          Need help?{' '}
+          <a href="mailto:support@go2pik.com" className="text-link">
+            Contact support
+          </a>
+        </p>
       </section>
     </main>
+  );
+}
+
+function PlateIcon(props) {
+  return (
+    <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="1.6" {...props}>
+      <circle cx="12" cy="12" r="9" />
+      <path d="M8 12h8M12 7v5" />
+    </svg>
+  );
+}
+
+function StorefrontIcon(props) {
+  return (
+    <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="1.6" {...props}>
+      <path d="M3 9h18l-1 11H4L3 9Z" />
+      <path d="M5 9V5h14v4" />
+      <path d="M9 14h6v6H9z" />
+    </svg>
+  );
+}
+
+function LocationPinIcon(props) {
+  return (
+    <svg viewBox="0 0 16 16" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="1.5" {...props}>
+      <path d="M8 14s5-3.2 5-7A5 5 0 0 0 3 7c0 3.8 5 7 5 7Z" />
+      <circle cx="8" cy="6.5" r="1.5" />
+    </svg>
   );
 }
