@@ -3,23 +3,82 @@ import { formatCurrency } from '../utils/formatCurrency.js';
 
 function formatPickupLabel(order) {
   if (!order) {
-    return 'ASAP';
+    return 'ASAP • Ready in 15–20 min';
+  }
+
+  const request = order.pickupRequest;
+
+  if (request && typeof request === 'object') {
+    if (request.summary) {
+      return request.summary;
+    }
+    if (request.type === 'SCHEDULED' && request.scheduledTime) {
+      return `Scheduled today at ${formatDisplayTime(request.scheduledTime)}`;
+    }
+    if (request.type === 'ASAP') {
+      return 'ASAP • Ready in 15–20 min';
+    }
+  }
+
+  if (typeof request === 'string' && request !== 'ASAP') {
+    return request;
   }
 
   if (order.pickupTime) {
-    try {
-      const scheduled = new Date(order.pickupTime);
-      if (!Number.isNaN(scheduled.getTime())) {
-        return scheduled.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
-      }
-    } catch {}
+    const parsed = formatDisplayTime(order.pickupTime);
+    if (parsed) {
+      return parsed;
+    }
   }
 
-  if (order.pickupRequest && order.pickupRequest !== 'ASAP') {
-    return order.pickupRequest;
+  return 'ASAP • Ready in 15–20 min';
+}
+
+function formatDisplayTime(value) {
+  if (!value) {
+    return '';
   }
 
-  return 'ASAP';
+  // Support both ISO strings and HH:mm values returned from the picker.
+  if (value.includes('T')) {
+    const date = new Date(value);
+    if (!Number.isNaN(date.getTime())) {
+      return date.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+    }
+  }
+
+  const [hoursString, minutes] = value.split(':');
+  if (hoursString === undefined || minutes === undefined) {
+    return '';
+  }
+  const hours = Number(hoursString);
+  if (Number.isNaN(hours)) {
+    return '';
+  }
+  const period = hours >= 12 ? 'PM' : 'AM';
+  const normalizedHours = hours % 12 === 0 ? 12 : hours % 12;
+  return `${normalizedHours}:${minutes} ${period}`;
+}
+
+function getConfirmationNumber(order) {
+  if (!order) {
+    return 'Order';
+  }
+
+  const directValue = order.orderNumber || order.confirmationNumber || order.referenceNumber || order.reference;
+  if (directValue) {
+    return directValue;
+  }
+
+  if (order.order?.orderNumber) {
+    return order.order.orderNumber;
+  }
+
+  if (order.response?.orderNumber) {
+    return order.response.orderNumber;
+  }
+
+  return order.id || 'Order';
 }
 
 export default function OrderConfirmationPage() {
@@ -45,7 +104,7 @@ export default function OrderConfirmationPage() {
   const pickupLabel = formatPickupLabel(order);
   const restaurantName = order.restaurant?.name || 'your restaurant';
   const destination = order.restaurant?.location || order.restaurant?.address || '';
-  const confirmationNumber = order.orderNumber || order.id || 'Order';
+  const confirmationNumber = getConfirmationNumber(order);
   const subtotal = order.subtotal ?? order.total ?? items.reduce((sum, item) => sum + (item.price || 0) * (item.quantity || 1), 0);
   const tax = order.tax ?? 0;
   const total = order.total ?? subtotal + tax;
