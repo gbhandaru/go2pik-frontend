@@ -5,6 +5,7 @@ import {
   customerSignup,
   fetchCustomerProfile,
 } from '../api/authApi.js';
+import { sendWelcomeEmail } from '../api/customersApi.js';
 import {
   clearAuthTokens,
   getAuthToken,
@@ -14,6 +15,30 @@ import {
 } from '../services/authStorage.js';
 
 const AuthContext = createContext(null);
+
+function extractCustomerId(user) {
+  if (!user || typeof user !== 'object') {
+    return null;
+  }
+  return (
+    user.customerId ||
+    user.customer_id ||
+    user.id ||
+    user.customer?.id ||
+    user.profile?.id ||
+    null
+  );
+}
+
+function notifyWelcomeEmail(user) {
+  const customerId = extractCustomerId(user);
+  if (!customerId) {
+    return;
+  }
+  sendWelcomeEmail(customerId).catch((error) => {
+    console.warn('Failed to send welcome email', error);
+  });
+}
 
 export function AuthProvider({ children }) {
   const [state, setState] = useState({
@@ -71,6 +96,7 @@ export function AuthProvider({ children }) {
           profile: response?.user,
         });
         setState({ user: response?.user || null, loading: false, error: null });
+        notifyWelcomeEmail(response?.user);
         return response;
       } catch (error) {
         setState({ user: null, loading: false, error: error.message });
