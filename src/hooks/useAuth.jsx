@@ -1,4 +1,5 @@
 import { createContext, useContext, useEffect, useMemo, useState } from 'react';
+
 import {
   customerLogin,
   customerLogout,
@@ -16,22 +17,64 @@ import {
 
 const AuthContext = createContext(null);
 
-function extractCustomerId(user) {
-  if (!user || typeof user !== 'object') {
+const DIRECT_ID_KEYS = [
+  'customerId',
+  'customer_id',
+  'customerID',
+  'id',
+  'customerRef',
+  'customer_ref',
+  'customerUuid',
+  'customer_uuid',
+];
+
+const NESTED_ID_KEYS = ['customer', 'profile', 'user', 'data', 'attributes', 'result'];
+
+function extractCustomerId(value) {
+  if (value == null) {
     return null;
   }
-  return (
-    user.customerId ||
-    user.customer_id ||
-    user.id ||
-    user.customer?.id ||
-    user.profile?.id ||
-    null
-  );
+
+  if (typeof value === 'string' || typeof value === 'number') {
+    const normalized = String(value).trim();
+    return normalized || null;
+  }
+
+  if (typeof value !== 'object') {
+    return null;
+  }
+
+  for (const key of DIRECT_ID_KEYS) {
+    if (key in value) {
+      const direct = extractCustomerId(value[key]);
+      if (direct) {
+        return direct;
+      }
+    }
+  }
+
+  for (const nestedKey of NESTED_ID_KEYS) {
+    if (nestedKey in value) {
+      const nested = extractCustomerId(value[nestedKey]);
+      if (nested) {
+        return nested;
+      }
+    }
+  }
+
+  const entries = Array.isArray(value) ? value : Object.values(value);
+  for (const entry of entries) {
+    const match = extractCustomerId(entry);
+    if (match) {
+      return match;
+    }
+  }
+
+  return null;
 }
 
-function notifyWelcomeEmail(user) {
-  const customerId = extractCustomerId(user);
+function notifyWelcomeEmail(payload) {
+  const customerId = extractCustomerId(payload);
   if (!customerId) {
     return;
   }
@@ -96,7 +139,7 @@ export function AuthProvider({ children }) {
           profile: response?.user,
         });
         setState({ user: response?.user || null, loading: false, error: null });
-        notifyWelcomeEmail(response?.user);
+        notifyWelcomeEmail(response);
         return response;
       } catch (error) {
         setState({ user: null, loading: false, error: error.message });
