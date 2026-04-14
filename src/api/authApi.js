@@ -60,3 +60,14 @@ export function restaurantUserLogin(payload) {
 export function fetchRestaurantProfile() {
   return safeRequest('/auth/restaurant-users/me');
 }
+
+export function createRestaurantUser(restaurantId, payload) {
+  if (!restaurantId) {
+    throw new Error('restaurantId is required');
+  }
+
+  return safeRequest(`/restaurants/${restaurantId}/users`, {
+    method: 'POST',
+    body: payload,
+  });
+}
