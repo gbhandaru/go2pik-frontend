@@ -4,6 +4,7 @@ import { submitOrder } from '../api/ordersApi.js';
 import { fetchRestaurantMenu } from '../api/restaurantsApi.js';
 import { useFetch } from '../hooks/useFetch.js';
 import { formatCurrency } from '../utils/formatCurrency.js';
+import { useAuth } from '../hooks/useAuth.jsx';
 
 const PICKUP_MODES = {
   ASAP: 'ASAP',
@@ -15,6 +16,8 @@ const EARLIEST_PICKUP_MINUTES = 15;
 export default function RestaurantMenuPage() {
   const { restaurantId } = useParams();
   const navigate = useNavigate();
+  const { user } = useAuth();
+  const customerName = useMemo(() => getCustomerDisplayName(user), [user]);
   const [cart, setCart] = useState([]);
   const [submitting, setSubmitting] = useState(false);
   const [orderError, setOrderError] = useState(null);
@@ -147,6 +150,8 @@ export default function RestaurantMenuPage() {
           scheduledTime: scheduledPickupTime,
           summary: pickupSummary,
         },
+        customer: user || undefined,
+        customerName: customerName || undefined,
       };
 
       const response = await submitOrder(payload);
@@ -157,6 +162,7 @@ export default function RestaurantMenuPage() {
             ...response,
             items: orderItems,
           },
+          customerName: customerName || undefined,
         },
       });
     } catch (err) {
@@ -228,8 +234,7 @@ export default function RestaurantMenuPage() {
           pickupSummary={pickupSummary}
           pickupMode={selectedPickupMode}
           scheduledPickupTime={scheduledPickupTime}
-          asapReadyLabel={asapReadyLabel}
-          paymentMessage="Pay at restaurant (No online payment needed)"
+          paymentMessage="No online payment required"
           submitting={submitting}
           orderError={orderError}
           disabled={!cart.length || missingScheduledTime}
@@ -400,7 +405,6 @@ function CartSummary({
   pickupSummary,
   pickupMode,
   scheduledPickupTime,
-  asapReadyLabel,
   paymentMessage,
   submitting,
   orderError,
@@ -413,9 +417,9 @@ function CartSummary({
   const cartPickupLabel =
     pickupMode === PICKUP_MODES.SCHEDULED
       ? scheduledPickupTime
-        ? `Scheduled for ${formatTime(scheduledPickupTime)}`
+        ? `Scheduled ${formatTime(scheduledPickupTime)}`
         : 'Schedule pickup time'
-      : asapReadyLabel;
+      : 'ASAP (15–20 min)';
 
   return (
     <aside className="card cart-panel cart-summary cart-wireframe">
@@ -431,14 +435,12 @@ function CartSummary({
         </div>
       </div>
 
-      <div className="cart-meta" aria-live="polite">
-        <div>
-          <span className="muted">Pickup time</span>
-          <strong>{cartPickupLabel}</strong>
+      {isCartEmpty && (
+        <div className="empty-cart">
+          <strong>Your cart is empty</strong>
+          <span>Add items to get started</span>
         </div>
-      </div>
-
-      {isCartEmpty && <p className="muted empty-cart">Add menu items to start an order.</p>}
+      )}
 
       {!isCartEmpty && (
         <>
@@ -485,15 +487,6 @@ function CartSummary({
 
       {orderError && <p className="error-text">{orderError}</p>}
 
-      <div className="cart-place-order-notes">
-        <p>
-          <strong>Pickup:</strong> {cartPickupLabel}
-        </p>
-        <p>
-          <strong>Payment:</strong> {paymentMessage}
-        </p>
-      </div>
-
       <button className="primary-btn cart-preview-cta" type="button" disabled={disabled || submitting} onClick={onPlaceOrder}>
         {submitting ? 'Placing order…' : 'Place order'}
       </button>
@@ -537,4 +530,37 @@ function getEarliestAvailableLabel(value) {
 
 function getItemBadgeLabel(name) {
   return name?.charAt(0)?.toUpperCase() || '✦';
+}
+
+function getCustomerDisplayName(entity) {
+  if (!entity) {
+    return '';
+  }
+  const directFields = [
+    entity.preferredName,
+    entity.preferred_name,
+    entity.firstName,
+    entity.first_name,
+    entity.fullName,
+    entity.full_name,
+    entity.name,
+    entity.displayName,
+    entity.display_name,
+  ];
+  const match = directFields.find((field) => typeof field === 'string' && field.trim());
+  if (match) {
+    return match.trim();
+  }
+  const composite =
+    [entity.firstName || entity.first_name, entity.lastName || entity.last_name]
+      .filter(Boolean)
+      .join(' ')
+      .trim();
+  if (composite) {
+    return composite;
+  }
+  if (entity.profile) {
+    return getCustomerDisplayName(entity.profile);
+  }
+  return '';
 }

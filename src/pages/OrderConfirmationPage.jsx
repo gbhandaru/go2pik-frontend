@@ -3,36 +3,11 @@ import { useAuth } from '../hooks/useAuth.jsx';
 import { formatCurrency } from '../utils/formatCurrency.js';
 
 function formatPickupLabel(order) {
-  if (!order) {
-    return 'ASAP • Ready in 15–20 min';
+  const readyTime = extractReadyTime(order);
+  if (readyTime) {
+    return `Ready by ${readyTime}`;
   }
-
-  const request = order.pickupRequest;
-
-  if (request && typeof request === 'object') {
-    if (request.summary) {
-      return request.summary;
-    }
-    if (request.type === 'SCHEDULED' && request.scheduledTime) {
-      return `Scheduled today at ${formatDisplayTime(request.scheduledTime)}`;
-    }
-    if (request.type === 'ASAP') {
-      return 'ASAP • Ready in 15–20 min';
-    }
-  }
-
-  if (typeof request === 'string' && request !== 'ASAP') {
-    return request;
-  }
-
-  if (order.pickupTime) {
-    const parsed = formatDisplayTime(order.pickupTime);
-    if (parsed) {
-      return parsed;
-    }
-  }
-
-  return 'ASAP • Ready in 15–20 min';
+  return 'Ready soon';
 }
 
 function formatDisplayTime(value) {
@@ -59,6 +34,36 @@ function formatDisplayTime(value) {
   const period = hours >= 12 ? 'PM' : 'AM';
   const normalizedHours = hours % 12 === 0 ? 12 : hours % 12;
   return `${normalizedHours}:${minutes} ${period}`;
+}
+
+function extractReadyTime(order) {
+  if (!order) {
+    return '';
+  }
+  const request = order.pickupRequest || {};
+  if (request.type === 'SCHEDULED' && request.scheduledTime) {
+    return formatDisplayTime(request.scheduledTime);
+  }
+  if (order.pickupTime) {
+    const parsed = formatDisplayTime(order.pickupTime);
+    if (parsed) {
+      return parsed;
+    }
+  }
+  if (typeof request.readyTime === 'string') {
+    const parsed = formatDisplayTime(request.readyTime);
+    if (parsed) {
+      return parsed;
+    }
+  }
+  const summaryMatch =
+    typeof request.summary === 'string'
+      ? request.summary.match(/(~?\s*\d{1,2}:\d{2}\s?(?:AM|PM))/i)
+      : null;
+  if (summaryMatch) {
+    return summaryMatch[0].trim();
+  }
+  return '';
 }
 
 function getConfirmationNumber(order) {
@@ -90,12 +95,16 @@ function getCustomerName(entity) {
   const directFields = [
     entity.firstName,
     entity.first_name,
+    entity.preferredName,
+    entity.preferred_name,
     entity.full_name,
     entity.fullName,
     entity.name,
     entity.customerName,
     entity.customer_name,
     entity.displayName,
+    entity.display_name,
+    entity.nickname,
   ];
 
   const directMatch = directFields.find((value) => typeof value === 'string' && value.trim());
@@ -120,7 +129,24 @@ function getCustomerName(entity) {
 }
 
 function resolveCustomerName({ user, order }) {
-  return getCustomerName(user) || getCustomerName(order?.customer) || getCustomerName(order) || '';
+  const userMatch = getCustomerName(user);
+  if (userMatch) {
+    return userMatch;
+  }
+  const orderEntities = [
+    order?.customer,
+    order?.customerDetails,
+    order?.customer_details,
+    order?.customerInfo,
+    order?.customer_info,
+  ];
+  for (const entry of orderEntities) {
+    const match = getCustomerName(entry);
+    if (match) {
+      return match;
+    }
+  }
+  return getCustomerName(order) || '';
 }
 
 function getBrowseMenuPath(order) {
@@ -156,7 +182,9 @@ export default function OrderConfirmationPage() {
   const restaurantName = order.restaurant?.name || 'your restaurant';
   const destination = order.restaurant?.location || order.restaurant?.address || '';
   const confirmationNumber = getConfirmationNumber(order);
-  const customerName = resolveCustomerName({ user, order });
+  const resolvedCustomerName = resolveCustomerName({ user, order });
+  const fallbackCustomerName = location.state?.customerName;
+  const customerName = fallbackCustomerName || resolvedCustomerName;
   const subtotal =
     order.subtotal ??
     order.total ??
@@ -165,13 +193,7 @@ export default function OrderConfirmationPage() {
   const total = order.total ?? subtotal + tax;
   const browseMenuPath = getBrowseMenuPath(order);
 
-  const heroSubhead = customerName
-    ? (
-        <>
-          <strong>Thank you, {customerName}!</strong> Your order is being prepared.
-        </>
-      )
-    : 'Thank you! Your order is being prepared.';
+  const heroSubtitle = customerName ? `Thanks, ${customerName}!` : 'Thanks for your order!';
 
   const handleBrowseMenu = () => navigate(browseMenuPath);
   const handleBrowseRestaurants = () => navigate('/home');
@@ -179,29 +201,36 @@ export default function OrderConfirmationPage() {
   return (
     <main className="page-section confirmation-page">
       <section className="confirmation-shell">
-        <div className="confirmation-icon" aria-hidden="true">
-          ✓
-        </div>
-        <h1>
-          Order Confirmed <span role="img" aria-label="celebration">🎉</span>
-        </h1>
-        <p className="confirmation-lede">{heroSubhead}</p>
-        <p className="muted confirmation-subtext">We'll notify you when your order is ready for pickup.</p>
+        <header className="confirmation-hero">
+          <div className="confirmation-icon" aria-hidden="true">
+            ✓
+          </div>
+          <div className="confirmation-hero-copy">
+            <h1>
+              Order Confirmed <span role="img" aria-label="celebration">🎉</span>
+            </h1>
+            <p className="confirmation-lede">{heroSubtitle}</p>
+            <p className="muted confirmation-subtext">We'll notify you when your order is ready for pickup.</p>
+          </div>
+        </header>
 
-        <div className="confirmation-info-grid">
-          <article className="confirmation-info-card">
-            <p className="eyebrow">Pickup window</p>
-            <strong>{pickupLabel}</strong>
-            <p className="info-subtext">{destination || 'Ready when you arrive'}</p>
-          </article>
-          <article className="confirmation-info-card">
-            <p className="eyebrow">Order #</p>
-            <strong>{confirmationNumber}</strong>
-            <p className="info-subtext with-icon">
-              <LocationPinIcon /> Pickup location: {restaurantName}
-            </p>
-          </article>
-        </div>
+        <section className="pickup-info-card" aria-label="Pickup information">
+          <div className="pickup-info-row">
+            <div>
+              <p className="eyebrow">Pickup time</p>
+              <strong>{pickupLabel}</strong>
+            </div>
+            <div>
+              <p className="eyebrow">Location</p>
+              <strong>{restaurantName}</strong>
+              <p className="info-subtext">{destination || 'Ready when you arrive'}</p>
+            </div>
+          </div>
+          <p className="pickup-info-helper">
+            <strong>Order #{confirmationNumber}</strong>
+            <span>Show this at pickup counter</span>
+          </p>
+        </section>
 
         <div className="order-summary-modern">
           <p className="eyebrow">What you ordered</p>
@@ -210,8 +239,9 @@ export default function OrderConfirmationPage() {
               {items.map((item) => (
                 <li key={item.id || item.sku || item.name}>
                   <div>
+                    <strong>{item.name}</strong>
                     <span>
-                      {item.quantity || 1} × {item.name}
+                      {item.quantity || 1} × {formatCurrency(item.price || 0)}
                     </span>
                   </div>
                   <strong>{formatCurrency((item.price || 0) * (item.quantity || 1))}</strong>
@@ -239,13 +269,13 @@ export default function OrderConfirmationPage() {
         </div>
 
         <div className="confirmation-actions">
-          <button type="button" className="primary-btn" onClick={handleBrowseMenu}>
+          <button type="button" className="primary-btn emphasis" onClick={handleBrowseMenu}>
             <PlateIcon aria-hidden="true" className="btn-icon" />
-            Browse menu
+            Browse Menu
           </button>
           <button type="button" className="primary-btn secondary" onClick={handleBrowseRestaurants}>
             <StorefrontIcon aria-hidden="true" className="btn-icon" />
-            Browse restaurants
+            Browse Restaurants
           </button>
         </div>
 
@@ -275,15 +305,6 @@ function StorefrontIcon(props) {
       <path d="M3 9h18l-1 11H4L3 9Z" />
       <path d="M5 9V5h14v4" />
       <path d="M9 14h6v6H9z" />
-    </svg>
-  );
-}
-
-function LocationPinIcon(props) {
-  return (
-    <svg viewBox="0 0 16 16" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="1.5" {...props}>
-      <path d="M8 14s5-3.2 5-7A5 5 0 0 0 3 7c0 3.8 5 7 5 7Z" />
-      <circle cx="8" cy="6.5" r="1.5" />
     </svg>
   );
 }

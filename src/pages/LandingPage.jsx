@@ -87,10 +87,10 @@ export default function LandingPage() {
               Pickup-only ordering from your favorite restaurants. No delivery hassle. No hidden fees.
             </p>
             <div className="hero-cta-group">
-              <button type="button" className="primary-btn hero-btn" onClick={handleStartOrdering}>
+              <button type="button" className="primary-btn hero-btn hero-btn-primary" onClick={handleStartOrdering}>
                 Start Ordering
               </button>
-              <button type="button" className="primary-btn hero-btn secondary" onClick={handleBrowse}>
+              <button type="button" className="primary-btn hero-btn hero-btn-secondary" onClick={handleBrowse}>
                 Browse Restaurants
               </button>
             </div>
