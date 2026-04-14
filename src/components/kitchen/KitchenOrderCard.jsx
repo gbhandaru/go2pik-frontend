@@ -2,15 +2,18 @@ import { formatCurrency } from '../../utils/formatCurrency.js';
 
 const ACTION_LABELS = {
   new: 'Accept',
+  accepted: 'Start Preparing',
   preparing: 'Mark Ready',
-  ready: 'Complete Pickup',
+  ready_for_pickup: 'Complete Pickup',
 };
 
 const STATUS_LABELS = {
   new: 'New',
+  accepted: 'Accepted',
   preparing: 'Preparing',
-  ready: 'Ready',
+  ready_for_pickup: 'Ready for Pickup',
   completed: 'Completed',
+  rejected: 'Rejected',
 };
 
 export default function KitchenOrderCard({ order, onAction, actionLoading = false }) {

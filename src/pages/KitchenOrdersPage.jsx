@@ -6,30 +6,37 @@ import { updateOrderStatus } from '../api/ordersApi.js';
 import { useKitchenOrders } from '../hooks/useKitchenOrders.js';
 
 const STATUS_FLOW = {
-  new: 'preparing',
-  preparing: 'ready',
-  ready: 'completed',
+  new: 'accepted',
+  accepted: 'preparing',
+  preparing: 'ready_for_pickup',
+  ready_for_pickup: 'completed',
 };
 
 const TAB_CONFIG = [
   { value: 'new', label: 'New' },
+  { value: 'accepted', label: 'Accepted' },
   { value: 'preparing', label: 'Preparing' },
-  { value: 'ready', label: 'Ready' },
+  { value: 'ready_for_pickup', label: 'Ready for Pickup' },
   { value: 'completed', label: 'Completed' },
+  { value: 'rejected', label: 'Rejected' },
 ];
 
 const TAB_SUBTITLE = {
   new: 'Review incoming pickup tickets and accept them quickly.',
+  accepted: 'Move accepted tickets onto the line and start prep.',
   preparing: 'Track orders on the line and mark them ready when bagged.',
-  ready: 'Stage completed bags and mark pickups when guests arrive.',
+  ready_for_pickup: 'Stage completed bags and mark pickups when guests arrive.',
   completed: 'Reference pickups completed recently for quick lookups.',
+  rejected: 'Review canceled or rejected orders for follow-up.',
 };
 
 const EMPTY_MESSAGES = {
   new: 'No new orders',
+  accepted: 'No accepted orders',
   preparing: 'No orders in preparation',
-  ready: 'No ready orders',
+  ready_for_pickup: 'No ready-for-pickup orders',
   completed: 'No completed orders yet',
+  rejected: 'No rejected orders',
 };
 
 function formatTimestamp(date) {
