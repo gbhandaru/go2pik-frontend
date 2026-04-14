@@ -34,7 +34,7 @@ export default function LoginPage() {
     <main className="page-section">
       <form className="card" onSubmit={handleSubmit}>
         <h1>Sign in</h1>
-        <p>Use your foof-order-app credentials.</p>
+        <p className="muted form-lede">Sign in to track orders & reorder faster.</p>
         <label className="form-group">
           Email
           <input
@@ -61,18 +61,16 @@ export default function LoginPage() {
         <button className="primary-btn" type="submit" disabled={loading}>
           {loading ? 'Signing in…' : 'Sign in'}
         </button>
-        <div className="auth-secondary-actions">
-          <button type="button" className="primary-btn ghost" onClick={handleContinueAsGuest}>
-            Continue as guest
-          </button>
-          <div className="auth-links">
-            <Link className="text-link" to="/password-update" state={{ email: form.email }}>
-              Forgot password?
-            </Link>
-            <Link className="text-link" to="/signup" state={{ email: form.email }}>
-              Create account
-            </Link>
-          </div>
+        <button type="button" className="guest-link" onClick={handleContinueAsGuest}>
+          Continue as guest
+        </button>
+        <div className="auth-links login-links">
+          <Link className="text-link" to="/password-update" state={{ email: form.email }}>
+            Forgot password?
+          </Link>
+          <Link className="text-link" to="/signup" state={{ email: form.email }}>
+            Create account
+          </Link>
         </div>
       </form>
     </main>

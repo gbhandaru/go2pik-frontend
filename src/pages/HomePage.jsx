@@ -28,6 +28,7 @@ export default function HomePage() {
                 />
               )}
               <h2>{restaurant.name}</h2>
+              <p className="muted pickup-promise">Pickup in 15–20 mins</p>
               <p>
                 {restaurant.cuisine} • {restaurant.rating || 'N/A'} ⭐ • {restaurant.eta}
               </p>
