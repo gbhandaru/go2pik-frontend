@@ -110,6 +110,7 @@ export default function RestaurantMenuPage() {
   };
 
   const pickupSummary = getPickupSummary(selectedPickupMode, scheduledPickupTime);
+  const missingScheduledTime = selectedPickupMode === PICKUP_MODES.SCHEDULED && !scheduledPickupTime;
 
   const handlePlaceOrder = async () => {
     if (!cart.length || !restaurant) {
@@ -195,6 +196,7 @@ export default function RestaurantMenuPage() {
             scheduledPickupTime={scheduledPickupTime}
             onModeChange={handlePickupModeChange}
             onTimeChange={setScheduledPickupTime}
+            showTimeError={missingScheduledTime}
           />
 
           <ReorderCard
@@ -218,7 +220,7 @@ export default function RestaurantMenuPage() {
           pickupSummary={pickupSummary}
           submitting={submitting}
           orderError={orderError}
-          disabled={!cart.length || (selectedPickupMode === PICKUP_MODES.SCHEDULED && !scheduledPickupTime)}
+          disabled={!cart.length || missingScheduledTime}
           onPlaceOrder={handlePlaceOrder}
         />
       </section>
@@ -227,8 +229,9 @@ export default function RestaurantMenuPage() {
 }
 
 // Segmented pickup card keeps pickup choice visible for quick adjustments.
-function PickupTimeCard({ selectedMode, scheduledPickupTime, onModeChange, onTimeChange }) {
+function PickupTimeCard({ selectedMode, scheduledPickupTime, onModeChange, onTimeChange, showTimeError }) {
   const isScheduled = selectedMode === PICKUP_MODES.SCHEDULED;
+  const scheduledTimeHelperId = 'scheduled-time-helper';
 
   return (
     <section className="pickup-card" aria-labelledby="pickup-card-title">
@@ -266,8 +269,13 @@ function PickupTimeCard({ selectedMode, scheduledPickupTime, onModeChange, onTim
               min="07:00"
               max="22:00"
               step="900"
+              required
+              aria-invalid={showTimeError ? 'true' : 'false'}
+              aria-describedby={scheduledTimeHelperId}
             />
-            <p className="muted">Select a time that works for you today.</p>
+            <p id={scheduledTimeHelperId} className={showTimeError ? 'error-text' : 'muted'}>
+              Schedule pickup time
+            </p>
           </div>
         ) : (
           <p className="muted">Ready for pickup in 15–20 min</p>
@@ -339,8 +347,12 @@ function MenuList({ menu, quantityById, onAdd, onUpdate }) {
 
 // Cart summary mirrors pickup choice and keeps the place order action focused.
 function CartSummary({ cart, total, totalItems, pickupSummary, submitting, orderError, disabled, onPlaceOrder }) {
+  const tax = 0;
+  const grandTotal = total + tax;
+  const isCartEmpty = cart.length === 0;
+
   return (
-    <aside className="card cart-panel cart-summary">
+    <aside className="card cart-panel cart-summary cart-wireframe">
       <div className="cart-header">
         <div>
           <p className="eyebrow">Pickup</p>
@@ -348,29 +360,53 @@ function CartSummary({ cart, total, totalItems, pickupSummary, submitting, order
         </div>
         <div className="cart-total">
           <p className="eyebrow">Cart</p>
-          <strong>{formatCurrency(total)}</strong>
+          <strong>{formatCurrency(grandTotal)}</strong>
           <span className="muted">{totalItems || 0} items</span>
         </div>
       </div>
 
-      {!cart.length && <p className="muted empty-cart">Add menu items to start an order.</p>}
+      {isCartEmpty && <p className="muted empty-cart">Add menu items to start an order.</p>}
 
-      {cart.length > 0 && (
-        <ul className="line-items cart-items">
-          {cart.map((cartItem) => (
-            <li key={cartItem.id}>
-              <span>
-                {cartItem.quantity} × {cartItem.name}
-              </span>
-              <strong>{formatCurrency(cartItem.price * cartItem.quantity)}</strong>
+      {!isCartEmpty && (
+        <>
+          <ul className="cart-preview-items">
+            {cart.map((cartItem) => (
+              <li key={cartItem.id}>
+                <span>
+                  {cartItem.quantity} × {cartItem.name}
+                </span>
+                <strong>{formatCurrency(cartItem.price * cartItem.quantity)}</strong>
+              </li>
+            ))}
+          </ul>
+
+          <div className="cart-preview-totals">
+            <div>
+              <span>Subtotal</span>
+              <strong>{formatCurrency(total)}</strong>
+            </div>
+            <div>
+              <span>Tax</span>
+              <strong>{formatCurrency(tax)}</strong>
+            </div>
+            <div className="cart-preview-totals-grand">
+              <span>Total</span>
+              <strong>{formatCurrency(grandTotal)}</strong>
+            </div>
+          </div>
+
+          <ul className="cart-preview-highlights">
+            <li>
+              <span aria-hidden="true">✔</span>
+              Pay at restaurant
             </li>
-          ))}
-        </ul>
+          </ul>
+        </>
       )}
 
       {orderError && <p className="error-text">{orderError}</p>}
 
-      <button className="primary-btn" type="button" disabled={disabled || submitting} onClick={onPlaceOrder}>
+      <button className="primary-btn cart-preview-cta" type="button" disabled={disabled || submitting} onClick={onPlaceOrder}>
         {submitting ? 'Placing order…' : 'Place order'}
       </button>
     </aside>
