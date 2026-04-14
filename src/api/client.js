@@ -1,8 +1,17 @@
 import { ENV } from '../config/env.js';
-import { getAuthToken } from '../services/authStorage.js';
+import { getAuthToken, getKitchenAuthToken } from '../services/authStorage.js';
+
+function getActiveToken() {
+  const pathname = typeof window !== 'undefined' ? window.location.pathname : '';
+  if (pathname.startsWith('/kitchen/')) {
+    return getKitchenAuthToken() || getAuthToken();
+  }
+
+  return getAuthToken();
+}
 
 export async function apiRequest(path, options = {}) {
-  const token = getAuthToken();
+  const token = getActiveToken();
   const headers = {
     'Content-Type': 'application/json',
     ...(token ? { Authorization: `Bearer ${token}` } : {}),

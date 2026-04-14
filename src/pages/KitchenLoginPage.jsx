@@ -1,5 +1,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { restaurantUserLogin } from '../api/authApi.js';
+import { storeKitchenAuthTokens } from '../services/authStorage.js';
 
 export default function KitchenLoginPage() {
   const navigate = useNavigate();
@@ -17,9 +19,13 @@ export default function KitchenLoginPage() {
     setError(null);
     setLoading(true);
     try {
-      // Placeholder auth flow – wire to real kitchen auth when ready.
-      await new Promise((resolve) => setTimeout(resolve, 600));
-      navigate('/kitchen/orders');
+      const response = await restaurantUserLogin(form);
+      storeKitchenAuthTokens({
+        accessToken: response?.access_token,
+        refreshToken: response?.refresh_token,
+        profile: response?.user,
+      });
+      navigate('/kitchen/orders', { replace: true });
     } catch (err) {
       setError(err.message || 'Unable to sign in');
     } finally {
