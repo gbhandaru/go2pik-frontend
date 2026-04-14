@@ -9,6 +9,8 @@ const PICKUP_MODES = {
   ASAP: 'ASAP',
   SCHEDULED: 'SCHEDULED',
 };
+const PICKUP_WINDOW_MINUTES = 20;
+const EARLIEST_PICKUP_MINUTES = 15;
 
 export default function RestaurantMenuPage() {
   const { restaurantId } = useParams();
@@ -19,6 +21,8 @@ export default function RestaurantMenuPage() {
   const [selectedPickupMode, setSelectedPickupMode] = useState(PICKUP_MODES.ASAP);
   const [scheduledPickupTime, setScheduledPickupTime] = useState('');
   const { data, loading, error } = useFetch(() => fetchRestaurantMenu(restaurantId), [restaurantId]);
+  const asapReadyTime = useMemo(() => getTimeFromNow(PICKUP_WINDOW_MINUTES), []);
+  const earliestAvailableTime = useMemo(() => getTimeFromNow(EARLIEST_PICKUP_MINUTES), []);
 
   useEffect(() => {
     setCart([]);
@@ -109,8 +113,10 @@ export default function RestaurantMenuPage() {
     }
   };
 
-  const pickupSummary = getPickupSummary(selectedPickupMode, scheduledPickupTime);
+  const pickupSummary = getPickupSummary(selectedPickupMode, scheduledPickupTime, asapReadyTime);
   const missingScheduledTime = selectedPickupMode === PICKUP_MODES.SCHEDULED && !scheduledPickupTime;
+  const asapReadyLabel = getAsapReadyLabel(asapReadyTime);
+  const earliestAvailableLabel = getEarliestAvailableLabel(earliestAvailableTime);
 
   const handlePlaceOrder = async () => {
     if (!cart.length || !restaurant) {
@@ -197,10 +203,12 @@ export default function RestaurantMenuPage() {
             onModeChange={handlePickupModeChange}
             onTimeChange={setScheduledPickupTime}
             showTimeError={missingScheduledTime}
+            asapReadyLabel={asapReadyLabel}
+            earliestAvailableLabel={earliestAvailableLabel}
           />
 
           <ReorderCard
-            summary={lastOrder?.summary}
+            items={lastOrder?.items}
             hasOrder={Boolean(lastOrder?.items?.length)}
             onReorder={reorderLastOrder}
           />
@@ -218,6 +226,10 @@ export default function RestaurantMenuPage() {
           total={total}
           totalItems={totalItems}
           pickupSummary={pickupSummary}
+          pickupMode={selectedPickupMode}
+          scheduledPickupTime={scheduledPickupTime}
+          asapReadyLabel={asapReadyLabel}
+          paymentMessage="Pay at restaurant (No online payment needed)"
           submitting={submitting}
           orderError={orderError}
           disabled={!cart.length || missingScheduledTime}
@@ -229,9 +241,20 @@ export default function RestaurantMenuPage() {
 }
 
 // Segmented pickup card keeps pickup choice visible for quick adjustments.
-function PickupTimeCard({ selectedMode, scheduledPickupTime, onModeChange, onTimeChange, showTimeError }) {
+function PickupTimeCard({
+  selectedMode,
+  scheduledPickupTime,
+  onModeChange,
+  onTimeChange,
+  showTimeError,
+  asapReadyLabel,
+  earliestAvailableLabel,
+}) {
   const isScheduled = selectedMode === PICKUP_MODES.SCHEDULED;
   const scheduledTimeHelperId = 'scheduled-time-helper';
+  const helperMessage = showTimeError
+    ? 'Select a pickup time to continue'
+    : earliestAvailableLabel || 'Earliest available: Soon';
 
   return (
     <section className="pickup-card" aria-labelledby="pickup-card-title">
@@ -274,11 +297,14 @@ function PickupTimeCard({ selectedMode, scheduledPickupTime, onModeChange, onTim
               aria-describedby={scheduledTimeHelperId}
             />
             <p id={scheduledTimeHelperId} className={showTimeError ? 'error-text' : 'muted'}>
-              Schedule pickup time
+              {helperMessage}
             </p>
           </div>
         ) : (
-          <p className="muted">Ready for pickup in 15–20 min</p>
+          <div className="asap-preview" aria-live="polite">
+            <p className="pickup-window">{asapReadyLabel}</p>
+            {earliestAvailableLabel && <p className="muted pickup-helper">{earliestAvailableLabel}</p>}
+          </div>
         )}
       </div>
     </section>
@@ -286,13 +312,32 @@ function PickupTimeCard({ selectedMode, scheduledPickupTime, onModeChange, onTim
 }
 
 // Compact reorder card keeps the last order handy without overpowering the menu.
-function ReorderCard({ summary, hasOrder, onReorder }) {
+function ReorderCard({ items = [], hasOrder, onReorder }) {
+  const previewItems = (items || []).slice(0, 3);
   return (
     <section className="reorder-card" aria-live="polite">
       <div>
         <p className="eyebrow">Reorder</p>
         <h3>Reorder your last order</h3>
-        {hasOrder ? <p className="muted">{summary}</p> : <p className="muted">We will show your recent order here.</p>}
+        {hasOrder ? (
+          <ul className="reorder-items">
+            {previewItems.map((item) => (
+              <li key={item.id}>
+                <span className="reorder-item-icon" aria-hidden="true">
+                  {getItemBadgeLabel(item.name)}
+                </span>
+                <div>
+                  <strong>{item.name}</strong>
+                  <span className="muted">
+                    {item.quantity} × {formatCurrency(item.price)}
+                  </span>
+                </div>
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <p className="muted">We will show your recent order here.</p>
+        )}
       </div>
       <button type="button" className="primary-btn secondary" onClick={onReorder} disabled={!hasOrder}>
         Reorder
@@ -322,6 +367,7 @@ function MenuList({ menu, quantityById, onAdd, onUpdate }) {
               <div className="stepper-controls">
                 <button
                   type="button"
+                  className="stepper-btn"
                   aria-label={`Decrease ${item.name}`}
                   onClick={() => onUpdate(item.id, quantity - 1)}
                   disabled={quantity === 0}
@@ -331,6 +377,7 @@ function MenuList({ menu, quantityById, onAdd, onUpdate }) {
                 <span>{quantity}</span>
                 <button
                   type="button"
+                  className="stepper-btn"
                   aria-label={`Increase ${item.name}`}
                   onClick={() => (quantity > 0 ? onUpdate(item.id, quantity + 1) : onAdd(item))}
                 >
@@ -346,10 +393,29 @@ function MenuList({ menu, quantityById, onAdd, onUpdate }) {
 }
 
 // Cart summary mirrors pickup choice and keeps the place order action focused.
-function CartSummary({ cart, total, totalItems, pickupSummary, submitting, orderError, disabled, onPlaceOrder }) {
+function CartSummary({
+  cart,
+  total,
+  totalItems,
+  pickupSummary,
+  pickupMode,
+  scheduledPickupTime,
+  asapReadyLabel,
+  paymentMessage,
+  submitting,
+  orderError,
+  disabled,
+  onPlaceOrder,
+}) {
   const tax = 0;
   const grandTotal = total + tax;
   const isCartEmpty = cart.length === 0;
+  const cartPickupLabel =
+    pickupMode === PICKUP_MODES.SCHEDULED
+      ? scheduledPickupTime
+        ? `Scheduled for ${formatTime(scheduledPickupTime)}`
+        : 'Schedule pickup time'
+      : asapReadyLabel;
 
   return (
     <aside className="card cart-panel cart-summary cart-wireframe">
@@ -365,6 +431,13 @@ function CartSummary({ cart, total, totalItems, pickupSummary, submitting, order
         </div>
       </div>
 
+      <div className="cart-meta" aria-live="polite">
+        <div>
+          <span className="muted">Pickup time</span>
+          <strong>{cartPickupLabel}</strong>
+        </div>
+      </div>
+
       {isCartEmpty && <p className="muted empty-cart">Add menu items to start an order.</p>}
 
       {!isCartEmpty && (
@@ -372,13 +445,18 @@ function CartSummary({ cart, total, totalItems, pickupSummary, submitting, order
           <ul className="cart-preview-items">
             {cart.map((cartItem) => (
               <li key={cartItem.id}>
-                <span>
-                  {cartItem.quantity} × {cartItem.name}
-                </span>
+                <div className="cart-item-details">
+                  <strong>{cartItem.name}</strong>
+                  <span>
+                    {cartItem.quantity} × {formatCurrency(cartItem.price)}
+                  </span>
+                </div>
                 <strong>{formatCurrency(cartItem.price * cartItem.quantity)}</strong>
               </li>
             ))}
           </ul>
+
+          <div className="cart-divider" aria-hidden="true" />
 
           <div className="cart-preview-totals">
             <div>
@@ -394,17 +472,27 @@ function CartSummary({ cart, total, totalItems, pickupSummary, submitting, order
               <strong>{formatCurrency(grandTotal)}</strong>
             </div>
           </div>
-
-          <ul className="cart-preview-highlights">
-            <li>
-              <span aria-hidden="true">✔</span>
-              Pay at restaurant
-            </li>
-          </ul>
         </>
       )}
 
+      <div className="cart-payment-callout">
+        <span aria-hidden="true">💰</span>
+        <div>
+          <strong>Pay at restaurant</strong>
+          <p className="muted">{paymentMessage}</p>
+        </div>
+      </div>
+
       {orderError && <p className="error-text">{orderError}</p>}
+
+      <div className="cart-place-order-notes">
+        <p>
+          <strong>Pickup:</strong> {cartPickupLabel}
+        </p>
+        <p>
+          <strong>Payment:</strong> {paymentMessage}
+        </p>
+      </div>
 
       <button className="primary-btn cart-preview-cta" type="button" disabled={disabled || submitting} onClick={onPlaceOrder}>
         {submitting ? 'Placing order…' : 'Place order'}
@@ -413,11 +501,11 @@ function CartSummary({ cart, total, totalItems, pickupSummary, submitting, order
   );
 }
 
-function getPickupSummary(mode, scheduledTime) {
+function getPickupSummary(mode, scheduledTime, asapReadyTime) {
   if (mode === PICKUP_MODES.SCHEDULED) {
     return scheduledTime ? `Scheduled today at ${formatTime(scheduledTime)}` : 'Schedule pickup time';
   }
-  return 'ASAP • Ready in 15–20 min';
+  return getAsapReadyLabel(asapReadyTime);
 }
 
 function formatTime(value) {
@@ -429,4 +517,24 @@ function formatTime(value) {
   const period = hours >= 12 ? 'PM' : 'AM';
   const normalizedHours = hours % 12 === 0 ? 12 : hours % 12;
   return `${normalizedHours}:${minuteString} ${period}`;
+}
+
+function getTimeFromNow(minutesAhead) {
+  const date = new Date();
+  date.setMinutes(date.getMinutes() + minutesAhead);
+  const hours = `${date.getHours()}`.padStart(2, '0');
+  const minutes = `${date.getMinutes()}`.padStart(2, '0');
+  return `${hours}:${minutes}`;
+}
+
+function getAsapReadyLabel(value) {
+  return value ? `Pickup at ~${formatTime(value)} (15–20 min)` : 'Pickup in ~15–20 min';
+}
+
+function getEarliestAvailableLabel(value) {
+  return value ? `Earliest available: ${formatTime(value)}` : '';
+}
+
+function getItemBadgeLabel(name) {
+  return name?.charAt(0)?.toUpperCase() || '✦';
 }
