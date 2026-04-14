@@ -10,6 +10,10 @@ import OrdersPage from '../pages/OrdersPage.jsx';
 import OrderConfirmationPage from '../pages/OrderConfirmationPage.jsx';
 import NotFoundPage from '../pages/NotFoundPage.jsx';
 import ProtectedRoute from './ProtectedRoute.jsx';
+import KitchenLoginPage from '../pages/KitchenLoginPage.jsx';
+import KitchenOrdersPage from '../pages/KitchenOrdersPage.jsx';
+import KitchenReadyPage from '../pages/KitchenReadyPage.jsx';
+import KitchenCompletedPage from '../pages/KitchenCompletedPage.jsx';
 
 export default function AppRoutes() {
   return (
@@ -21,6 +25,10 @@ export default function AppRoutes() {
         <Route path="/home" element={<HomePage />} />
         <Route path="/password-update" element={<PasswordUpdatePage />} />
         <Route path="/restaurants/:restaurantId/menu" element={<RestaurantMenuPage />} />
+        <Route path="/kitchen/login" element={<KitchenLoginPage />} />
+        <Route path="/kitchen/orders" element={<KitchenOrdersPage />} />
+        <Route path="/kitchen/ready" element={<KitchenReadyPage />} />
+        <Route path="/kitchen/completed" element={<KitchenCompletedPage />} />
         <Route element={<ProtectedRoute />}>
           <Route path="/checkout" element={<CheckoutPage />} />
           <Route path="/orders" element={<OrdersPage />} />
