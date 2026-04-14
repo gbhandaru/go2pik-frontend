@@ -1,5 +1,24 @@
 import { apiRequest } from './client.js';
-import { mockOrders, mockRestaurants } from './mockData.js';
+import { mockKitchenOrders, mockOrders, mockRestaurants } from './mockData.js';
+
+let kitchenOrdersState = mockKitchenOrders.map((order) => ({ ...order }));
+
+function getMockKitchenOrders(status) {
+  if (!status) {
+    return kitchenOrdersState;
+  }
+  return kitchenOrdersState.filter((order) => order.status === status);
+}
+
+function updateMockKitchenOrderStatus(orderId, status) {
+  const index = kitchenOrdersState.findIndex((order) => order.id === orderId);
+  if (index === -1) {
+    return { id: orderId, status };
+  }
+  const updated = { ...kitchenOrdersState[index], status };
+  kitchenOrdersState[index] = updated;
+  return updated;
+}
 
 async function withFallback(path, options, fallback) {
   try {
@@ -49,4 +68,17 @@ export function fetchOrderById(id) {
 
 export function fetchOrders() {
   return withFallback('/orders', undefined, mockOrders);
+}
+
+export function fetchOrdersByStatus(status) {
+  const query = status ? `?status=${encodeURIComponent(status)}` : '';
+  return withFallback(`/orders${query}`, undefined, () => getMockKitchenOrders(status));
+}
+
+export function updateOrderStatus(orderId, status) {
+  return withFallback(
+    `/orders/${orderId}/status`,
+    { method: 'PATCH', body: { status } },
+    () => updateMockKitchenOrderStatus(orderId, status),
+  );
 }

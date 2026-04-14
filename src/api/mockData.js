@@ -59,3 +59,55 @@ export const mockOrders = [
     placedAt: '2024-04-02T12:15:00.000Z',
   },
 ];
+
+export const mockKitchenOrders = [
+  {
+    id: 'k-501',
+    orderNumber: '501',
+    status: 'new',
+    customerName: 'Riley Chen',
+    pickupType: 'Pickup ASAP',
+    pickupTime: '12:20 PM',
+    total: 34.5,
+    items: [
+      { id: 'item-1', name: 'Avocado Toast Stack', quantity: 1 },
+      { id: 'item-2', name: 'Sunrise Power Bowl', quantity: 1 },
+    ],
+  },
+  {
+    id: 'k-502',
+    orderNumber: '502',
+    status: 'preparing',
+    customerName: 'Guest',
+    pickupType: 'Pickup',
+    pickupTime: '12:35 PM',
+    total: 48,
+    items: [
+      { id: 'item-3', name: 'Green Curry', quantity: 2 },
+      { id: 'item-4', name: 'Coconut Sticky Rice', quantity: 1 },
+    ],
+  },
+  {
+    id: 'k-503',
+    orderNumber: '503',
+    status: 'ready',
+    customerName: 'Noelle Vega',
+    pickupType: 'Scheduled Pickup',
+    pickupTime: '12:45 PM',
+    total: 27,
+    items: [
+      { id: 'item-5', name: 'Chef Special Roll', quantity: 1 },
+      { id: 'item-6', name: 'Miso Ramen Bowl', quantity: 1 },
+    ],
+  },
+  {
+    id: 'k-504',
+    orderNumber: '504',
+    status: 'completed',
+    customerName: 'Marcus Lee',
+    pickupType: 'Pickup',
+    pickupTime: '11:55 AM',
+    total: 19,
+    items: [{ id: 'item-7', name: 'Tamarind Pad Thai', quantity: 1 }],
+  },
+];
