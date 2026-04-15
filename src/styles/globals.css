@@ -1326,6 +1326,10 @@ hr {
   gap: 0.85rem;
 }
 
+.kitchen-menu-toolbar--compact {
+  gap: 0.75rem;
+}
+
 .kitchen-menu-toolbar__actions {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -1339,6 +1343,48 @@ hr {
 
 .kitchen-menu-toolbar__note {
   margin: 0;
+}
+
+.kitchen-menu-search-row {
+  display: grid;
+  grid-template-columns: minmax(260px, 1fr) auto;
+  gap: 0.75rem;
+  align-items: end;
+}
+
+.kitchen-menu-search {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.kitchen-menu-search input {
+  min-width: 0;
+}
+
+.kitchen-menu-filter-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+  justify-content: flex-end;
+}
+
+.kitchen-menu-bulk-toggle {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.kitchen-menu-bulk-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr auto;
+  gap: 0.55rem;
+  align-items: center;
+}
+
+.kitchen-menu-bulk-actions select {
+  min-width: 0;
 }
 
 .kitchen-menu-file-trigger {
@@ -1381,13 +1427,13 @@ hr {
 .kitchen-menu-form {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 0.85rem;
+  gap: 0.7rem;
 }
 
 .kitchen-menu-field {
   display: flex;
   flex-direction: column;
-  gap: 0.35rem;
+  gap: 0.3rem;
   font-weight: 700;
   color: #475569;
 }
@@ -1399,7 +1445,7 @@ hr {
 .kitchen-menu-checks {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.85rem 1rem;
+  gap: 0.6rem 0.9rem;
 }
 
 .kitchen-menu-checks label {
@@ -1419,7 +1465,7 @@ hr {
 .kitchen-menu-actions {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 0.65rem;
+  gap: 0.55rem;
 }
 
 .kitchen-menu-actions .primary-btn {
@@ -1461,8 +1507,8 @@ hr {
   justify-content: space-between;
   gap: 0.75rem;
   align-items: center;
-  border-radius: 1rem;
-  padding: 0.85rem 0.95rem;
+  border-radius: 0.95rem;
+  padding: 0.75rem 0.9rem;
   background: #f8fafc;
   border: 1px solid #e2e8f0;
 }
@@ -1511,6 +1557,17 @@ hr {
   gap: 1rem;
 }
 
+.kitchen-menu-group__title {
+  display: flex;
+  align-items: baseline;
+  gap: 0.4rem;
+  flex-wrap: wrap;
+}
+
+.kitchen-menu-group__add {
+  min-width: 110px;
+}
+
 .kitchen-menu-group__header h3 {
   margin: 0;
   font-size: 1rem;
@@ -1518,19 +1575,19 @@ hr {
 
 .kitchen-menu-list {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-  gap: 0.75rem;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 0.65rem;
 }
 
 .kitchen-menu-item {
-  border-radius: 1.1rem;
-  padding: 1rem;
+  border-radius: 1rem;
+  padding: 0.85rem 0.9rem;
   border: 1px solid #e2e8f0;
   background: #fff;
   display: flex;
   flex-direction: column;
-  gap: 0.85rem;
-  box-shadow: 0 14px 28px rgba(15, 23, 42, 0.06);
+  gap: 0.65rem;
+  box-shadow: 0 10px 20px rgba(15, 23, 42, 0.05);
 }
 
 .kitchen-menu-item--disabled {
@@ -1540,7 +1597,7 @@ hr {
 .kitchen-menu-item__top {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
-  gap: 0.85rem;
+  gap: 0.55rem;
   align-items: start;
 }
 
@@ -1554,12 +1611,12 @@ hr {
 .kitchen-menu-item__title-row {
   display: flex;
   justify-content: space-between;
-  gap: 0.75rem;
+  gap: 0.5rem;
   align-items: baseline;
 }
 
 .kitchen-menu-item__title-row strong {
-  font-size: 1.02rem;
+  font-size: 0.98rem;
   color: #0f172a;
 }
 
@@ -1571,7 +1628,7 @@ hr {
 
 .kitchen-menu-item__edit {
   align-self: start;
-  min-width: 86px;
+  min-width: 76px;
 }
 
 .kitchen-menu-item__meta {
@@ -1584,7 +1641,7 @@ hr {
   display: inline-flex;
   align-items: center;
   border-radius: 999px;
-  padding: 0.32rem 0.62rem;
+  padding: 0.26rem 0.56rem;
   background: #f8fafc;
   color: #475569;
   font-size: 0.72rem;
@@ -1601,13 +1658,41 @@ hr {
 .kitchen-menu-item__actions {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 0.55rem;
+  gap: 0.45rem;
 }
 
 .kitchen-menu-item__actions .primary-btn {
   width: 100%;
   min-width: 0;
-  padding: 0.75rem 0.9rem;
+  padding: 0.65rem 0.8rem;
+  border-radius: 0.85rem;
+  font-size: 0.92rem;
+}
+
+.kitchen-menu-item__select {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  flex: 0 0 auto;
+  font-size: 0.82rem;
+  font-weight: 800;
+  color: #334155;
+}
+
+.kitchen-menu-item__select input {
+  width: 0.95rem;
+  height: 0.95rem;
+  accent-color: #22c55e;
+}
+
+.primary-btn.danger {
+  background: #fff;
+  color: #dc2626;
+  border: 1px solid #ef4444;
+}
+
+.primary-btn.danger:hover:not(:disabled) {
+  background: rgba(254, 242, 242, 0.95);
 }
 
 .kitchen-menu-csv-summary {
@@ -2514,6 +2599,20 @@ hr {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
+  .kitchen-menu-search-row,
+  .kitchen-menu-bulk-actions,
+  .kitchen-menu-toolbar__actions {
+    grid-template-columns: 1fr;
+  }
+
+  .kitchen-menu-search-row {
+    align-items: stretch;
+  }
+
+  .kitchen-menu-filter-row {
+    justify-content: flex-start;
+  }
+
   .kitchen-selection-actions {
     justify-content: flex-start;
   }
@@ -2627,6 +2726,10 @@ hr {
 
   .kitchen-menu-item__edit {
     width: 100%;
+  }
+
+  .kitchen-menu-item__actions {
+    grid-template-columns: 1fr 1fr;
   }
 
   .kitchen-menu-category-row {

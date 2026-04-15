@@ -20,6 +20,13 @@ const MAIN_TABS = [
   { value: 'menu', label: 'Menu' },
 ];
 
+const MENU_FILTERS = [
+  { value: 'all', label: 'All' },
+  { value: 'available', label: 'Available' },
+  { value: 'unavailable', label: 'Unavailable' },
+  { value: 'veg', label: 'Veg' },
+];
+
 const EMPTY_ITEM_FORM = {
   name: '',
   description: '',
@@ -92,6 +99,38 @@ function sortMenuItems(items = []) {
     if (orderDelta !== 0) return orderDelta;
     return a.name.localeCompare(b.name);
   });
+}
+
+function getMenuItemSearchText(item) {
+  return [item.name, item.description, item.categoryName].filter(Boolean).join(' ').toLowerCase();
+}
+
+function matchesMenuFilter(item, filterValue) {
+  if (filterValue === 'available') {
+    return item.isAvailable;
+  }
+
+  if (filterValue === 'unavailable') {
+    return !item.isAvailable;
+  }
+
+  if (filterValue === 'veg') {
+    return item.isVegetarian || item.isVegan;
+  }
+
+  return true;
+}
+
+function filterMenuItems(items = [], searchQuery = '', filterValue = 'all') {
+  const normalizedQuery = searchQuery.trim().toLowerCase();
+  return items.filter((item) => {
+    const matchesSearch = !normalizedQuery || getMenuItemSearchText(item).includes(normalizedQuery);
+    return matchesSearch && matchesMenuFilter(item, filterValue);
+  });
+}
+
+function getCategoryItemCount(items = []) {
+  return `${items.length} Item${items.length === 1 ? '' : 's'}`;
 }
 
 function groupMenuItems(items, categories) {
@@ -530,10 +569,29 @@ function ImportPanel({ title, subtitle, children, onClose }) {
   );
 }
 
-function MenuItemRow({ item, categoryLabel, onEdit, onDelete, onToggle, deleting, toggling }) {
+function MenuItemRow({
+  item,
+  categoryLabel,
+  onEdit,
+  onDelete,
+  onToggle,
+  onDuplicate,
+  onSelectToggle,
+  selected = false,
+  selectMode = false,
+  deleting,
+  toggling,
+  duplicating,
+}) {
   return (
     <article className={`kitchen-menu-item${item.isAvailable ? '' : ' kitchen-menu-item--disabled'}`}>
       <div className="kitchen-menu-item__top">
+        {selectMode ? (
+          <label className="kitchen-menu-item__select">
+            <input type="checkbox" checked={selected} onChange={onSelectToggle} />
+            <span>Select</span>
+          </label>
+        ) : null}
         <div className="kitchen-menu-item__copy">
           <div className="kitchen-menu-item__title-row">
             <strong>{item.name}</strong>
@@ -544,9 +602,6 @@ function MenuItemRow({ item, categoryLabel, onEdit, onDelete, onToggle, deleting
             {item.description ? ` • ${item.description}` : ''}
           </p>
         </div>
-        <button type="button" className="primary-btn secondary kitchen-menu-item__edit" onClick={onEdit}>
-          Edit
-        </button>
       </div>
 
       <div className="kitchen-menu-item__meta">
@@ -558,11 +613,17 @@ function MenuItemRow({ item, categoryLabel, onEdit, onDelete, onToggle, deleting
       </div>
 
       <div className="kitchen-menu-item__actions">
-        <button type="button" className="primary-btn ghost" onClick={onDelete} disabled={deleting}>
-          {deleting ? 'Deleting…' : 'Delete'}
+        <button type="button" className="primary-btn secondary" onClick={onEdit}>
+          Edit
         </button>
-        <button type="button" className="primary-btn" onClick={onToggle} disabled={toggling}>
-          {toggling ? 'Updating…' : item.isAvailable ? 'Toggle OFF' : 'Toggle ON'}
+        <button type="button" className="primary-btn ghost" onClick={onDuplicate} disabled={duplicating}>
+          {duplicating ? 'Duplicating…' : 'Duplicate'}
+        </button>
+        <button type="button" className="primary-btn ghost" onClick={onToggle} disabled={toggling}>
+          {toggling ? 'Updating…' : item.isAvailable ? 'Disable' : 'Enable'}
+        </button>
+        <button type="button" className="primary-btn danger" onClick={onDelete} disabled={deleting}>
+          {deleting ? 'Deleting…' : 'Delete'}
         </button>
       </div>
     </article>
@@ -575,12 +636,18 @@ export default function KitchenMenuPage() {
   const [error, setError] = useState(null);
   const [feedback, setFeedback] = useState(null);
   const [activePanel, setActivePanel] = useState('list');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [menuFilter, setMenuFilter] = useState('all');
   const [savingItem, setSavingItem] = useState(false);
   const [savingCategory, setSavingCategory] = useState(false);
   const [bulkBusy, setBulkBusy] = useState(false);
   const [csvBusy, setCsvBusy] = useState(false);
+  const [bulkSelectMode, setBulkSelectMode] = useState(false);
+  const [selectedItemIds, setSelectedItemIds] = useState([]);
+  const [bulkCategoryId, setBulkCategoryId] = useState('');
   const [togglingId, setTogglingId] = useState(null);
   const [deletingId, setDeletingId] = useState(null);
+  const [duplicatingId, setDuplicatingId] = useState(null);
   const [menuItems, setMenuItems] = useState([]);
   const [categories, setCategories] = useState([]);
   const [restaurant, setRestaurant] = useState(null);
@@ -602,10 +669,14 @@ export default function KitchenMenuPage() {
         fetchKitchenMenuItems(),
         fetchKitchenMenuCategories(),
       ]);
+      const nextCategories = normalizeCategories(categoryResponse || []);
       setMenuItems(normalizeMenuItems(menuResponse.items || []));
-      setCategories(normalizeCategories(categoryResponse || []));
+      setCategories(nextCategories);
       setRestaurant(menuResponse.restaurant || null);
       setLastUpdated(new Date());
+      setBulkCategoryId((current) => current || (nextCategories[0]?.id ? String(nextCategories[0].id) : ''));
+      setSelectedItemIds([]);
+      setBulkSelectMode(false);
     } catch (err) {
       setMenuItems([]);
       setCategories([]);
@@ -640,11 +711,23 @@ export default function KitchenMenuPage() {
   }, [feedback]);
 
   const categoryOptions = useMemo(() => normalizeCategories(categories), [categories]);
-  const groupedItems = useMemo(() => groupMenuItems(menuItems, categoryOptions), [menuItems, categoryOptions]);
+  const filteredMenuItems = useMemo(
+    () => filterMenuItems(menuItems, searchQuery, menuFilter),
+    [menuItems, searchQuery, menuFilter],
+  );
+  const groupedItems = useMemo(
+    () => groupMenuItems(filteredMenuItems, categoryOptions),
+    [filteredMenuItems, categoryOptions],
+  );
   const categoryLine = useMemo(
     () => (categoryOptions.length ? categoryOptions.map((category) => category.name).join(' | ') : 'No categories yet'),
     [categoryOptions],
   );
+  const selectedItems = useMemo(
+    () => menuItems.filter((item) => selectedItemIds.includes(item.id)),
+    [menuItems, selectedItemIds],
+  );
+  const bulkCategoryOptions = useMemo(() => categoryOptions, [categoryOptions]);
 
   const handleMainTabChange = (tab) => {
     if (tab === 'orders') {
@@ -669,6 +752,12 @@ export default function KitchenMenuPage() {
     setEditingCategoryId(null);
   };
 
+  const closePanels = () => {
+    setActivePanel('list');
+    resetItemForm();
+    resetCategoryForm();
+  };
+
   const handleItemFieldChange = (field, value) => {
     setItemForm((current) => ({ ...current, [field]: value }));
   };
@@ -677,8 +766,9 @@ export default function KitchenMenuPage() {
     setCategoryForm((current) => ({ ...current, [field]: value }));
   };
 
-  const handleAddItem = () => {
+  const handleAddItem = (categoryId = '') => {
     resetItemForm();
+    setItemForm((current) => ({ ...current, categoryId }));
     setActivePanel('item');
   };
 
@@ -686,6 +776,28 @@ export default function KitchenMenuPage() {
     setEditingItemId(item.id);
     setItemForm(toItemForm(item));
     setActivePanel('item');
+  };
+
+  const handleDuplicateItem = async (item) => {
+    const defaultName = item.name ? `${item.name} Copy` : 'Copy of menu item';
+    const nextName = window.prompt('Duplicate item as', defaultName)?.trim();
+    if (!nextName) {
+      return;
+    }
+
+    setDuplicatingId(item.id);
+    try {
+      await createKitchenMenuItem(restaurant?.id, {
+        ...buildMenuItemPayload(toItemForm(item)),
+        name: nextName,
+      });
+      showFeedback('success', 'Menu item duplicated.');
+      await loadMenu();
+    } catch (err) {
+      showFeedback('error', err.message || 'Unable to duplicate menu item');
+    } finally {
+      setDuplicatingId(null);
+    }
   };
 
   const handleSaveItem = async () => {
@@ -708,7 +820,7 @@ export default function KitchenMenuPage() {
         await createKitchenMenuItem(restaurant?.id, payload);
         showFeedback('success', 'Menu item created.');
       }
-      resetItemForm();
+      closePanels();
       await loadMenu();
     } catch (err) {
       showFeedback('error', err.message || 'Unable to save menu item');
@@ -718,7 +830,7 @@ export default function KitchenMenuPage() {
   };
 
   const handleDeleteItem = async (item) => {
-    const confirmed = window.confirm(`Delete ${item.name}?`);
+    const confirmed = window.confirm('Are you sure you want to delete this item?');
     if (!confirmed) return;
 
     setDeletingId(item.id);
@@ -749,7 +861,7 @@ export default function KitchenMenuPage() {
   const handleCategoryEdit = (category) => {
     setEditingCategoryId(category.id);
     setCategoryForm(toCategoryForm(category));
-    setActivePanel('list');
+    setActivePanel('category');
   };
 
   const handleSaveCategory = async () => {
@@ -772,7 +884,7 @@ export default function KitchenMenuPage() {
         await createKitchenMenuCategory(restaurant?.id, payload);
         showFeedback('success', 'Category created.');
       }
-      resetCategoryForm();
+      closePanels();
       await loadMenu();
     } catch (err) {
       showFeedback('error', err.message || 'Unable to save category');
@@ -798,6 +910,10 @@ export default function KitchenMenuPage() {
     } finally {
       setBulkBusy(false);
     }
+  };
+
+  const handleOpenCsvPanel = () => {
+    setActivePanel('csv');
   };
 
   const handleBulkImport = async () => {
@@ -836,7 +952,7 @@ export default function KitchenMenuPage() {
       const payload = buildCsvImportPayload(rows, categoryOptions);
       setCsvImportPayload(payload);
       setCsvFileName(file.name);
-      setActivePanel('csv');
+      handleOpenCsvPanel();
       showFeedback('info', `Parsed ${rows.length} CSV row(s) from ${file.name}.`);
     } catch (err) {
       showFeedback('error', err.message || 'Unable to parse CSV');
@@ -844,6 +960,78 @@ export default function KitchenMenuPage() {
       setCsvBusy(false);
       event.target.value = '';
     }
+  };
+
+  const handleToggleSelectMode = () => {
+    setBulkSelectMode((current) => {
+      const next = !current;
+      if (!next) {
+        setSelectedItemIds([]);
+      }
+      return next;
+    });
+  };
+
+  const handleSelectItem = (itemId) => {
+    setSelectedItemIds((current) =>
+      current.includes(itemId) ? current.filter((id) => id !== itemId) : [...current, itemId],
+    );
+  };
+
+  const handleSelectAllVisible = () => {
+    setSelectedItemIds(groupedItems.flatMap((group) => group.items.map((item) => item.id)));
+  };
+
+  const clearSelection = () => {
+    setSelectedItemIds([]);
+  };
+
+  const updateSelectedItems = async (updater, successMessage) => {
+    if (!selectedItems.length) {
+      showFeedback('error', 'Select at least one item first.');
+      return;
+    }
+
+    try {
+      await Promise.all(selectedItems.map(updater));
+      showFeedback('success', successMessage);
+      clearSelection();
+      setBulkSelectMode(false);
+      await loadMenu();
+    } catch (err) {
+      showFeedback('error', err.message || 'Unable to complete bulk action');
+    }
+  };
+
+  const handleBulkDisable = () =>
+    updateSelectedItems(
+      (item) => toggleKitchenMenuItemAvailability(item.id, { is_available: false }),
+      'Selected items disabled.',
+    );
+
+  const handleBulkDelete = async () => {
+    const confirmed = window.confirm('Are you sure you want to delete this item?');
+    if (!confirmed) {
+      return;
+    }
+
+    await updateSelectedItems((item) => deleteKitchenMenuItem(item.id), 'Selected items deleted.');
+  };
+
+  const handleBulkChangeCategory = async () => {
+    if (!bulkCategoryId) {
+      showFeedback('error', 'Choose a category first.');
+      return;
+    }
+
+    await updateSelectedItems(
+      (item) =>
+        updateKitchenMenuItem(item.id, {
+          ...buildMenuItemPayload(toItemForm(item)),
+          category_id: bulkCategoryId,
+        }),
+      'Selected items moved to the new category.',
+    );
   };
 
   const handleCsvImport = async () => {
@@ -880,7 +1068,7 @@ export default function KitchenMenuPage() {
       <div className="kitchen-menu-board">
         <section className="card kitchen-menu-toolbar">
           <div className="kitchen-menu-toolbar__actions">
-            <button type="button" className="primary-btn emphasis" onClick={handleAddItem}>
+            <button type="button" className="primary-btn emphasis" onClick={() => handleAddItem()}>
               +Add Item
             </button>
             <button type="button" className="primary-btn secondary" onClick={handleLoadCurrentExport}>
@@ -893,7 +1081,73 @@ export default function KitchenMenuPage() {
           </div>
           <p className="kitchen-menu-toolbar__note muted">
             Use the buttons above to create items, import a current snapshot, or load a CSV file.
+            Upload CSV with columns: name, price, category.
           </p>
+        </section>
+
+        <section className="card kitchen-menu-toolbar kitchen-menu-toolbar--compact">
+          <div className="kitchen-menu-search-row">
+            <label className="kitchen-menu-search">
+              <span className="muted">Search menu Items</span>
+              <input
+                type="search"
+                value={searchQuery}
+                onChange={(event) => setSearchQuery(event.target.value)}
+                placeholder="Search menu Items"
+              />
+            </label>
+
+            <div className="kitchen-menu-filter-row">
+              {MENU_FILTERS.map((filter) => (
+                <button
+                  key={filter.value}
+                  type="button"
+                  className={`kitchen-filter-chip${menuFilter === filter.value ? ' active' : ''}`}
+                  onClick={() => setMenuFilter(filter.value)}
+                >
+                  {filter.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="kitchen-menu-bulk-toggle">
+            <button
+              type="button"
+              className={`primary-btn secondary${bulkSelectMode ? ' active' : ''}`}
+              onClick={handleToggleSelectMode}
+            >
+              {bulkSelectMode ? 'Selecting…' : 'Select Items'}
+            </button>
+            <span className="muted">{selectedItemIds.length} selected</span>
+            {selectedItemIds.length ? (
+              <button type="button" className="kitchen-inline-link" onClick={clearSelection}>
+                Clear selection
+              </button>
+            ) : null}
+          </div>
+
+          {bulkSelectMode && selectedItemIds.length ? (
+            <div className="kitchen-menu-bulk-actions">
+              <button type="button" className="primary-btn secondary" onClick={handleBulkDisable}>
+                Disable
+              </button>
+              <button type="button" className="primary-btn ghost" onClick={handleBulkDelete}>
+                Delete
+              </button>
+              <select value={bulkCategoryId} onChange={(event) => setBulkCategoryId(event.target.value)}>
+                <option value="">Change Category</option>
+                {bulkCategoryOptions.map((category) => (
+                  <option key={category.id} value={String(category.id)}>
+                    {category.name}
+                  </option>
+                ))}
+              </select>
+              <button type="button" className="primary-btn emphasis" onClick={handleBulkChangeCategory}>
+                Change Category
+              </button>
+            </div>
+          ) : null}
         </section>
 
         {activePanel === 'item' ? (
@@ -903,7 +1157,7 @@ export default function KitchenMenuPage() {
             categories={categoryOptions}
             onChange={handleItemFieldChange}
             onSave={handleSaveItem}
-            onCancel={resetItemForm}
+            onCancel={closePanels}
             saving={savingItem}
             editing={Boolean(editingItemId)}
           />
@@ -913,7 +1167,7 @@ export default function KitchenMenuPage() {
           <ImportPanel
             title="Bulk Upload"
             subtitle="Load the current export or paste a menu snapshot and import it back."
-            onClose={() => setActivePanel('list')}
+            onClose={closePanels}
           >
             <textarea
               rows="14"
@@ -935,11 +1189,12 @@ export default function KitchenMenuPage() {
         {activePanel === 'csv' ? (
           <ImportPanel
             title="Import CSV"
-            subtitle="Map CSV rows into the bulk import payload and apply them to the menu."
-            onClose={() => setActivePanel('list')}
+            subtitle="Upload CSV with columns: name, price, category"
+            onClose={closePanels}
           >
             <div className="kitchen-menu-csv-summary">
               <strong>{csvFileName || 'No CSV file selected'}</strong>
+              <p className="muted">Upload CSV with columns: name, price, category</p>
               <p className="muted">
                 {csvImportPayload
                   ? `${csvImportPayload.categories.length} categories and ${csvImportPayload.uncategorized_items.length} uncategorized item(s) ready to import.`
@@ -975,8 +1230,17 @@ export default function KitchenMenuPage() {
               groupedItems.map((group) => (
                 <section key={group.key} className="kitchen-menu-group">
                   <div className="kitchen-menu-group__header">
-                    <h3>{group.title}</h3>
-                    <span className="muted">{group.items.length} item(s)</span>
+                    <div className="kitchen-menu-group__title">
+                      <h3>{group.title}</h3>
+                      <span className="muted">({getCategoryItemCount(group.items)})</span>
+                    </div>
+                    <button
+                      type="button"
+                      className="primary-btn secondary kitchen-menu-group__add"
+                      onClick={() => handleAddItem(group.category?.id ? String(group.category.id) : '')}
+                    >
+                      + Add Item
+                    </button>
                   </div>
                   <div className="kitchen-menu-list">
                     {group.items.map((item) => (
@@ -985,10 +1249,15 @@ export default function KitchenMenuPage() {
                         item={item}
                         categoryLabel={group.title}
                         onEdit={() => handleEditItem(item)}
+                        onDuplicate={() => handleDuplicateItem(item)}
                         onDelete={() => handleDeleteItem(item)}
                         onToggle={() => handleToggleItem(item)}
+                        onSelectToggle={() => handleSelectItem(item.id)}
+                        selected={selectedItemIds.includes(item.id)}
+                        selectMode={bulkSelectMode}
                         deleting={deletingId === item.id}
                         toggling={togglingId === item.id}
+                        duplicating={duplicatingId === item.id}
                       />
                     ))}
                   </div>
@@ -1006,7 +1275,7 @@ export default function KitchenMenuPage() {
           onChange={handleCategoryFieldChange}
           onSave={handleSaveCategory}
           onEdit={handleCategoryEdit}
-          onCancel={resetCategoryForm}
+          onCancel={closePanels}
           saving={savingCategory}
           editing={Boolean(editingCategoryId)}
         />
