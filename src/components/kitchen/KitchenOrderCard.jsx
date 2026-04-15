@@ -98,7 +98,7 @@ export default function KitchenOrderCard({
           </div>
         </div>
         <div className="kitchen-order-card__pickup">
-          <span>Pickup for:</span>
+          <span className="kitchen-order-card__pickup-label">PICKUP FOR:</span>
           <strong>{customerName}</strong>
         </div>
       </div>
