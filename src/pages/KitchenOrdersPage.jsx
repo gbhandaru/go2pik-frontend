@@ -1,5 +1,4 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import KitchenHeader from '../components/kitchen/KitchenHeader.jsx';
 import KitchenOrderCard from '../components/kitchen/KitchenOrderCard.jsx';
 import KitchenTabs from '../components/kitchen/KitchenTabs.jsx';
 import { updateOrderStatus } from '../api/ordersApi.js';
@@ -28,6 +27,7 @@ const STORAGE_KEYS = {
   soundVolume: 'go2pik.kitchen.soundVolume',
   notificationsEnabled: 'go2pik.kitchen.notificationsEnabled',
   filterMode: 'go2pik.kitchen.filterMode',
+  refreshInterval: 'go2pik.kitchen.refreshInterval',
 };
 
 const FILTER_OPTIONS = [
@@ -157,25 +157,6 @@ function sortByOldestFirst(list) {
   return [...list].sort((a, b) => getOrderAgeMinutes(b) - getOrderAgeMinutes(a));
 }
 
-function SummaryIcon(props) {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" {...props}>
-      <rect x="4" y="5" width="16" height="14" rx="3" />
-      <path d="M7 9h10M7 13h6M7 17h8" />
-    </svg>
-  );
-}
-
-function ControlIcon(props) {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" {...props}>
-      <circle cx="12" cy="12" r="8" />
-      <path d="M12 8v4l3 2" />
-      <path d="M4.5 12h2.2M17.3 12h2.2M12 4.5v2.2M12 17.3v2.2" />
-    </svg>
-  );
-}
-
 function playBeep(volume = DEFAULT_SOUND_VOLUME) {
   if (typeof window === 'undefined') {
     return;
@@ -213,8 +194,14 @@ function playBeep(volume = DEFAULT_SOUND_VOLUME) {
 
 export default function KitchenOrdersPage() {
   const [activeStatus, setActiveStatus] = useState('new');
-  const { orders: activeOrders, loading, error, refresh, lastUpdated } = useKitchenOrders(activeStatus);
-  const { orders: newOrders, refresh: refreshNew } = useKitchenOrders('new');
+  const [refreshInterval, setRefreshInterval] = useState(() =>
+    safeParseStoredValue(STORAGE_KEYS.refreshInterval, 60000),
+  );
+  const { orders: activeOrders, loading, error, refresh, lastUpdated } = useKitchenOrders(
+    activeStatus,
+    refreshInterval,
+  );
+  const { orders: newOrders, refresh: refreshNew } = useKitchenOrders('new', refreshInterval);
   const [updatingId, setUpdatingId] = useState(null);
   const [updatingStatus, setUpdatingStatus] = useState(null);
   const [bulkActionStatus, setBulkActionStatus] = useState(null);
@@ -239,8 +226,8 @@ export default function KitchenOrdersPage() {
   );
   const [actionError, setActionError] = useState(null);
   const [feedback, setFeedback] = useState(null);
-  const [summaryOpen, setSummaryOpen] = useState(false);
-  const [controlsOpen, setControlsOpen] = useState(false);
+  const [summaryOpen, setSummaryOpen] = useState(true);
+  const [controlsOpen, setControlsOpen] = useState(true);
   const beepTimerRef = useRef(null);
   const previousNewCountRef = useRef(0);
   const feedbackTimerRef = useRef(null);
@@ -253,6 +240,10 @@ export default function KitchenOrdersPage() {
   useEffect(() => {
     storeValue(STORAGE_KEYS.filterMode, filterMode);
   }, [filterMode]);
+
+  useEffect(() => {
+    storeValue(STORAGE_KEYS.refreshInterval, refreshInterval);
+  }, [refreshInterval]);
 
   useEffect(() => {
     storeValue(STORAGE_KEYS.compactMode, compactMode);
@@ -583,92 +574,170 @@ export default function KitchenOrdersPage() {
   }
 
   return (
-    <main className={`page-section kitchen-page${compactMode ? ' kitchen-page--compact' : ''}`}>
-      <KitchenHeader
-        restaurantName="Go2Pik Kitchen"
-        title="Kitchen Dashboard"
-        subtitle={headerSubtitle}
-      >
-        <span className="muted">Last update: {formatTimestamp(lastUpdated)}</span>
-        <button type="button" className="primary-btn secondary" onClick={refresh} disabled={loading}>
-          Refresh now
-        </button>
-      </KitchenHeader>
-
-      <KitchenTabs tabs={tabConfig} activeTab={activeStatus} onTabChange={handleTabChange} />
+    <main className={`page-section kitchen-page kitchen-dashboard${compactMode ? ' kitchen-page--compact' : ''}`}>
+      <header className="card kitchen-dashboard__topbar">
+        <div className="kitchen-dashboard__brand">
+          <p className="kitchen-dashboard__eyebrow">GO2PIK KITCHEN</p>
+          <h1>Kitchen Dashboard</h1>
+        </div>
+        <div className="kitchen-dashboard__updated">
+          <span>Last updated: {formatTimestamp(lastUpdated)}</span>
+        </div>
+        <div className="kitchen-dashboard__actions">
+          <button
+            type="button"
+            className={`kitchen-icon-btn${notificationsEnabled && notificationPermission === 'granted' ? ' active' : ''}`}
+            onClick={handleToggleNotifications}
+            aria-label="Notifications"
+          >
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M12 22a2.2 2.2 0 0 0 2.1-1.6H9.9A2.2 2.2 0 0 0 12 22Zm7-5.5-1.6-1.6V11a5.4 5.4 0 0 0-4.2-5.2V4.6a1.2 1.2 0 1 0-2.4 0v1.2A5.4 5.4 0 0 0 6.6 11v3.9L5 16.5v1h14v-1Z" />
+            </svg>
+          </button>
+          <button
+            type="button"
+            className={`kitchen-icon-btn${controlsOpen ? ' active' : ''}`}
+            onClick={() => setControlsOpen((current) => !current)}
+            aria-label="Controls"
+          >
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M12 8.2a3.8 3.8 0 1 0 0 7.6 3.8 3.8 0 0 0 0-7.6Zm8 3.8a6.8 6.8 0 0 0-.1-1l2-1.6-2-3.4-2.4 1a7.8 7.8 0 0 0-1.7-1l-.4-2.6H10l-.4 2.6a7.8 7.8 0 0 0-1.7 1l-2.4-1-2 3.4 2 1.6a6.8 6.8 0 0 0 0 2L3.5 14l2 3.4 2.4-1a7.8 7.8 0 0 0 1.7 1l.4 2.6h4l.4-2.6a7.8 7.8 0 0 0 1.7-1l2.4 1 2-3.4-2.1-1.6c.1-.3.1-.6.1-1Z" />
+            </svg>
+          </button>
+          <button type="button" className="kitchen-icon-btn" onClick={refresh} aria-label="Refresh now">
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M4 12a8 8 0 0 1 13.6-5.7L20 8.6V4h2v8h-8V10l2.7 2.7A6 6 0 1 0 18 17h2a8 8 0 1 1-16-5Z" />
+            </svg>
+          </button>
+        </div>
+      </header>
 
       {actionError && <p style={{ color: '#dc2626', fontWeight: 600 }}>{actionError}</p>}
-
       {feedback && <div className={`kitchen-feedback kitchen-feedback--${feedback.kind}`}>{feedback.message}</div>}
 
-      <section className="kitchen-ops-grid">
-        <div className="card kitchen-ops-card">
-          <button
-            type="button"
-            className={`kitchen-ops-toggle ${summaryOpen ? 'open' : 'closed'}`}
-            onClick={() => setSummaryOpen((current) => !current)}
-            aria-expanded={summaryOpen}
-            aria-controls="kitchen-summary-panel"
-          >
-            <span className="kitchen-ops-toggle__icon kitchen-ops-toggle__icon--summary" aria-hidden="true">
-              <SummaryIcon />
-            </span>
-            <span className="kitchen-ops-toggle__copy">
-              <strong>Live Summary</strong>
-              <span>Operational focus and queue counts</span>
-            </span>
-            <span className="kitchen-ops-toggle__state">{summaryOpen ? 'Hide' : 'Show'}</span>
+      <section className="card kitchen-toolbar">
+        <KitchenTabs tabs={tabConfig} activeTab={activeStatus} onTabChange={handleTabChange} />
+        <div className="kitchen-toolbar__controls">
+          <label className="kitchen-toolbar__field">
+            <span>Auto refresh</span>
+            <select value={refreshInterval} onChange={(event) => setRefreshInterval(Number(event.target.value))}>
+              <option value={10000}>10 seconds</option>
+              <option value={30000}>30 seconds</option>
+              <option value={60000}>60 seconds</option>
+            </select>
+          </label>
+          <button type="button" className={`kitchen-pill-switch${soundEnabled ? ' active' : ''}`} onClick={handleToggleSound}>
+            <span>Sound</span>
+            <strong>{soundEnabled ? 'On' : 'Off'}</strong>
           </button>
+        </div>
+      </section>
 
+      <section className="kitchen-queue-shell">
+        {loading ? (
+          <div className="kitchen-empty-state">Loading orders…</div>
+        ) : error ? (
+          <div className="kitchen-empty-state">{error}</div>
+        ) : visibleOrders?.length ? (
+          <section className={`kitchen-orders-grid${compactMode ? ' kitchen-orders-grid--compact' : ''}`}>
+            {visibleOrders.map((order) => {
+              const ageMinutes = getOrderAgeMinutes(order);
+              const priorityLabel = getPriorityLabel(order);
+              const ageLabel = activeStatus === 'new' ? `Waiting ${formatWaitLabel(ageMinutes)}` : null;
+              const selected = selectedOrderIds.includes(order.id);
+
+              return (
+                <KitchenOrderCard
+                  key={order.id}
+                  order={order}
+                  compact={compactMode}
+                  showSelection={activeStatus === 'new'}
+                  selected={selected}
+                  onSelectChange={activeStatus === 'new' ? () => handleSelectOrder(order.id) : undefined}
+                  ageLabel={ageLabel}
+                  priorityLabel={priorityLabel}
+                  actions={
+                    activeStatus === 'new'
+                      ? NEW_TAB_ACTIONS.map((action) => ({
+                          ...action,
+                          onClick:
+                            action.status === 'rejected'
+                              ? () => handleRejectOrder(order)
+                              : () => handleStatusChange(order, action.status),
+                        }))
+                      : STATUS_FLOW[order.status]
+                        ? [
+                            {
+                              label:
+                                order.status === 'accepted'
+                                  ? 'Start Preparing'
+                                  : order.status === 'preparing'
+                                    ? 'Mark Ready'
+                                    : order.status === 'ready_for_pickup'
+                                      ? 'Complete Pickup'
+                                      : 'Accept',
+                              status: STATUS_FLOW[order.status],
+                              variant: 'primary',
+                              onClick: () => handleStatusChange(order, STATUS_FLOW[order.status]),
+                            },
+                          ]
+                        : []
+                  }
+                  actionLoading={updatingId === order.id}
+                  loadingActionStatus={updatingId === order.id ? updatingStatus : null}
+                />
+              );
+            })}
+          </section>
+        ) : (
+          <div className="kitchen-empty-state">{EMPTY_MESSAGES[activeStatus]}</div>
+        )}
+
+        {!loading && !error && visibleOrders?.length > 0 && <p className="kitchen-queue-shell__footer">No more orders</p>}
+      </section>
+
+      <section className="kitchen-panels-grid">
+        <article className="card kitchen-panel">
+          <div className="kitchen-panel__header">
+            <div>
+              <p className="eyebrow">Live Summary</p>
+              <h2>Operational focus</h2>
+            </div>
+            <button type="button" className="kitchen-panel__toggle" onClick={() => setSummaryOpen((current) => !current)}>
+              {summaryOpen ? 'Hide' : 'Show'}
+            </button>
+          </div>
           {summaryOpen && (
-            <div id="kitchen-summary-panel" className="kitchen-ops-panel">
-              <div className="kitchen-panel-heading">
-                <p className="eyebrow">Live summary</p>
-                <h2>Operational focus</h2>
-              </div>
-              <div className="kitchen-summary-strip">
-                {summaryCards.map((item) => (
-                  <article key={item.label} className={`kitchen-summary-metric kitchen-summary-metric--${item.tone}`}>
-                    <span>{item.label}</span>
-                    <strong>{item.value}</strong>
-                  </article>
-                ))}
-              </div>
+            <div className="kitchen-summary-strip">
+              {summaryCards.map((item) => (
+                <article key={item.label} className={`kitchen-summary-metric kitchen-summary-metric--${item.tone}`}>
+                  <span>{item.label}</span>
+                  <strong>{item.value}</strong>
+                </article>
+              ))}
             </div>
           )}
-        </div>
+        </article>
 
-        <div className="card kitchen-ops-card">
-          <button
-            type="button"
-            className={`kitchen-ops-toggle ${controlsOpen ? 'open' : 'closed'}`}
-            onClick={() => setControlsOpen((current) => !current)}
-            aria-expanded={controlsOpen}
-            aria-controls="kitchen-controls-panel"
-          >
-            <span className="kitchen-ops-toggle__icon kitchen-ops-toggle__icon--control" aria-hidden="true">
-              <ControlIcon />
-            </span>
-            <span className="kitchen-ops-toggle__copy">
-              <strong>Control Center</strong>
-              <span>Sound, compact mode, notifications, filters</span>
-            </span>
-            <span className="kitchen-ops-toggle__state">{controlsOpen ? 'Hide' : 'Show'}</span>
-          </button>
-
+        <article className="card kitchen-panel">
+          <div className="kitchen-panel__header">
+            <div>
+              <p className="eyebrow">Quick Controls</p>
+              <h2>Attention tools</h2>
+            </div>
+            <button type="button" className="kitchen-panel__toggle" onClick={() => setControlsOpen((current) => !current)}>
+              {controlsOpen ? 'Hide' : 'Show'}
+            </button>
+          </div>
           {controlsOpen && (
-            <div id="kitchen-controls-panel" className="kitchen-ops-panel">
-              <div className="kitchen-panel-heading">
-                <p className="eyebrow">Control center</p>
-                <h2>Attention tools</h2>
-              </div>
-              <div className="kitchen-toggle-group">
+            <div className="kitchen-controls">
+              <div className="kitchen-controls__row kitchen-controls__row--top">
                 <button
                   type="button"
                   className={`kitchen-toggle${soundEnabled ? ' active' : ''}`}
                   onClick={handleToggleSound}
                 >
-                  Sound {soundEnabled ? 'On' : 'Off'}
+                  Sound <strong>{soundEnabled ? 'On' : 'Off'}</strong>
                 </button>
                 <label className="kitchen-volume">
                   <span>Volume</span>
@@ -681,12 +750,15 @@ export default function KitchenOrdersPage() {
                     onChange={handleSoundVolumeChange}
                   />
                 </label>
+              </div>
+
+              <div className="kitchen-controls__row">
                 <button
                   type="button"
                   className={`kitchen-toggle${compactMode ? ' active' : ''}`}
                   onClick={handleToggleCompact}
                 >
-                  Compact {compactMode ? 'On' : 'Off'}
+                  Compact Mode
                 </button>
                 <button
                   type="button"
@@ -699,27 +771,22 @@ export default function KitchenOrdersPage() {
                     ? 'Notifications N/A'
                     : notificationsEnabled && notificationPermission === 'granted'
                       ? 'Notifications On'
-                      : 'Enable Notifications'}
+                      : 'Notifications Off'}
                 </button>
               </div>
 
-              <div className="kitchen-activity-list">
-                <div>
+              <div className="kitchen-controls__foot">
+                <label className="kitchen-toolbar__field">
                   <span>Auto refresh</span>
-                  <strong>{REFRESH_INTERVAL_MS / 1000}s</strong>
-                </div>
-                <div>
-                  <span>Alert cadence</span>
-                  <strong>{ALERT_BEEP_MS / 1000}s</strong>
-                </div>
-                <div>
-                  <span>Pending alerts</span>
-                  <strong>{newOrders.length}</strong>
-                </div>
-                <div>
-                  <span>Priority orders</span>
-                  <strong>{newPriorityCount}</strong>
-                </div>
+                  <select value={refreshInterval} onChange={(event) => setRefreshInterval(Number(event.target.value))}>
+                    <option value={10000}>10 seconds</option>
+                    <option value={30000}>30 seconds</option>
+                    <option value={60000}>60 seconds</option>
+                  </select>
+                </label>
+                <button type="button" className="primary-btn kitchen-refresh-btn" onClick={refresh} disabled={loading}>
+                  Refresh Now
+                </button>
               </div>
 
               {activeStatus === 'new' && (
@@ -738,7 +805,7 @@ export default function KitchenOrdersPage() {
               )}
             </div>
           )}
-        </div>
+        </article>
       </section>
 
       {hasBulkSelection && (
