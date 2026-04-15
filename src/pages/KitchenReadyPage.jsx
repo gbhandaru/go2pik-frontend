@@ -10,7 +10,7 @@ function formatTimestamp(date) {
 }
 
 export default function KitchenReadyPage() {
-  const { orders, loading, error, refresh, lastUpdated } = useKitchenOrders('ready');
+  const { orders, loading, error, refresh, lastUpdated } = useKitchenOrders('ready_for_pickup');
   const [updatingId, setUpdatingId] = useState(null);
   const [actionError, setActionError] = useState(null);
 
@@ -29,11 +29,11 @@ export default function KitchenReadyPage() {
 
   let content = null;
   if (loading) {
-    content = <div className="kitchen-empty-state">Loading ready orders…</div>;
+    content = <div className="kitchen-empty-state">Loading ready-for-pickup orders…</div>;
   } else if (error) {
     content = <div className="kitchen-empty-state">{error}</div>;
   } else if (!orders?.length) {
-    content = <div className="kitchen-empty-state">No ready orders</div>;
+    content = <div className="kitchen-empty-state">No ready-for-pickup orders</div>;
   } else {
     content = (
       <section className="kitchen-orders-grid">

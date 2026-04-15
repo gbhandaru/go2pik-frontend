@@ -83,6 +83,54 @@ export function getStoredKitchenProfile() {
   }
 }
 
+function extractKitchenRestaurantId(value) {
+  if (value == null) {
+    return null;
+  }
+
+  if (typeof value === 'string' || typeof value === 'number') {
+    const normalized = String(value).trim();
+    return normalized || null;
+  }
+
+  if (typeof value !== 'object') {
+    return null;
+  }
+
+  const directKeys = [
+    'restaurantId',
+    'restaurant_id',
+    'restaurantID',
+    'restaurantUuid',
+    'restaurant_uuid',
+  ];
+
+  for (const key of directKeys) {
+    if (key in value) {
+      const direct = extractKitchenRestaurantId(value[key]);
+      if (direct) {
+        return direct;
+      }
+    }
+  }
+
+  const nestedKeys = ['restaurant', 'restaurant_data', 'restaurantData', 'data', 'profile', 'user'];
+  for (const key of nestedKeys) {
+    if (key in value) {
+      const nested = extractKitchenRestaurantId(value[key]);
+      if (nested) {
+        return nested;
+      }
+    }
+  }
+
+  return null;
+}
+
+export function getKitchenRestaurantId() {
+  return extractKitchenRestaurantId(getStoredKitchenProfile());
+}
+
 export function storeKitchenAuthTokens({ accessToken, refreshToken, profile }) {
   const storage = safeStorage();
   if (!storage) return;
