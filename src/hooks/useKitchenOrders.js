@@ -28,13 +28,11 @@ function normalizeOrdersResponse(response) {
   return [];
 }
 
-export function useKitchenOrders(status = 'new') {
+export function useKitchenOrders(status = 'new', refreshIntervalMs = 60000) {
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [lastUpdated, setLastUpdated] = useState(null);
-  const refreshIntervalMs = 60000;
-
   const loadOrders = useCallback(async () => {
     setLoading(true);
     try {

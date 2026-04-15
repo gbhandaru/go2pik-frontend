@@ -53,6 +53,7 @@ export default function KitchenOrderCard({
   const subtotalValue = order.subtotal ?? order.subtotalDisplay;
   const taxValue = order.tax ?? order.taxDisplay;
   const hasTotal = totalValue != null;
+  const hasMultipleActions = actions.length > 1;
 
   return (
     <article
@@ -138,7 +139,14 @@ export default function KitchenOrderCard({
           )}
         </div>
         {actions.length > 0 ? (
-          <div className="kitchen-order-card__actions">
+          <div
+            className={[
+              'kitchen-order-card__actions',
+              hasMultipleActions ? 'kitchen-order-card__actions--multi' : '',
+            ]
+              .filter(Boolean)
+              .join(' ')}
+          >
             {actions.map((action) => {
               const isLoading = loadingActionStatus === action.status;
               return (
