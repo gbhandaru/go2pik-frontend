@@ -33,6 +33,7 @@ export function useKitchenOrders(status = 'new') {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [lastUpdated, setLastUpdated] = useState(null);
+  const refreshIntervalMs = 60000;
 
   const loadOrders = useCallback(async () => {
     setLoading(true);
@@ -56,12 +57,12 @@ export function useKitchenOrders(status = 'new') {
   useEffect(() => {
     const id = setInterval(() => {
       loadOrders();
-    }, 10000);
+    }, refreshIntervalMs);
 
     return () => {
       clearInterval(id);
     };
-  }, [loadOrders]);
+  }, [loadOrders, refreshIntervalMs]);
 
   return { orders, loading, error, refresh: loadOrders, lastUpdated };
 }

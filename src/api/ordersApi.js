@@ -94,9 +94,20 @@ export function updateOrderStatus(orderId, status) {
     throw new Error('restaurantId is required');
   }
 
-  return withFallback(
-    `/dashboard/restaurants/${encodeURIComponent(restaurantId)}/orders/${orderId}/status`,
-    { method: 'PATCH', body: { status } },
-    () => updateMockKitchenOrderStatus(restaurantId, orderId, status),
-  );
+  const basePath = `/dashboard/restaurants/${encodeURIComponent(restaurantId)}/orders/${orderId}`;
+
+  return apiRequest(basePath, { method: 'PATCH', body: { status } }).catch(async (error) => {
+    if (error.status !== 404) {
+      throw error;
+    }
+
+    try {
+      return await apiRequest(`${basePath}/status`, { method: 'PATCH', body: { status } });
+    } catch (statusError) {
+      if (statusError.status === 404) {
+        return updateMockKitchenOrderStatus(restaurantId, orderId, status);
+      }
+      throw statusError;
+    }
+  });
 }

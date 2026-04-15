@@ -1,12 +1,5 @@
 import { formatCurrency } from '../../utils/formatCurrency.js';
 
-const ACTION_LABELS = {
-  new: 'Accept',
-  accepted: 'Start Preparing',
-  preparing: 'Mark Ready',
-  ready_for_pickup: 'Complete Pickup',
-};
-
 const STATUS_LABELS = {
   new: 'New',
   accepted: 'Accepted',
@@ -16,17 +9,45 @@ const STATUS_LABELS = {
   rejected: 'Rejected',
 };
 
-export default function KitchenOrderCard({ order, onAction, actionLoading = false }) {
+function actionClassName(variant) {
+  if (variant === 'quiet') {
+    return 'primary-btn ghost';
+  }
+
+  if (variant === 'secondary') {
+    return 'primary-btn secondary';
+  }
+
+  if (variant === 'danger') {
+    return 'primary-btn secondary';
+  }
+
+  return 'primary-btn';
+}
+
+export default function KitchenOrderCard({
+  order,
+  onAction,
+  actionLoading = false,
+  actions = [],
+  loadingActionStatus = null,
+  showSelection = false,
+  selected = false,
+  onSelectChange,
+  ageLabel,
+  priorityLabel,
+  compact = false,
+}) {
   if (!order) return null;
 
   const orderNumber = order.orderNumber || order.displayId || order.id;
   const pickupType = order.pickupType || 'Pickup';
   const customerName = order.customerName || order.customer?.name || 'Guest';
+  const isPending = order.status === 'new';
   const totalItems =
     typeof order.totalItems === 'number'
       ? order.totalItems
       : order.items?.reduce((sum, item) => sum + (item.quantity || 1), 0) || 0;
-  const actionLabel = ACTION_LABELS[order.status];
   const statusLabel = STATUS_LABELS[order.status] || order.status;
   const totalValue = order.total ?? order.totalDisplay;
   const subtotalValue = order.subtotal ?? order.subtotalDisplay;
@@ -34,9 +55,38 @@ export default function KitchenOrderCard({ order, onAction, actionLoading = fals
   const hasTotal = totalValue != null;
 
   return (
-    <article className="kitchen-order-card card">
+    <article
+      className={[
+        'kitchen-order-card',
+        'card',
+        isPending ? 'kitchen-order-card--pending' : '',
+        compact ? 'kitchen-order-card--compact' : '',
+        priorityLabel ? 'kitchen-order-card--priority' : '',
+      ]
+        .filter(Boolean)
+        .join(' ')}
+    >
       <div className="kitchen-order-card__meta">
-        <p className="kitchen-order-card__order-number">Order #{orderNumber}</p>
+        <div className="kitchen-order-card__order-heading">
+          <div className="kitchen-order-card__order-title-row">
+            {showSelection && (
+              <label className="kitchen-order-card__select" aria-label={`Select order ${orderNumber}`}>
+                <input type="checkbox" checked={selected} onChange={onSelectChange} />
+                <span>Select</span>
+              </label>
+            )}
+            <p className="kitchen-order-card__order-number">Order #{orderNumber}</p>
+          </div>
+          <div className="kitchen-order-card__badges">
+            {isPending && <span className="kitchen-order-card__badge">Pending</span>}
+            {ageLabel && <span className="kitchen-order-card__badge kitchen-order-card__badge--age">{ageLabel}</span>}
+            {priorityLabel && (
+              <span className="kitchen-order-card__badge kitchen-order-card__badge--priority">
+                {priorityLabel}
+              </span>
+            )}
+          </div>
+        </div>
         <div className="kitchen-order-card__pickup">
           <span>{pickupType}</span>
           {order.pickupTime && <strong>{order.pickupTime}</strong>}
@@ -87,14 +137,31 @@ export default function KitchenOrderCard({ order, onAction, actionLoading = fals
             </div>
           )}
         </div>
-        {actionLabel ? (
+        {actions.length > 0 ? (
+          <div className="kitchen-order-card__actions">
+            {actions.map((action) => {
+              const isLoading = loadingActionStatus === action.status;
+              return (
+                <button
+                  key={action.status}
+                  type="button"
+                  className={actionClassName(action.variant)}
+                  onClick={action.onClick}
+                  disabled={actionLoading || isLoading || !action.onClick}
+                >
+                  {isLoading ? 'Updating…' : action.label}
+                </button>
+              );
+            })}
+          </div>
+        ) : onAction ? (
           <button
             type="button"
             className="primary-btn"
             onClick={onAction}
             disabled={actionLoading || !onAction}
           >
-            {actionLoading ? 'Updating…' : actionLabel}
+            {actionLoading ? 'Updating…' : statusLabel}
           </button>
         ) : (
           <span className="kitchen-order-card__status">{statusLabel}</span>
