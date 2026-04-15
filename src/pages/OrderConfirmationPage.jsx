@@ -189,8 +189,7 @@ export default function OrderConfirmationPage() {
     order.subtotal ??
     order.total ??
     items.reduce((sum, item) => sum + (item.price || 0) * (item.quantity || 1), 0);
-  const tax = order.tax ?? 0;
-  const total = order.total ?? subtotal + tax;
+  const total = order.total ?? subtotal;
   const browseMenuPath = getBrowseMenuPath(order);
 
   const heroSubtitle = customerName ? `Thanks, ${customerName}!` : 'Thanks for your order!';
@@ -257,13 +256,12 @@ export default function OrderConfirmationPage() {
               <span>Subtotal</span>
               <span>{formatCurrency(subtotal)}</span>
             </div>
-            <div>
-              <span>Tax</span>
-              <span>{formatCurrency(tax)}</span>
-            </div>
             <div className="grand">
-              <strong>Total</strong>
-              <strong>{formatCurrency(total)}</strong>
+              <div className="order-totals-grand-label">
+                <strong>Estimated total</strong>
+                <strong>{formatCurrency(total)}</strong>
+              </div>
+              <small className="order-totals-footnote">* Taxes will be calculated at the time of payment</small>
             </div>
           </div>
         </div>
