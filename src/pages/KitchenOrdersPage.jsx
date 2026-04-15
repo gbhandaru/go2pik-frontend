@@ -12,9 +12,8 @@ const STATUS_FLOW = {
 };
 
 const NEW_TAB_ACTIONS = [
-  { label: 'Accept', status: 'accepted', variant: 'primary' },
-  { label: 'Reject', status: 'rejected', variant: 'quiet' },
-  { label: 'Complete', status: 'completed', variant: 'secondary' },
+  { label: 'Accept', status: 'accepted', variant: 'emphasis' },
+  { label: 'Reject', status: 'rejected', variant: 'danger' },
 ];
 
 const ALERT_BEEP_MS = 10000;
@@ -204,8 +203,6 @@ export default function KitchenOrdersPage() {
   const { orders: newOrders, refresh: refreshNew } = useKitchenOrders('new', refreshInterval);
   const [updatingId, setUpdatingId] = useState(null);
   const [updatingStatus, setUpdatingStatus] = useState(null);
-  const [bulkActionStatus, setBulkActionStatus] = useState(null);
-  const [selectedOrderIds, setSelectedOrderIds] = useState([]);
   const [filterMode, setFilterMode] = useState(() =>
     safeParseStoredValue(STORAGE_KEYS.filterMode, 'all'),
   );
@@ -300,22 +297,6 @@ export default function KitchenOrdersPage() {
     if (!newOrders.length) return 0;
     return Math.max(...newOrders.map(getOrderAgeMinutes));
   }, [newOrders]);
-  const selectedVisibleOrders = useMemo(
-    () => visibleOrders.filter((order) => selectedOrderIds.includes(order.id)),
-    [visibleOrders, selectedOrderIds],
-  );
-
-  useEffect(() => {
-    if (activeStatus !== 'new') {
-      setSelectedOrderIds([]);
-      return;
-    }
-
-    setSelectedOrderIds((current) =>
-      current.filter((id) => activeOrders.some((order) => order.id === id)),
-    );
-  }, [activeStatus, activeOrders]);
-
   useEffect(() => {
     if (!soundEnabled || !newOrders.length || soundVolume <= 0) {
       if (beepTimerRef.current) {
@@ -391,7 +372,6 @@ export default function KitchenOrdersPage() {
         kind: 'success',
         message: `Order #${order.orderNumber || order.id} moved to ${targetStatus.replace(/_/g, ' ')}`,
       });
-      setSelectedOrderIds((current) => current.filter((id) => id !== order.id));
     } catch (err) {
       setActionError(err.message || 'Unable to update order status');
     } finally {
@@ -400,60 +380,10 @@ export default function KitchenOrdersPage() {
     }
   };
 
-  const handleBulkStatusChange = async (targetStatus) => {
-    if (!selectedVisibleOrders.length) {
-      return;
-    }
-
-    let rejectReason = null;
-    if (targetStatus === 'rejected') {
-      rejectReason =
-        window.prompt('Reason for rejection', 'Item unavailable') || 'Rejected from kitchen dashboard';
-    }
-
-    setActionError(null);
-    setBulkActionStatus(targetStatus);
-    try {
-      for (const order of selectedVisibleOrders) {
-        // eslint-disable-next-line no-await-in-loop
-        await updateOrderStatus(order.id, targetStatus, {
-          rejectReason,
-        });
-      }
-
-      await Promise.all([refresh(), refreshNew()]);
-      setFeedback({
-        kind: 'success',
-        message: `${selectedVisibleOrders.length} order${
-          selectedVisibleOrders.length === 1 ? '' : 's'
-        } moved to ${targetStatus.replace(/_/g, ' ')}`,
-      });
-      setSelectedOrderIds([]);
-    } catch (err) {
-      setActionError(err.message || 'Unable to update selected orders');
-    } finally {
-      setBulkActionStatus(null);
-    }
-  };
-
-  const handleSelectOrder = (orderId) => {
-    setSelectedOrderIds((current) =>
-      current.includes(orderId) ? current.filter((id) => id !== orderId) : [...current, orderId],
-    );
-  };
-
-  const handleSelectAllVisible = () => {
-    setSelectedOrderIds(visibleOrders.map((order) => order.id));
-  };
-
   const handleRejectOrder = async (order) => {
     const rejectReason =
       window.prompt('Reason for rejection', 'Item unavailable') || 'Rejected from kitchen dashboard';
     await handleStatusChange(order, 'rejected', { rejectReason });
-  };
-
-  const handleClearSelection = () => {
-    setSelectedOrderIds([]);
   };
 
   const handleToggleCompact = () => {
@@ -490,8 +420,6 @@ export default function KitchenOrdersPage() {
     }
   };
 
-  const hasBulkSelection = activeStatus === 'new' && selectedVisibleOrders.length > 0;
-
   let ordersContent = null;
   if (loading) {
     ordersContent = <div className="kitchen-empty-state">Loading orders…</div>;
@@ -505,18 +433,12 @@ export default function KitchenOrdersPage() {
         {visibleOrders.map((order) => {
           const ageMinutes = getOrderAgeMinutes(order);
           const priorityLabel = getPriorityLabel(order);
-          const ageLabel = activeStatus === 'new' ? `Waiting ${formatWaitLabel(ageMinutes)}` : null;
-          const selected = selectedOrderIds.includes(order.id);
-
           return (
             <KitchenOrderCard
               key={order.id}
               order={order}
               compact={compactMode}
-              showSelection={activeStatus === 'new'}
-              selected={selected}
-              onSelectChange={activeStatus === 'new' ? () => handleSelectOrder(order.id) : undefined}
-              ageLabel={ageLabel}
+              ageMinutes={ageMinutes}
               priorityLabel={priorityLabel}
               actions={
                 activeStatus === 'new'
@@ -589,195 +511,12 @@ export default function KitchenOrdersPage() {
       <section className="card kitchen-toolbar">
         <KitchenTabs tabs={tabConfig} activeTab={activeStatus} onTabChange={handleTabChange} />
         <div className="kitchen-toolbar__controls">
-          <label className="kitchen-toolbar__field">
-            <span>Auto refresh</span>
-            <select value={refreshInterval} onChange={(event) => setRefreshInterval(Number(event.target.value))}>
-              <option value={10000}>10 seconds</option>
-              <option value={30000}>30 seconds</option>
-              <option value={60000}>60 seconds</option>
-            </select>
-          </label>
           <button type="button" className={`kitchen-pill-switch${soundEnabled ? ' active' : ''}`} onClick={handleToggleSound}>
             <span>Sound</span>
             <strong>{soundEnabled ? 'On' : 'Off'}</strong>
           </button>
         </div>
       </section>
-
-      <section className="kitchen-queue-shell">
-        {loading ? (
-          <div className="kitchen-empty-state">Loading orders…</div>
-        ) : error ? (
-          <div className="kitchen-empty-state">{error}</div>
-        ) : visibleOrders?.length ? (
-          <section className={`kitchen-orders-grid${compactMode ? ' kitchen-orders-grid--compact' : ''}`}>
-            {visibleOrders.map((order) => {
-              const ageMinutes = getOrderAgeMinutes(order);
-              const priorityLabel = getPriorityLabel(order);
-              const ageLabel = activeStatus === 'new' ? `Waiting ${formatWaitLabel(ageMinutes)}` : null;
-              const selected = selectedOrderIds.includes(order.id);
-
-              return (
-                <KitchenOrderCard
-                  key={order.id}
-                  order={order}
-                  compact={compactMode}
-                  showSelection={activeStatus === 'new'}
-                  selected={selected}
-                  onSelectChange={activeStatus === 'new' ? () => handleSelectOrder(order.id) : undefined}
-                  ageLabel={ageLabel}
-                  priorityLabel={priorityLabel}
-                  actions={
-                    activeStatus === 'new'
-                      ? NEW_TAB_ACTIONS.map((action) => ({
-                          ...action,
-                          onClick:
-                            action.status === 'rejected'
-                              ? () => handleRejectOrder(order)
-                              : () => handleStatusChange(order, action.status),
-                        }))
-                      : STATUS_FLOW[order.status]
-                        ? [
-                            {
-                              label:
-                                order.status === 'accepted'
-                                  ? 'Start Preparing'
-                                  : order.status === 'preparing'
-                                    ? 'Mark Ready'
-                                    : order.status === 'ready_for_pickup'
-                                      ? 'Complete Pickup'
-                                      : 'Accept',
-                              status: STATUS_FLOW[order.status],
-                              variant: 'primary',
-                              onClick: () => handleStatusChange(order, STATUS_FLOW[order.status]),
-                            },
-                          ]
-                        : []
-                  }
-                  actionLoading={updatingId === order.id}
-                  loadingActionStatus={updatingId === order.id ? updatingStatus : null}
-                />
-              );
-            })}
-          </section>
-        ) : (
-          <div className="kitchen-empty-state">{EMPTY_MESSAGES[activeStatus]}</div>
-        )}
-
-        {!loading && !error && visibleOrders?.length > 0 && <p className="kitchen-queue-shell__footer">No more orders</p>}
-      </section>
-
-      {hasBulkSelection && (
-        <section className="card kitchen-bulk-bar">
-          <div>
-            <p className="eyebrow">Bulk actions</p>
-            <strong>{selectedVisibleOrders.length} selected</strong>
-          </div>
-          <div className="kitchen-bulk-actions">
-            <button
-              type="button"
-              className="primary-btn"
-              onClick={() => handleBulkStatusChange('accepted')}
-              disabled={bulkActionStatus !== null}
-            >
-              {bulkActionStatus === 'accepted' ? 'Updating…' : 'Accept selected'}
-            </button>
-            <button
-              type="button"
-              className="primary-btn secondary"
-              onClick={() => handleBulkStatusChange('rejected')}
-              disabled={bulkActionStatus !== null}
-            >
-              {bulkActionStatus === 'rejected' ? 'Updating…' : 'Reject selected'}
-            </button>
-            <button
-              type="button"
-              className="primary-btn secondary"
-              onClick={() => handleBulkStatusChange('completed')}
-              disabled={bulkActionStatus !== null}
-            >
-              {bulkActionStatus === 'completed' ? 'Updating…' : 'Complete selected'}
-            </button>
-            <button
-              type="button"
-              className="primary-btn ghost"
-              onClick={handleClearSelection}
-              disabled={bulkActionStatus !== null}
-            >
-              Clear selection
-            </button>
-          </div>
-        </section>
-      )}
-
-      {activeStatus === 'new' && visibleOrders.length > 0 && (
-        <section className="kitchen-selection-actions">
-          <button type="button" className="kitchen-inline-link" onClick={handleSelectAllVisible}>
-            Select all visible
-          </button>
-          <button type="button" className="kitchen-inline-link" onClick={handleClearSelection}>
-            Clear selection
-          </button>
-        </section>
-      )}
-
-      {activeStatus === 'new' && (
-        <section className="card kitchen-toolbar kitchen-toolbar--compact">
-          <div className="kitchen-toolbar__controls kitchen-toolbar__controls--compact">
-            <button
-              type="button"
-              className={`kitchen-toggle${soundEnabled ? ' active' : ''}`}
-              onClick={handleToggleSound}
-            >
-              Sound <strong>{soundEnabled ? 'On' : 'Off'}</strong>
-            </button>
-            <button
-              type="button"
-              className={`kitchen-toggle${compactMode ? ' active' : ''}`}
-              onClick={handleToggleCompact}
-            >
-              Compact Mode
-            </button>
-            <button
-              type="button"
-              className={`kitchen-toggle${
-                notificationsEnabled && notificationPermission === 'granted' ? ' active' : ''
-              }`}
-              onClick={handleToggleNotifications}
-            >
-              {notificationPermission === 'unsupported'
-                ? 'Notifications N/A'
-                : notificationsEnabled && notificationPermission === 'granted'
-                  ? 'Notifications On'
-                  : 'Notifications Off'}
-            </button>
-            <label className="kitchen-toolbar__field kitchen-toolbar__field--inline">
-              <span>Auto refresh</span>
-              <select value={refreshInterval} onChange={(event) => setRefreshInterval(Number(event.target.value))}>
-                <option value={10000}>10 seconds</option>
-                <option value={30000}>30 seconds</option>
-                <option value={60000}>60 seconds</option>
-              </select>
-            </label>
-            <button type="button" className="primary-btn kitchen-refresh-btn" onClick={refresh} disabled={loading}>
-              Refresh Now
-            </button>
-          </div>
-
-          <div className="kitchen-filter-row">
-            {FILTER_OPTIONS.map((option) => (
-              <button
-                key={option.value}
-                type="button"
-                className={`kitchen-filter-chip${filterMode === option.value ? ' active' : ''}`}
-                onClick={() => setFilterMode(option.value)}
-              >
-                {option.label}
-              </button>
-            ))}
-          </div>
-        </section>
-      )}
 
       {ordersContent}
     </main>
