@@ -43,7 +43,6 @@ export default function KitchenOrderCard({
 
   const orderNumber = order.orderNumber || order.displayId || order.id;
   const customerName = order.customerName || order.customer?.name || 'Guest';
-  const isPending = order.status === 'new';
   const totalItems =
     typeof order.totalItems === 'number'
       ? order.totalItems
@@ -51,8 +50,6 @@ export default function KitchenOrderCard({
   const statusLabel = STATUS_LABELS[order.status] || order.status;
   const pickupTime = order.pickupTime || order.pickupAt || order.scheduledPickupTime || null;
   const totalValue = order.total ?? order.totalDisplay;
-  const subtotalValue = order.subtotal ?? order.subtotalDisplay;
-  const taxValue = order.tax ?? order.taxDisplay;
   const hasTotal = totalValue != null;
   const hasMultipleActions = actions.length > 1;
   const waitingMinutes = Number.isFinite(ageMinutes) ? Math.max(0, Math.round(ageMinutes)) : null;
@@ -64,7 +61,6 @@ export default function KitchenOrderCard({
       className={[
         'kitchen-order-card',
         'card',
-        isPending ? 'kitchen-order-card--pending' : '',
         compact ? 'kitchen-order-card--compact' : '',
         priorityLabel ? 'kitchen-order-card--priority' : '',
       ]
@@ -98,15 +94,17 @@ export default function KitchenOrderCard({
           </div>
         </div>
         <div className="kitchen-order-card__pickup">
-          <span className="kitchen-order-card__pickup-label">PICKUP FOR:</span>
-          <strong>{customerName}</strong>
-        </div>
-        {pickupTime && (
-          <div className="kitchen-order-card__pickup kitchen-order-card__pickup--time">
-            <span className="kitchen-order-card__pickup-label">PICKUP AT:</span>
-            <strong>{pickupTime}</strong>
+          {pickupTime && (
+            <div className="kitchen-order-card__pickup-line">
+              <span className="kitchen-order-card__pickup-label">PICKUP AT:</span>
+              <strong>{pickupTime}</strong>
+            </div>
+          )}
+          <div className="kitchen-order-card__pickup-line">
+            <span className="kitchen-order-card__pickup-label">PICKUP FOR:</span>
+            <strong>{customerName}</strong>
           </div>
-        )}
+        </div>
       </div>
 
       <div className="kitchen-order-card__items">
@@ -127,12 +125,12 @@ export default function KitchenOrderCard({
       <footer className="kitchen-order-card__footer">
         <div className="kitchen-order-card__totals">
           <div>
-            <p className="muted">Items</p>
+            <p className="muted">Items:</p>
             <strong>{totalItems}</strong>
           </div>
           {hasTotal && (
-            <div>
-              <p className="muted">Estimated total</p>
+            <div className="kitchen-order-card__totals-grand">
+              <p className="muted">Estimated total:</p>
               <strong>{typeof totalValue === 'number' ? formatCurrency(totalValue) : totalValue}</strong>
             </div>
           )}

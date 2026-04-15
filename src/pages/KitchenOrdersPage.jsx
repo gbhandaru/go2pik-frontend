@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import KitchenOrderCard from '../components/kitchen/KitchenOrderCard.jsx';
 import KitchenTabs from '../components/kitchen/KitchenTabs.jsx';
 import { updateOrderStatus } from '../api/ordersApi.js';
@@ -42,6 +43,11 @@ const BASE_TAB_CONFIG = [
   { value: 'preparing', label: 'Preparing' },
   { value: 'ready_for_pickup', label: 'Ready for Pickup' },
   { value: 'completed', label: 'Completed' },
+];
+
+const MAIN_TABS = [
+  { value: 'orders', label: 'Order' },
+  { value: 'menu', label: 'Menu' },
 ];
 
 const TAB_SUBTITLE = {
@@ -192,6 +198,7 @@ function playBeep(volume = DEFAULT_SOUND_VOLUME) {
 }
 
 export default function KitchenOrdersPage() {
+  const navigate = useNavigate();
   const [activeStatus, setActiveStatus] = useState('new');
   const [refreshInterval, setRefreshInterval] = useState(() =>
     safeParseStoredValue(STORAGE_KEYS.refreshInterval, 60000),
@@ -355,9 +362,15 @@ export default function KitchenOrdersPage() {
   const handleTabChange = (status) => {
     setActionError(null);
     setActiveStatus(status);
-    if (status !== 'new') {
-      setSelectedOrderIds([]);
+  };
+
+  const handleMainTabChange = (tab) => {
+    if (tab === 'menu') {
+      navigate('/kitchen/menu');
+      return;
     }
+
+    navigate('/kitchen/orders');
   };
 
   const handleStatusChange = async (order, targetStatus, options = {}) => {
@@ -507,6 +520,10 @@ export default function KitchenOrdersPage() {
 
       {actionError && <p style={{ color: '#dc2626', fontWeight: 600 }}>{actionError}</p>}
       {feedback && <div className={`kitchen-feedback kitchen-feedback--${feedback.kind}`}>{feedback.message}</div>}
+
+      <section className="card kitchen-toolbar kitchen-main-tabs">
+        <KitchenTabs tabs={MAIN_TABS} activeTab="orders" onTabChange={handleMainTabChange} />
+      </section>
 
       <section className="card kitchen-toolbar">
         <KitchenTabs tabs={tabConfig} activeTab={activeStatus} onTabChange={handleTabChange} />

@@ -1,4 +1,4 @@
-import { BrowserRouter, Route, Routes } from 'react-router-dom';
+import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
 import LandingPage from '../pages/LandingPage.jsx';
 import LoginPage from '../pages/LoginPage.jsx';
 import PasswordUpdatePage from '../pages/PasswordUpdatePage.jsx';
@@ -13,6 +13,7 @@ import ProtectedRoute from './ProtectedRoute.jsx';
 import KitchenLoginPage from '../pages/KitchenLoginPage.jsx';
 import KitchenCreateUserPage from '../pages/KitchenCreateUserPage.jsx';
 import KitchenOrdersPage from '../pages/KitchenOrdersPage.jsx';
+import KitchenMenuPage from '../pages/KitchenMenuPage.jsx';
 import KitchenReadyPage from '../pages/KitchenReadyPage.jsx';
 import KitchenCompletedPage from '../pages/KitchenCompletedPage.jsx';
 
@@ -28,7 +29,9 @@ export default function AppRoutes() {
         <Route path="/restaurants/:restaurantId/menu" element={<RestaurantMenuPage />} />
         <Route path="/kitchen/login" element={<KitchenLoginPage />} />
         <Route path="/kitchen/users/new" element={<KitchenCreateUserPage />} />
+        <Route path="/kitchen" element={<Navigate to="/kitchen/orders" replace />} />
         <Route path="/kitchen/orders" element={<KitchenOrdersPage />} />
+        <Route path="/kitchen/menu" element={<KitchenMenuPage />} />
         <Route path="/kitchen/ready" element={<KitchenReadyPage />} />
         <Route path="/kitchen/completed" element={<KitchenCompletedPage />} />
         <Route element={<ProtectedRoute />}>
