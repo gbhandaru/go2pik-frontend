@@ -10,15 +10,19 @@ const STATUS_LABELS = {
 };
 
 function actionClassName(variant) {
+  if (variant === 'emphasis') {
+    return 'primary-btn emphasis kitchen-action-btn--accept';
+  }
+
+  if (variant === 'danger') {
+    return 'primary-btn kitchen-action-btn--reject';
+  }
+
   if (variant === 'quiet') {
     return 'primary-btn ghost';
   }
 
   if (variant === 'secondary') {
-    return 'primary-btn secondary';
-  }
-
-  if (variant === 'danger') {
     return 'primary-btn secondary';
   }
 
@@ -31,17 +35,13 @@ export default function KitchenOrderCard({
   actionLoading = false,
   actions = [],
   loadingActionStatus = null,
-  showSelection = false,
-  selected = false,
-  onSelectChange,
-  ageLabel,
+  ageMinutes,
   priorityLabel,
   compact = false,
 }) {
   if (!order) return null;
 
   const orderNumber = order.orderNumber || order.displayId || order.id;
-  const pickupType = order.pickupType || 'Pickup';
   const customerName = order.customerName || order.customer?.name || 'Guest';
   const isPending = order.status === 'new';
   const totalItems =
@@ -54,6 +54,9 @@ export default function KitchenOrderCard({
   const taxValue = order.tax ?? order.taxDisplay;
   const hasTotal = totalValue != null;
   const hasMultipleActions = actions.length > 1;
+  const waitingMinutes = Number.isFinite(ageMinutes) ? Math.max(0, Math.round(ageMinutes)) : null;
+  const isDelayed = waitingMinutes != null && waitingMinutes > 5;
+  const waitLabel = waitingMinutes != null ? `Waiting ${waitingMinutes}m` : null;
 
   return (
     <article
@@ -70,17 +73,23 @@ export default function KitchenOrderCard({
       <div className="kitchen-order-card__meta">
         <div className="kitchen-order-card__order-heading">
           <div className="kitchen-order-card__order-title-row">
-            {showSelection && (
-              <label className="kitchen-order-card__select" aria-label={`Select order ${orderNumber}`}>
-                <input type="checkbox" checked={selected} onChange={onSelectChange} />
-                <span>Select</span>
-              </label>
-            )}
             <p className="kitchen-order-card__order-number">Order #{orderNumber}</p>
           </div>
           <div className="kitchen-order-card__badges">
             {isPending && <span className="kitchen-order-card__badge">Pending</span>}
-            {ageLabel && <span className="kitchen-order-card__badge kitchen-order-card__badge--age">{ageLabel}</span>}
+            {waitLabel && (
+              <span
+                className={[
+                  'kitchen-order-card__badge',
+                  'kitchen-order-card__badge--age',
+                  isDelayed ? 'kitchen-order-card__badge--late' : '',
+                ]
+                  .filter(Boolean)
+                  .join(' ')}
+              >
+                {waitLabel}
+              </span>
+            )}
             {priorityLabel && (
               <span className="kitchen-order-card__badge kitchen-order-card__badge--priority">
                 {priorityLabel}
@@ -89,13 +98,9 @@ export default function KitchenOrderCard({
           </div>
         </div>
         <div className="kitchen-order-card__pickup">
-          <span>{pickupType}</span>
-          {order.pickupTime && <strong>{order.pickupTime}</strong>}
+          <span>Pickup for:</span>
+          <strong>{customerName}</strong>
         </div>
-      </div>
-
-      <div className="kitchen-order-card__customer">
-        <h2>{customerName}</h2>
       </div>
 
       <div className="kitchen-order-card__items">
