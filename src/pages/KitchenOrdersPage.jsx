@@ -369,13 +369,13 @@ export default function KitchenOrdersPage() {
     }
   };
 
-  const handleStatusChange = async (order, targetStatus) => {
+  const handleStatusChange = async (order, targetStatus, options = {}) => {
     if (!targetStatus) return;
     setActionError(null);
     setUpdatingId(order.id);
     setUpdatingStatus(targetStatus);
     try {
-      await updateOrderStatus(order.id, targetStatus);
+      await updateOrderStatus(order.id, targetStatus, options);
       await Promise.all([refresh(), refreshNew()]);
       setFeedback({
         kind: 'success',
@@ -395,12 +395,20 @@ export default function KitchenOrdersPage() {
       return;
     }
 
+    let rejectReason = null;
+    if (targetStatus === 'rejected') {
+      rejectReason =
+        window.prompt('Reason for rejection', 'Item unavailable') || 'Rejected from kitchen dashboard';
+    }
+
     setActionError(null);
     setBulkActionStatus(targetStatus);
     try {
       for (const order of selectedVisibleOrders) {
         // eslint-disable-next-line no-await-in-loop
-        await updateOrderStatus(order.id, targetStatus);
+        await updateOrderStatus(order.id, targetStatus, {
+          rejectReason,
+        });
       }
 
       await Promise.all([refresh(), refreshNew()]);
@@ -426,6 +434,12 @@ export default function KitchenOrdersPage() {
 
   const handleSelectAllVisible = () => {
     setSelectedOrderIds(visibleOrders.map((order) => order.id));
+  };
+
+  const handleRejectOrder = async (order) => {
+    const rejectReason =
+      window.prompt('Reason for rejection', 'Item unavailable') || 'Rejected from kitchen dashboard';
+    await handleStatusChange(order, 'rejected', { rejectReason });
   };
 
   const handleClearSelection = () => {
@@ -515,7 +529,10 @@ export default function KitchenOrdersPage() {
                 activeStatus === 'new'
                   ? NEW_TAB_ACTIONS.map((action) => ({
                       ...action,
-                      onClick: () => handleStatusChange(order, action.status),
+                      onClick:
+                        action.status === 'rejected'
+                          ? () => handleRejectOrder(order)
+                          : () => handleStatusChange(order, action.status),
                     }))
                   : STATUS_FLOW[order.status]
                     ? [
