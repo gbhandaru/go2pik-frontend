@@ -157,6 +157,25 @@ function sortByOldestFirst(list) {
   return [...list].sort((a, b) => getOrderAgeMinutes(b) - getOrderAgeMinutes(a));
 }
 
+function SummaryIcon(props) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" {...props}>
+      <rect x="4" y="5" width="16" height="14" rx="3" />
+      <path d="M7 9h10M7 13h6M7 17h8" />
+    </svg>
+  );
+}
+
+function ControlIcon(props) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" {...props}>
+      <circle cx="12" cy="12" r="8" />
+      <path d="M12 8v4l3 2" />
+      <path d="M4.5 12h2.2M17.3 12h2.2M12 4.5v2.2M12 17.3v2.2" />
+    </svg>
+  );
+}
+
 function playBeep(volume = DEFAULT_SOUND_VOLUME) {
   if (typeof window === 'undefined') {
     return;
@@ -220,6 +239,8 @@ export default function KitchenOrdersPage() {
   );
   const [actionError, setActionError] = useState(null);
   const [feedback, setFeedback] = useState(null);
+  const [summaryOpen, setSummaryOpen] = useState(false);
+  const [controlsOpen, setControlsOpen] = useState(false);
   const beepTimerRef = useRef(null);
   const previousNewCountRef = useRef(0);
   const feedbackTimerRef = useRef(null);
@@ -581,98 +602,140 @@ export default function KitchenOrdersPage() {
       {feedback && <div className={`kitchen-feedback kitchen-feedback--${feedback.kind}`}>{feedback.message}</div>}
 
       <section className="kitchen-ops-grid">
-        <div className="card kitchen-summary-panel">
-          <div className="kitchen-panel-heading">
-            <p className="eyebrow">Live summary</p>
-            <h2>Operational focus</h2>
-          </div>
-          <div className="kitchen-summary-strip">
-            {summaryCards.map((item) => (
-              <article key={item.label} className={`kitchen-summary-metric kitchen-summary-metric--${item.tone}`}>
-                <span>{item.label}</span>
-                <strong>{item.value}</strong>
-              </article>
-            ))}
-          </div>
+        <div className="card kitchen-ops-card">
+          <button
+            type="button"
+            className={`kitchen-ops-toggle ${summaryOpen ? 'open' : 'closed'}`}
+            onClick={() => setSummaryOpen((current) => !current)}
+            aria-expanded={summaryOpen}
+            aria-controls="kitchen-summary-panel"
+          >
+            <span className="kitchen-ops-toggle__icon kitchen-ops-toggle__icon--summary" aria-hidden="true">
+              <SummaryIcon />
+            </span>
+            <span className="kitchen-ops-toggle__copy">
+              <strong>Live Summary</strong>
+              <span>Operational focus and queue counts</span>
+            </span>
+            <span className="kitchen-ops-toggle__state">{summaryOpen ? 'Hide' : 'Show'}</span>
+          </button>
+
+          {summaryOpen && (
+            <div id="kitchen-summary-panel" className="kitchen-ops-panel">
+              <div className="kitchen-panel-heading">
+                <p className="eyebrow">Live summary</p>
+                <h2>Operational focus</h2>
+              </div>
+              <div className="kitchen-summary-strip">
+                {summaryCards.map((item) => (
+                  <article key={item.label} className={`kitchen-summary-metric kitchen-summary-metric--${item.tone}`}>
+                    <span>{item.label}</span>
+                    <strong>{item.value}</strong>
+                  </article>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
 
-        <div className="card kitchen-activity-panel">
-          <div className="kitchen-panel-heading">
-            <p className="eyebrow">Control center</p>
-            <h2>Attention tools</h2>
-          </div>
-          <div className="kitchen-toggle-group">
-            <button
-              type="button"
-              className={`kitchen-toggle${soundEnabled ? ' active' : ''}`}
-              onClick={handleToggleSound}
-            >
-              Sound {soundEnabled ? 'On' : 'Off'}
-            </button>
-            <label className="kitchen-volume">
-              <span>Volume</span>
-              <input
-                type="range"
-                min="0"
-                max="1"
-                step="0.05"
-                value={soundVolume}
-                onChange={handleSoundVolumeChange}
-              />
-            </label>
-            <button
-              type="button"
-              className={`kitchen-toggle${compactMode ? ' active' : ''}`}
-              onClick={handleToggleCompact}
-            >
-              Compact {compactMode ? 'On' : 'Off'}
-            </button>
-            <button
-              type="button"
-              className={`kitchen-toggle${
-                notificationsEnabled && notificationPermission === 'granted' ? ' active' : ''
-              }`}
-              onClick={handleToggleNotifications}
-            >
-              {notificationPermission === 'unsupported'
-                ? 'Notifications N/A'
-                : notificationsEnabled && notificationPermission === 'granted'
-                  ? 'Notifications On'
-                  : 'Enable Notifications'}
-            </button>
-          </div>
+        <div className="card kitchen-ops-card">
+          <button
+            type="button"
+            className={`kitchen-ops-toggle ${controlsOpen ? 'open' : 'closed'}`}
+            onClick={() => setControlsOpen((current) => !current)}
+            aria-expanded={controlsOpen}
+            aria-controls="kitchen-controls-panel"
+          >
+            <span className="kitchen-ops-toggle__icon kitchen-ops-toggle__icon--control" aria-hidden="true">
+              <ControlIcon />
+            </span>
+            <span className="kitchen-ops-toggle__copy">
+              <strong>Control Center</strong>
+              <span>Sound, compact mode, notifications, filters</span>
+            </span>
+            <span className="kitchen-ops-toggle__state">{controlsOpen ? 'Hide' : 'Show'}</span>
+          </button>
 
-          <div className="kitchen-activity-list">
-            <div>
-              <span>Auto refresh</span>
-              <strong>{REFRESH_INTERVAL_MS / 1000}s</strong>
-            </div>
-            <div>
-              <span>Alert cadence</span>
-              <strong>{ALERT_BEEP_MS / 1000}s</strong>
-            </div>
-            <div>
-              <span>Pending alerts</span>
-              <strong>{newOrders.length}</strong>
-            </div>
-            <div>
-              <span>Priority orders</span>
-              <strong>{newPriorityCount}</strong>
-            </div>
-          </div>
-
-          {activeStatus === 'new' && (
-            <div className="kitchen-filter-row">
-              {FILTER_OPTIONS.map((option) => (
+          {controlsOpen && (
+            <div id="kitchen-controls-panel" className="kitchen-ops-panel">
+              <div className="kitchen-panel-heading">
+                <p className="eyebrow">Control center</p>
+                <h2>Attention tools</h2>
+              </div>
+              <div className="kitchen-toggle-group">
                 <button
-                  key={option.value}
                   type="button"
-                  className={`kitchen-filter-chip${filterMode === option.value ? ' active' : ''}`}
-                  onClick={() => setFilterMode(option.value)}
+                  className={`kitchen-toggle${soundEnabled ? ' active' : ''}`}
+                  onClick={handleToggleSound}
                 >
-                  {option.label}
+                  Sound {soundEnabled ? 'On' : 'Off'}
                 </button>
-              ))}
+                <label className="kitchen-volume">
+                  <span>Volume</span>
+                  <input
+                    type="range"
+                    min="0"
+                    max="1"
+                    step="0.05"
+                    value={soundVolume}
+                    onChange={handleSoundVolumeChange}
+                  />
+                </label>
+                <button
+                  type="button"
+                  className={`kitchen-toggle${compactMode ? ' active' : ''}`}
+                  onClick={handleToggleCompact}
+                >
+                  Compact {compactMode ? 'On' : 'Off'}
+                </button>
+                <button
+                  type="button"
+                  className={`kitchen-toggle${
+                    notificationsEnabled && notificationPermission === 'granted' ? ' active' : ''
+                  }`}
+                  onClick={handleToggleNotifications}
+                >
+                  {notificationPermission === 'unsupported'
+                    ? 'Notifications N/A'
+                    : notificationsEnabled && notificationPermission === 'granted'
+                      ? 'Notifications On'
+                      : 'Enable Notifications'}
+                </button>
+              </div>
+
+              <div className="kitchen-activity-list">
+                <div>
+                  <span>Auto refresh</span>
+                  <strong>{REFRESH_INTERVAL_MS / 1000}s</strong>
+                </div>
+                <div>
+                  <span>Alert cadence</span>
+                  <strong>{ALERT_BEEP_MS / 1000}s</strong>
+                </div>
+                <div>
+                  <span>Pending alerts</span>
+                  <strong>{newOrders.length}</strong>
+                </div>
+                <div>
+                  <span>Priority orders</span>
+                  <strong>{newPriorityCount}</strong>
+                </div>
+              </div>
+
+              {activeStatus === 'new' && (
+                <div className="kitchen-filter-row">
+                  {FILTER_OPTIONS.map((option) => (
+                    <button
+                      key={option.value}
+                      type="button"
+                      className={`kitchen-filter-chip${filterMode === option.value ? ' active' : ''}`}
+                      onClick={() => setFilterMode(option.value)}
+                    >
+                      {option.label}
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
           )}
         </div>
