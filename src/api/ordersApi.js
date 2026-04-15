@@ -88,26 +88,48 @@ export function fetchOrdersByStatus(status) {
   );
 }
 
-export function updateOrderStatus(orderId, status) {
+function getKitchenActionRequest(orderId, status, options = {}) {
   const restaurantId = getKitchenRestaurantId() || mockRestaurants[0]?.id;
   if (!restaurantId) {
     throw new Error('restaurantId is required');
   }
 
-  const basePath = `/dashboard/restaurants/${encodeURIComponent(restaurantId)}/orders/${orderId}`;
+  const actionPaths = {
+    accepted: `/dashboard/orders/${encodeURIComponent(orderId)}/accept`,
+    preparing: `/dashboard/orders/${encodeURIComponent(orderId)}/preparing`,
+    ready_for_pickup: `/dashboard/orders/${encodeURIComponent(orderId)}/ready`,
+    completed: `/dashboard/orders/${encodeURIComponent(orderId)}/complete`,
+    rejected: `/dashboard/orders/${encodeURIComponent(orderId)}/reject`,
+  };
 
-  return apiRequest(basePath, { method: 'PATCH', body: { status } }).catch(async (error) => {
-    if (error.status !== 404) {
-      throw error;
+  const path = actionPaths[status];
+  if (!path) {
+    throw new Error(`Unsupported kitchen status: ${status}`);
+  }
+
+  const body =
+    status === 'rejected'
+      ? { reject_reason: options.rejectReason || 'Rejected from kitchen dashboard' }
+      : undefined;
+
+  return { path, body };
+}
+
+export function updateOrderStatus(orderId, status, options = {}) {
+  const request = getKitchenActionRequest(orderId, status, options);
+
+  return apiRequest(request.path, {
+    method: 'PATCH',
+    ...(request.body ? { body: request.body } : {}),
+  }).catch((error) => {
+    if (error.status === 404) {
+      return updateMockKitchenOrderStatus(
+        getKitchenRestaurantId() || mockRestaurants[0]?.id,
+        orderId,
+        status,
+      );
     }
 
-    try {
-      return await apiRequest(`${basePath}/status`, { method: 'PATCH', body: { status } });
-    } catch (statusError) {
-      if (statusError.status === 404) {
-        return updateMockKitchenOrderStatus(restaurantId, orderId, status);
-      }
-      throw statusError;
-    }
+    throw error;
   });
 }
