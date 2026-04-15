@@ -442,10 +442,6 @@ export default function KitchenOrdersPage() {
     );
   };
 
-  const handleSelectAllVisible = () => {
-    setSelectedOrderIds(visibleOrders.map((order) => order.id));
-  };
-
   const handleRejectOrder = async (order) => {
     const rejectReason =
       window.prompt('Reason for rejection', 'Item unavailable') || 'Rejected from kitchen dashboard';
@@ -643,75 +639,6 @@ export default function KitchenOrdersPage() {
             >
               Clear selection
             </button>
-          </div>
-        </section>
-      )}
-
-      {activeStatus === 'new' && visibleOrders.length > 0 && (
-        <section className="kitchen-selection-actions">
-          <button type="button" className="kitchen-inline-link" onClick={handleSelectAllVisible}>
-            Select all visible
-          </button>
-          <button type="button" className="kitchen-inline-link" onClick={handleClearSelection}>
-            Clear selection
-          </button>
-        </section>
-      )}
-
-      {activeStatus === 'new' && (
-        <section className="card kitchen-toolbar kitchen-toolbar--compact">
-          <div className="kitchen-toolbar__controls kitchen-toolbar__controls--compact">
-            <button
-              type="button"
-              className={`kitchen-toggle${soundEnabled ? ' active' : ''}`}
-              onClick={handleToggleSound}
-            >
-              Sound <strong>{soundEnabled ? 'On' : 'Off'}</strong>
-            </button>
-            <button
-              type="button"
-              className={`kitchen-toggle${compactMode ? ' active' : ''}`}
-              onClick={handleToggleCompact}
-            >
-              Compact Mode
-            </button>
-            <button
-              type="button"
-              className={`kitchen-toggle${
-                notificationsEnabled && notificationPermission === 'granted' ? ' active' : ''
-              }`}
-              onClick={handleToggleNotifications}
-            >
-              {notificationPermission === 'unsupported'
-                ? 'Notifications N/A'
-                : notificationsEnabled && notificationPermission === 'granted'
-                  ? 'Notifications On'
-                  : 'Notifications Off'}
-            </button>
-            <label className="kitchen-toolbar__field kitchen-toolbar__field--inline">
-              <span>Auto refresh</span>
-              <select value={refreshInterval} onChange={(event) => setRefreshInterval(Number(event.target.value))}>
-                <option value={10000}>10 seconds</option>
-                <option value={30000}>30 seconds</option>
-                <option value={60000}>60 seconds</option>
-              </select>
-            </label>
-            <button type="button" className="primary-btn kitchen-refresh-btn" onClick={refresh} disabled={loading}>
-              Refresh Now
-            </button>
-          </div>
-
-          <div className="kitchen-filter-row">
-            {FILTER_OPTIONS.map((option) => (
-              <button
-                key={option.value}
-                type="button"
-                className={`kitchen-filter-chip${filterMode === option.value ? ' active' : ''}`}
-                onClick={() => setFilterMode(option.value)}
-              >
-                {option.label}
-              </button>
-            ))}
           </div>
         </section>
       )}
