@@ -604,69 +604,6 @@ export default function KitchenOrdersPage() {
         </div>
       </section>
 
-      <section className="kitchen-queue-shell">
-        {loading ? (
-          <div className="kitchen-empty-state">Loading orders…</div>
-        ) : error ? (
-          <div className="kitchen-empty-state">{error}</div>
-        ) : visibleOrders?.length ? (
-          <section className={`kitchen-orders-grid${compactMode ? ' kitchen-orders-grid--compact' : ''}`}>
-            {visibleOrders.map((order) => {
-              const ageMinutes = getOrderAgeMinutes(order);
-              const priorityLabel = getPriorityLabel(order);
-              const ageLabel = activeStatus === 'new' ? `Waiting ${formatWaitLabel(ageMinutes)}` : null;
-              const selected = selectedOrderIds.includes(order.id);
-
-              return (
-                <KitchenOrderCard
-                  key={order.id}
-                  order={order}
-                  compact={compactMode}
-                  showSelection={activeStatus === 'new'}
-                  selected={selected}
-                  onSelectChange={activeStatus === 'new' ? () => handleSelectOrder(order.id) : undefined}
-                  ageLabel={ageLabel}
-                  priorityLabel={priorityLabel}
-                  actions={
-                    activeStatus === 'new'
-                      ? NEW_TAB_ACTIONS.map((action) => ({
-                          ...action,
-                          onClick:
-                            action.status === 'rejected'
-                              ? () => handleRejectOrder(order)
-                              : () => handleStatusChange(order, action.status),
-                        }))
-                      : STATUS_FLOW[order.status]
-                        ? [
-                            {
-                              label:
-                                order.status === 'accepted'
-                                  ? 'Start Preparing'
-                                  : order.status === 'preparing'
-                                    ? 'Mark Ready'
-                                    : order.status === 'ready_for_pickup'
-                                      ? 'Complete Pickup'
-                                      : 'Accept',
-                              status: STATUS_FLOW[order.status],
-                              variant: 'primary',
-                              onClick: () => handleStatusChange(order, STATUS_FLOW[order.status]),
-                            },
-                          ]
-                        : []
-                  }
-                  actionLoading={updatingId === order.id}
-                  loadingActionStatus={updatingId === order.id ? updatingStatus : null}
-                />
-              );
-            })}
-          </section>
-        ) : (
-          <div className="kitchen-empty-state">{EMPTY_MESSAGES[activeStatus]}</div>
-        )}
-
-        {!loading && !error && visibleOrders?.length > 0 && <p className="kitchen-queue-shell__footer">No more orders</p>}
-      </section>
-
       {hasBulkSelection && (
         <section className="card kitchen-bulk-bar">
           <div>
