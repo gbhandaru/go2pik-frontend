@@ -49,6 +49,7 @@ export default function KitchenOrderCard({
       ? order.totalItems
       : order.items?.reduce((sum, item) => sum + (item.quantity || 1), 0) || 0;
   const statusLabel = STATUS_LABELS[order.status] || order.status;
+  const pickupTime = order.pickupTime || order.pickupAt || order.scheduledPickupTime || null;
   const totalValue = order.total ?? order.totalDisplay;
   const subtotalValue = order.subtotal ?? order.subtotalDisplay;
   const taxValue = order.tax ?? order.taxDisplay;
@@ -76,7 +77,6 @@ export default function KitchenOrderCard({
             <p className="kitchen-order-card__order-number">Order #{orderNumber}</p>
           </div>
           <div className="kitchen-order-card__badges">
-            {isPending && <span className="kitchen-order-card__badge">Pending</span>}
             {waitLabel && (
               <span
                 className={[
@@ -101,6 +101,12 @@ export default function KitchenOrderCard({
           <span className="kitchen-order-card__pickup-label">PICKUP FOR:</span>
           <strong>{customerName}</strong>
         </div>
+        {pickupTime && (
+          <div className="kitchen-order-card__pickup kitchen-order-card__pickup--time">
+            <span className="kitchen-order-card__pickup-label">PICKUP AT:</span>
+            <strong>{pickupTime}</strong>
+          </div>
+        )}
       </div>
 
       <div className="kitchen-order-card__items">
@@ -121,25 +127,13 @@ export default function KitchenOrderCard({
       <footer className="kitchen-order-card__footer">
         <div className="kitchen-order-card__totals">
           <div>
-            <p className="muted">Total items</p>
+            <p className="muted">Items</p>
             <strong>{totalItems}</strong>
           </div>
           {hasTotal && (
             <div>
-              <p className="muted">Order total</p>
+              <p className="muted">Estimated total</p>
               <strong>{typeof totalValue === 'number' ? formatCurrency(totalValue) : totalValue}</strong>
-            </div>
-          )}
-          {subtotalValue != null && (
-            <div>
-              <p className="muted">Subtotal</p>
-              <strong>{typeof subtotalValue === 'number' ? formatCurrency(subtotalValue) : subtotalValue}</strong>
-            </div>
-          )}
-          {taxValue != null && (
-            <div>
-              <p className="muted">Tax</p>
-              <strong>{typeof taxValue === 'number' ? formatCurrency(taxValue) : taxValue}</strong>
             </div>
           )}
         </div>
