@@ -21,13 +21,17 @@ export default function KitchenOrderCard({ order, onAction, actionLoading = fals
 
   const orderNumber = order.orderNumber || order.displayId || order.id;
   const pickupType = order.pickupType || 'Pickup';
+  const customerName = order.customerName || order.customer?.name || 'Guest';
   const totalItems =
     typeof order.totalItems === 'number'
       ? order.totalItems
       : order.items?.reduce((sum, item) => sum + (item.quantity || 1), 0) || 0;
   const actionLabel = ACTION_LABELS[order.status];
   const statusLabel = STATUS_LABELS[order.status] || order.status;
-  const hasTotal = typeof order.total === 'number';
+  const totalValue = order.total ?? order.totalDisplay;
+  const subtotalValue = order.subtotal ?? order.subtotalDisplay;
+  const taxValue = order.tax ?? order.taxDisplay;
+  const hasTotal = totalValue != null;
 
   return (
     <article className="kitchen-order-card card">
@@ -40,7 +44,7 @@ export default function KitchenOrderCard({ order, onAction, actionLoading = fals
       </div>
 
       <div className="kitchen-order-card__customer">
-        <h2>{order.customerName || 'Guest'}</h2>
+        <h2>{customerName}</h2>
       </div>
 
       <div className="kitchen-order-card__items">
@@ -67,7 +71,19 @@ export default function KitchenOrderCard({ order, onAction, actionLoading = fals
           {hasTotal && (
             <div>
               <p className="muted">Order total</p>
-              <strong>{formatCurrency(order.total)}</strong>
+              <strong>{typeof totalValue === 'number' ? formatCurrency(totalValue) : totalValue}</strong>
+            </div>
+          )}
+          {subtotalValue != null && (
+            <div>
+              <p className="muted">Subtotal</p>
+              <strong>{typeof subtotalValue === 'number' ? formatCurrency(subtotalValue) : subtotalValue}</strong>
+            </div>
+          )}
+          {taxValue != null && (
+            <div>
+              <p className="muted">Tax</p>
+              <strong>{typeof taxValue === 'number' ? formatCurrency(taxValue) : taxValue}</strong>
             </div>
           )}
         </div>
