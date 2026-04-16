@@ -13,8 +13,9 @@ import {
   updateKitchenMenuCategory,
   updateKitchenMenuItem,
 } from '../api/kitchenMenuApi.js';
+import { restaurantUserLogout } from '../api/authApi.js';
 import { formatCurrency } from '../utils/formatCurrency.js';
-import { getKitchenRestaurantId } from '../services/authStorage.js';
+import { clearKitchenAuthTokens, getKitchenRefreshToken, getKitchenRestaurantId } from '../services/authStorage.js';
 
 const MAIN_TABS = [
   { value: 'orders', label: 'Order' },
@@ -813,6 +814,20 @@ export default function KitchenMenuPage() {
     navigate('/kitchen/menu');
   };
 
+  const handleLogout = async () => {
+    const refreshToken = getKitchenRefreshToken();
+    try {
+      if (refreshToken) {
+        await restaurantUserLogout(refreshToken);
+      }
+    } catch (error) {
+      console.warn('Failed to notify server about kitchen logout', error);
+    } finally {
+      clearKitchenAuthTokens();
+      navigate('/kitchen/login', { replace: true });
+    }
+  };
+
   const showFeedback = (kind, message) => {
     setFeedback({ kind, message });
   };
@@ -1392,6 +1407,11 @@ export default function KitchenMenuPage() {
           <button type="button" className="kitchen-icon-btn" onClick={() => navigate('/kitchen/orders')} aria-label="Back to orders">
             <svg viewBox="0 0 24 24" aria-hidden="true">
               <path d="M13 5 6 12l7 7 1.4-1.4L9.8 13H18v-2H9.8l4.6-4.6Z" />
+            </svg>
+          </button>
+          <button type="button" className="kitchen-icon-btn" onClick={handleLogout} aria-label="Logout">
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M10 17v-2h4V9h-4V7l-5 5 5 5Zm9-13H12V2h7a2 2 0 0 1 2 2v16a2 2 0 0 1-2 2h-7v-2h7V4Z" />
             </svg>
           </button>
         </div>

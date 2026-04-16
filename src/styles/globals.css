@@ -1039,6 +1039,33 @@ textarea {
   margin-top: 0.25rem;
 }
 
+.auth-banner {
+  position: fixed;
+  top: 1rem;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 1000;
+  min-width: min(92vw, 420px);
+  padding: 0.85rem 1rem;
+  border-radius: 999px;
+  font-weight: 700;
+  text-align: center;
+  box-shadow: 0 20px 40px rgba(15, 23, 42, 0.16);
+  backdrop-filter: blur(10px);
+}
+
+.auth-banner--success {
+  background: rgba(236, 253, 245, 0.96);
+  color: #047857;
+  border: 1px solid rgba(16, 185, 129, 0.25);
+}
+
+.auth-banner--error {
+  background: rgba(254, 242, 242, 0.98);
+  color: #b91c1c;
+  border: 1px solid rgba(239, 68, 68, 0.22);
+}
+
 hr {
   border: none;
   border-top: 1px solid #e2e8f0;

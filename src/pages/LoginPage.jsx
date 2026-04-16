@@ -1,13 +1,19 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth.jsx';
 
 export default function LoginPage() {
-  const { login, error, loading } = useAuth();
+  const { login, error, loading, isAuthenticated } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
   const [form, setForm] = useState(() => ({ email: location.state?.email || '', password: '' }));
   const [localError, setLocalError] = useState(null);
+
+  useEffect(() => {
+    if (!loading && isAuthenticated) {
+      navigate(location.state?.from?.pathname || '/home', { replace: true });
+    }
+  }, [isAuthenticated, loading, location.state, navigate]);
 
   const handleChange = (event) => {
     const { name, value } = event.target;

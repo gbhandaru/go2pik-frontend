@@ -13,6 +13,7 @@ export function customerSignup(payload) {
   return safeRequest('/auth/customers/signup', {
     method: 'POST',
     body: payload,
+    auth: false,
   });
 }
 
@@ -20,6 +21,15 @@ export function customerLogin(payload) {
   return safeRequest('/auth/customers/login', {
     method: 'POST',
     body: payload,
+    auth: false,
+  });
+}
+
+export function customerRefreshSession(refreshToken) {
+  return safeRequest('/auth/customers/refresh', {
+    method: 'POST',
+    body: { refresh_token: refreshToken },
+    auth: false,
   });
 }
 
@@ -34,6 +44,7 @@ export function customerLogout(refreshToken) {
   return safeRequest('/auth/customers/logout', {
     method: 'POST',
     body: { refresh_token: refreshToken },
+    auth: false,
   });
 }
 
@@ -54,6 +65,23 @@ export function restaurantUserLogin(payload) {
   return safeRequest('/auth/restaurant-users/login', {
     method: 'POST',
     body: payload,
+    auth: false,
+  });
+}
+
+export function restaurantUserRefreshSession(refreshToken) {
+  return safeRequest('/auth/restaurant-users/refresh', {
+    method: 'POST',
+    body: { refresh_token: refreshToken },
+    auth: false,
+  });
+}
+
+export function restaurantUserLogout(refreshToken) {
+  return safeRequest('/auth/restaurant-users/logout', {
+    method: 'POST',
+    body: { refresh_token: refreshToken },
+    auth: false,
   });
 }
 
