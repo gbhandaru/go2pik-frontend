@@ -1,13 +1,14 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { restaurantUserLogin } from '../api/authApi.js';
-import { storeKitchenAuthTokens } from '../services/authStorage.js';
+import { consumeKitchenAuthNotice, storeKitchenAuthTokens } from '../services/authStorage.js';
 
 export default function KitchenLoginPage() {
   const navigate = useNavigate();
   const [form, setForm] = useState({ email: '', password: '' });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+  const [sessionNotice, setSessionNotice] = useState(() => consumeKitchenAuthNotice());
 
   const handleChange = (event) => {
     const { name, value } = event.target;
@@ -39,6 +40,7 @@ export default function KitchenLoginPage() {
         <p className="kitchen-header__eyebrow">Kitchen Access</p>
         <h1>Sign in to the kitchen</h1>
         <p className="kitchen-header__subtitle">For in-store teams managing pickup orders.</p>
+        {sessionNotice ? <p className="auth-inline-notice">{sessionNotice}</p> : null}
         <label className="form-group">
           Email
           <input

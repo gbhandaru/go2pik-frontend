@@ -90,11 +90,16 @@ export function fetchRestaurantProfile() {
 }
 
 export function createRestaurantUser(restaurantId, payload) {
-  if (!restaurantId) {
+  const normalizedRestaurantId = String(restaurantId || '').trim();
+  if (!normalizedRestaurantId) {
     throw new Error('restaurantId is required');
   }
 
-  return safeRequest(`/restaurants/${restaurantId}/users`, {
+  if (!/^\d+$/.test(normalizedRestaurantId)) {
+    throw new Error('Restaurant ID must be numeric.');
+  }
+
+  return safeRequest(`/restaurants/${normalizedRestaurantId}/users`, {
     method: 'POST',
     body: payload,
   });

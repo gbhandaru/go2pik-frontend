@@ -113,13 +113,6 @@ export function AuthProvider({ children }) {
           refreshToken: response?.refresh_token,
           profile: response?.user,
         });
-        if (typeof window !== 'undefined') {
-          window.dispatchEvent(
-            new CustomEvent('go2pik:auth-renewed', {
-              detail: { message: 'Session renewed.' },
-            }),
-          );
-        }
         setState({ user: response?.user || null, loading: false, error: null });
       } catch (error) {
         clearAuthTokens();
@@ -153,13 +146,6 @@ export function AuthProvider({ children }) {
           refreshToken: response?.refresh_token,
           profile: response?.user,
         });
-        if (typeof window !== 'undefined') {
-          window.dispatchEvent(
-            new CustomEvent('go2pik:auth-renewed', {
-              detail: { message: 'Signed in successfully.' },
-            }),
-          );
-        }
         setState({ user: response?.user || null, loading: false, error: null });
         return response;
       } catch (error) {
@@ -176,13 +162,6 @@ export function AuthProvider({ children }) {
           refreshToken: response?.refresh_token,
           profile: response?.user,
         });
-        if (typeof window !== 'undefined') {
-          window.dispatchEvent(
-            new CustomEvent('go2pik:auth-renewed', {
-              detail: { message: 'Account created successfully.' },
-            }),
-          );
-        }
         setState({ user: response?.user || null, loading: false, error: null });
         notifyWelcomeEmail(response);
         return response;

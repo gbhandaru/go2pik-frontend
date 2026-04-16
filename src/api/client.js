@@ -1,5 +1,10 @@
 import { ENV } from '../config/env.js';
-import { clearAuthTokens, clearKitchenAuthTokens } from '../services/authStorage.js';
+import {
+  clearAuthTokens,
+  clearKitchenAuthTokens,
+  setAuthNotice,
+  setKitchenAuthNotice,
+} from '../services/authStorage.js';
 import {
   getAuthToken,
   getKitchenAuthToken,
@@ -32,28 +37,6 @@ function getRefreshEndpoint() {
   return pathname.startsWith('/kitchen/')
     ? '/auth/restaurant-users/refresh'
     : '/auth/customers/refresh';
-}
-
-function emitAuthEvent(type, message) {
-  if (typeof window === 'undefined') {
-    return;
-  }
-
-  window.dispatchEvent(
-    new CustomEvent(type, {
-      detail: { message },
-    }),
-  );
-}
-
-function isPublicAuthRoute(pathname) {
-  return [
-    '/login',
-    '/signup',
-    '/password-update',
-    '/kitchen/login',
-    '/kitchen/users/new',
-  ].some((route) => pathname === route || pathname.startsWith(`${route}/`));
 }
 
 async function refreshActiveSession() {
@@ -100,8 +83,6 @@ async function refreshActiveSession() {
         profile,
       });
     }
-
-    emitAuthEvent('go2pik:auth-renewed', 'Session renewed.');
     return Boolean(accessToken);
   } catch {
     return false;
@@ -151,8 +132,10 @@ export async function apiRequest(path, options = {}) {
       clearAuthTokens();
       clearKitchenAuthTokens();
       const pathname = typeof window !== 'undefined' ? window.location.pathname : '';
-      if (!isPublicAuthRoute(pathname)) {
-        emitAuthEvent('go2pik:auth-expired', 'Session expired. Please sign in again.');
+      if (pathname.startsWith('/kitchen/')) {
+        setKitchenAuthNotice('Session expired. Please sign in again.');
+      } else {
+        setAuthNotice('Session expired. Please sign in again.');
       }
     }
     const error = new Error(message);
