@@ -1,6 +1,33 @@
 import { useEffect, useState } from 'react';
+import { BrowserRouter, useLocation } from 'react-router-dom';
 import AppRoutes from './routes/AppRoutes.jsx';
 import { AuthProvider } from './hooks/useAuth.jsx';
+
+const PUBLIC_AUTH_ROUTES = ['/login', '/signup', '/password-update', '/kitchen/login', '/kitchen/users/new'];
+
+function isPublicAuthRoute(pathname) {
+  return PUBLIC_AUTH_ROUTES.some((route) => pathname === route || pathname.startsWith(`${route}/`));
+}
+
+function AuthBanner({ banner, onDismiss }) {
+  const location = useLocation();
+
+  useEffect(() => {
+    if (isPublicAuthRoute(location.pathname)) {
+      onDismiss();
+    }
+  }, [location.pathname, onDismiss]);
+
+  if (!banner || isPublicAuthRoute(location.pathname)) {
+    return null;
+  }
+
+  return (
+    <div className={`auth-banner auth-banner--${banner.kind}`} role="status" aria-live="polite">
+      {banner.message}
+    </div>
+  );
+}
 
 export default function App() {
   const [banner, setBanner] = useState(null);
@@ -36,13 +63,11 @@ export default function App() {
   }, []);
 
   return (
-    <AuthProvider>
-      {banner ? (
-        <div className={`auth-banner auth-banner--${banner.kind}`} role="status" aria-live="polite">
-          {banner.message}
-        </div>
-      ) : null}
-      <AppRoutes />
-    </AuthProvider>
+    <BrowserRouter>
+      <AuthProvider>
+        <AuthBanner banner={banner} onDismiss={() => setBanner(null)} />
+        <AppRoutes />
+      </AuthProvider>
+    </BrowserRouter>
   );
 }

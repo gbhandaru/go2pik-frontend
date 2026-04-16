@@ -1,4 +1,4 @@
-import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
+import { Navigate, Route, Routes } from 'react-router-dom';
 import LandingPage from '../pages/LandingPage.jsx';
 import LoginPage from '../pages/LoginPage.jsx';
 import PasswordUpdatePage from '../pages/PasswordUpdatePage.jsx';
@@ -19,28 +19,26 @@ import KitchenCompletedPage from '../pages/KitchenCompletedPage.jsx';
 
 export default function AppRoutes() {
   return (
-    <BrowserRouter>
-      <Routes>
-        <Route path="/" element={<LandingPage />} />
-        <Route path="/login" element={<LoginPage />} />
-        <Route path="/signup" element={<SignupPage />} />
-        <Route path="/home" element={<HomePage />} />
-        <Route path="/password-update" element={<PasswordUpdatePage />} />
-        <Route path="/restaurants/:restaurantId/menu" element={<RestaurantMenuPage />} />
-        <Route path="/kitchen/login" element={<KitchenLoginPage />} />
-        <Route path="/kitchen/users/new" element={<KitchenCreateUserPage />} />
-        <Route path="/kitchen" element={<Navigate to="/kitchen/orders" replace />} />
-        <Route path="/kitchen/orders" element={<KitchenOrdersPage />} />
-        <Route path="/kitchen/menu" element={<KitchenMenuPage />} />
-        <Route path="/kitchen/ready" element={<KitchenReadyPage />} />
-        <Route path="/kitchen/completed" element={<KitchenCompletedPage />} />
-        <Route element={<ProtectedRoute />}>
-          <Route path="/checkout" element={<CheckoutPage />} />
-          <Route path="/orders" element={<OrdersPage />} />
-          <Route path="/order-confirmation" element={<OrderConfirmationPage />} />
-        </Route>
-        <Route path="*" element={<NotFoundPage />} />
-      </Routes>
-    </BrowserRouter>
+    <Routes>
+      <Route path="/" element={<LandingPage />} />
+      <Route path="/login" element={<LoginPage />} />
+      <Route path="/signup" element={<SignupPage />} />
+      <Route path="/home" element={<HomePage />} />
+      <Route path="/password-update" element={<PasswordUpdatePage />} />
+      <Route path="/restaurants/:restaurantId/menu" element={<RestaurantMenuPage />} />
+      <Route path="/kitchen/login" element={<KitchenLoginPage />} />
+      <Route path="/kitchen/users/new" element={<KitchenCreateUserPage />} />
+      <Route path="/kitchen" element={<Navigate to="/kitchen/orders" replace />} />
+      <Route path="/kitchen/orders" element={<KitchenOrdersPage />} />
+      <Route path="/kitchen/menu" element={<KitchenMenuPage />} />
+      <Route path="/kitchen/ready" element={<KitchenReadyPage />} />
+      <Route path="/kitchen/completed" element={<KitchenCompletedPage />} />
+      <Route element={<ProtectedRoute />}>
+        <Route path="/checkout" element={<CheckoutPage />} />
+        <Route path="/orders" element={<OrdersPage />} />
+        <Route path="/order-confirmation" element={<OrderConfirmationPage />} />
+      </Route>
+      <Route path="*" element={<NotFoundPage />} />
+    </Routes>
   );
 }
