@@ -230,3 +230,18 @@ export function importKitchenMenu(restaurantId, payload) {
     body: payload,
   });
 }
+
+export function importKitchenMenuCsv(restaurantId, csvText) {
+  const resolvedRestaurantId = resolveRestaurantId(restaurantId);
+  if (!resolvedRestaurantId) {
+    throw new Error('restaurantId is required');
+  }
+
+  return apiRequest(`/dashboard/restaurants/${encodeURIComponent(resolvedRestaurantId)}/menu/import`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'text/csv',
+    },
+    body: csvText,
+  });
+}

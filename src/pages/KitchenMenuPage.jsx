@@ -8,7 +8,7 @@ import {
   fetchKitchenMenuCategories,
   fetchKitchenMenuExport,
   fetchKitchenMenuItems,
-  importKitchenMenu,
+  importKitchenMenuCsv,
   toggleKitchenMenuItemAvailability,
   updateKitchenMenuCategory,
   updateKitchenMenuItem,
@@ -132,6 +132,53 @@ function filterMenuItems(items = [], searchQuery = '', filterValue = 'all') {
 
 function getCategoryItemCount(items = []) {
   return `${items.length} Item${items.length === 1 ? '' : 's'}`;
+}
+
+function escapeCsvValue(value) {
+  if (value == null) return '';
+  const stringValue = String(value);
+  if (/[",\n\r]/.test(stringValue)) {
+    return `"${stringValue.replace(/"/g, '""')}"`;
+  }
+  return stringValue;
+}
+
+function buildMenuImportCsv(exportPayload) {
+  const header = 'category_id,category_name,item_name,item_price,is_available';
+  const rows = [header];
+
+  const categories = Array.isArray(exportPayload?.categories) ? exportPayload.categories : [];
+  categories.forEach((category) => {
+    const items = Array.isArray(category.items) ? category.items : [];
+    items.forEach((item) => {
+      rows.push(
+        [
+          escapeCsvValue(category.id),
+          escapeCsvValue(category.name),
+          escapeCsvValue(item.name),
+          escapeCsvValue(item.price),
+          escapeCsvValue(item.is_available ?? item.isAvailable ?? true),
+        ].join(','),
+      );
+    });
+  });
+
+  const uncategorizedItems = Array.isArray(exportPayload?.uncategorized_items)
+    ? exportPayload.uncategorized_items
+    : [];
+  uncategorizedItems.forEach((item) => {
+    rows.push(
+      [
+        '',
+        '',
+        escapeCsvValue(item.name),
+        escapeCsvValue(item.price),
+        escapeCsvValue(item.is_available ?? item.isAvailable ?? true),
+      ].join(','),
+    );
+  });
+
+  return rows.join('\n');
 }
 
 function groupMenuItems(items, categories) {
@@ -942,9 +989,9 @@ export default function KitchenMenuPage() {
     setBulkBusy(true);
     try {
       const payload = await fetchKitchenMenuExport(restaurantId);
-      setBulkJson(JSON.stringify(payload, null, 2));
+      setBulkJson(buildMenuImportCsv(payload));
       setActivePanel('bulk');
-      showFeedback('info', 'Current export loaded into the bulk import editor.');
+      showFeedback('info', 'Current export loaded into the CSV import editor.');
     } catch (err) {
       showFeedback('error', err.message || 'Unable to load export');
     } finally {
@@ -958,7 +1005,7 @@ export default function KitchenMenuPage() {
 
   const handleBulkImport = async () => {
     if (!bulkJson.trim()) {
-      showFeedback('error', 'Paste export JSON before importing.');
+      showFeedback('error', 'Paste CSV before importing.');
       return;
     }
     if (!restaurantId) {
@@ -968,8 +1015,7 @@ export default function KitchenMenuPage() {
 
     setBulkBusy(true);
     try {
-      const payload = JSON.parse(bulkJson);
-      await importKitchenMenu(restaurantId, payload);
+      await importKitchenMenuCsv(restaurantId, bulkJson);
       showFeedback('success', 'Bulk import completed.');
       await loadMenu();
     } catch (err) {
@@ -988,12 +1034,10 @@ export default function KitchenMenuPage() {
     setCsvBusy(true);
     try {
       const text = await file.text();
-      const rows = parseCsvText(text);
-      const payload = buildCsvImportPayload(rows, categoryOptions);
-      setCsvImportPayload(payload);
+      setCsvImportPayload(text);
       setCsvFileName(file.name);
       handleOpenCsvPanel();
-      showFeedback('info', `Parsed ${rows.length} CSV row(s) from ${file.name}.`);
+      showFeedback('info', `Loaded ${file.name}.`);
     } catch (err) {
       showFeedback('error', err.message || 'Unable to parse CSV');
     } finally {
@@ -1086,7 +1130,7 @@ export default function KitchenMenuPage() {
 
     setCsvBusy(true);
     try {
-      await importKitchenMenu(restaurantId, csvImportPayload);
+      await importKitchenMenuCsv(restaurantId, csvImportPayload);
       showFeedback('success', 'CSV import completed.');
       await loadMenu();
     } catch (err) {
@@ -1208,14 +1252,14 @@ export default function KitchenMenuPage() {
         {activePanel === 'bulk' ? (
           <ImportPanel
             title="Bulk Upload"
-            subtitle="Load the current export or paste a menu snapshot and import it back."
+            subtitle="Load the current export or paste CSV and import it back."
             onClose={closePanels}
           >
             <textarea
-              rows="14"
+              rows="12"
               value={bulkJson}
               onChange={(event) => setBulkJson(event.target.value)}
-              placeholder="Paste export JSON here"
+              placeholder="Paste CSV here"
             />
             <div className="kitchen-menu-actions">
               <button type="button" className="primary-btn secondary" onClick={handleLoadCurrentExport} disabled={bulkBusy}>
@@ -1239,7 +1283,7 @@ export default function KitchenMenuPage() {
               <p className="muted">Upload CSV with columns: name, price, category</p>
               <p className="muted">
                 {csvImportPayload
-                  ? `${csvImportPayload.categories.length} categories and ${csvImportPayload.uncategorized_items.length} uncategorized item(s) ready to import.`
+                  ? `${Math.max(0, csvImportPayload.split(/\r?\n/).length - 1)} data row(s) ready to import.`
                   : 'Choose a CSV file to prepare an import payload.'}
               </p>
             </div>
