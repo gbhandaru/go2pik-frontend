@@ -79,13 +79,13 @@ img {
 
 .home-hero h1 {
   margin: 0;
-  font-size: clamp(2.15rem, 5vw, 3.3rem);
+  font-size: clamp(1.45rem, 4.3vw, 3.3rem);
   line-height: 0.98;
-  max-width: 12ch;
+  white-space: nowrap;
 }
 
 .home-hero h1 span {
-  display: inline-block;
+  display: inline;
   color: #0f172a;
 }
 

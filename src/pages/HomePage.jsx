@@ -37,12 +37,10 @@ export default function HomePage() {
                   <div className="restaurant-card__meta">
                     <p className="restaurant-card__pickup">{restaurant.eta || 'Pickup in 15–20 mins'}</p>
                     <p className="restaurant-card__address">
-                      {restaurant.address_line1 || restaurant.addressLine1 || restaurant.address || restaurant.location || ''}
+                      {formatRestaurantAddress(restaurant)}
                     </p>
                   </div>
-                  <p className="restaurant-card__details">
-                    {restaurant.cuisine} • {restaurant.rating || 'N/A'} ⭐
-                  </p>
+                  <p className="restaurant-card__details">{restaurant.cuisine}</p>
                   <span className="primary-btn restaurant-card__cta">View Menu</span>
                 </div>
               </article>
@@ -52,4 +50,28 @@ export default function HomePage() {
       )}
     </main>
   );
+}
+
+function formatRestaurantAddress(restaurant) {
+  if (!restaurant) {
+    return '';
+  }
+
+  const line1 =
+    restaurant.address_line1 ||
+    restaurant.addressLine1 ||
+    restaurant.address1 ||
+    restaurant.street ||
+    '';
+  const line2 = restaurant.address_line2 || restaurant.addressLine2 || '';
+  const cityStateZip = [
+    restaurant.city,
+    restaurant.state,
+    restaurant.postal_code || restaurant.postalCode || restaurant.zip,
+  ]
+    .filter(Boolean)
+    .join(', ');
+  const location = restaurant.location || '';
+
+  return [line1, line2, cityStateZip, location].filter(Boolean).join(' • ');
 }
