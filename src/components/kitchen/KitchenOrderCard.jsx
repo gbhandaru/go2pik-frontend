@@ -36,7 +36,6 @@ export default function KitchenOrderCard({
   actions = [],
   loadingActionStatus = null,
   ageMinutes,
-  priorityLabel,
   compact = false,
 }) {
   if (!order) return null;
@@ -58,11 +57,10 @@ export default function KitchenOrderCard({
 
   return (
     <article
-      className={[
+        className={[
         'kitchen-order-card',
         'card',
         compact ? 'kitchen-order-card--compact' : '',
-        priorityLabel ? 'kitchen-order-card--priority' : '',
       ]
         .filter(Boolean)
         .join(' ')}
@@ -84,11 +82,6 @@ export default function KitchenOrderCard({
                   .join(' ')}
               >
                 {waitLabel}
-              </span>
-            )}
-            {priorityLabel && (
-              <span className="kitchen-order-card__badge kitchen-order-card__badge--priority">
-                Priority
               </span>
             )}
           </div>

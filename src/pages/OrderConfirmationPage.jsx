@@ -258,10 +258,6 @@ export default function OrderConfirmationPage() {
           )}
 
           <div className="order-totals">
-            <div>
-              <span>Subtotal</span>
-              <span>{formatCurrency(subtotal)}</span>
-            </div>
             <div className="grand">
               <div className="order-totals-grand-label">
                 <strong>Estimated total</strong>

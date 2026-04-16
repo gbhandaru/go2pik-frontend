@@ -445,14 +445,12 @@ export default function KitchenOrdersPage() {
       <section className={`kitchen-orders-grid${compactMode ? ' kitchen-orders-grid--compact' : ''}`}>
         {visibleOrders.map((order) => {
           const ageMinutes = activeStatus === 'new' ? getOrderAgeMinutes(order) : null;
-          const priorityLabel = getPriorityLabel(order);
           return (
             <KitchenOrderCard
               key={order.id}
               order={order}
               compact={compactMode}
               ageMinutes={ageMinutes}
-              priorityLabel={priorityLabel}
               actions={
                 activeStatus === 'new'
                   ? NEW_TAB_ACTIONS.map((action) => ({
