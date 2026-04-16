@@ -235,17 +235,23 @@ export default function OrderConfirmationPage() {
           <p className="eyebrow">What you ordered</p>
           {items.length > 0 ? (
             <ul className="order-items">
-              {items.map((item) => (
-                <li key={item.id || item.sku || item.name}>
-                  <div>
-                    <strong>{item.name}</strong>
-                    <span>
-                      {item.quantity || 1} × {formatCurrency(item.price || 0)}
-                    </span>
-                  </div>
-                  <strong>{formatCurrency((item.price || 0) * (item.quantity || 1))}</strong>
-                </li>
-              ))}
+              {items.map((item) => {
+                const itemInstructions = getItemInstructions(item);
+                return (
+                  <li key={item.id || item.sku || item.name}>
+                    <div>
+                      <strong>{item.name}</strong>
+                      <span>
+                        {item.quantity || 1} × {formatCurrency(item.price || 0)}
+                      </span>
+                      {itemInstructions ? (
+                        <span className="order-item-instructions">{itemInstructions}</span>
+                      ) : null}
+                    </div>
+                    <strong>{formatCurrency((item.price || 0) * (item.quantity || 1))}</strong>
+                  </li>
+                );
+              })}
             </ul>
           ) : (
             <p className="muted">This order's line items are not available right now.</p>
@@ -285,6 +291,20 @@ export default function OrderConfirmationPage() {
         </p>
       </section>
     </main>
+  );
+}
+
+function getItemInstructions(item) {
+  if (!item) {
+    return '';
+  }
+
+  return (
+    item.specialInstructions ||
+    item.special_instructions ||
+    item.instructions ||
+    item.note ||
+    ''
   );
 }
 

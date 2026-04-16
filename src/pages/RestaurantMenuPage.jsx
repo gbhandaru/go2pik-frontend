@@ -44,6 +44,14 @@ export default function RestaurantMenuPage() {
       }, {}),
     [cart],
   );
+  const cartItemById = useMemo(
+    () =>
+      cart.reduce((acc, item) => {
+        acc[item.id] = item;
+        return acc;
+      }, {}),
+    [cart],
+  );
 
   const menu = data?.menu || [];
   const restaurant = data?.restaurant;
@@ -67,15 +75,28 @@ export default function RestaurantMenuPage() {
     };
   }, [data?.lastOrder, menu]);
 
-  const addToCart = (menuItem) => {
+  const addToCart = (menuItem, options = {}) => {
     setCart((prev) => {
       const existing = prev.find((item) => item.id === menuItem.id);
       if (existing) {
         return prev.map((item) =>
-          item.id === menuItem.id ? { ...item, quantity: item.quantity + 1 } : item,
+          item.id === menuItem.id
+            ? {
+                ...item,
+                quantity: item.quantity + 1,
+                specialInstructions: options.specialInstructions ?? item.specialInstructions ?? '',
+              }
+            : item,
         );
       }
-      return [...prev, { ...menuItem, quantity: 1 }];
+      return [
+        ...prev,
+        {
+          ...menuItem,
+          quantity: 1,
+          specialInstructions: options.specialInstructions ?? '',
+        },
+      ];
     });
   };
 
@@ -86,6 +107,14 @@ export default function RestaurantMenuPage() {
       }
       return prev.map((item) => (item.id === itemId ? { ...item, quantity: nextQuantity } : item));
     });
+  };
+
+  const updateInstructions = (itemId, specialInstructions) => {
+    setCart((prev) =>
+      prev.map((item) =>
+        item.id === itemId ? { ...item, specialInstructions } : item,
+      ),
+    );
   };
 
   const reorderLastOrder = () => {
@@ -137,6 +166,7 @@ export default function RestaurantMenuPage() {
         price,
         quantity,
         lineTotal: price * quantity,
+        specialInstructions: cartItemById[id]?.specialInstructions || '',
       }));
 
       const payload = {
@@ -222,8 +252,10 @@ export default function RestaurantMenuPage() {
           <MenuList
             menu={menu}
             quantityById={quantityById}
+            cartItemById={cartItemById}
             onAdd={addToCart}
             onUpdate={updateQuantity}
+            onUpdateInstructions={updateInstructions}
           />
         </div>
 
@@ -352,7 +384,15 @@ function ReorderCard({ items = [], hasOrder, onReorder }) {
 }
 
 // Menu list stays lean so the cart retains secondary visual weight.
-function MenuList({ menu, quantityById, onAdd, onUpdate }) {
+function MenuList({ menu, quantityById, cartItemById, onAdd, onUpdate, onUpdateInstructions }) {
+  const [expandedItemId, setExpandedItemId] = useState(null);
+
+  useEffect(() => {
+    if (expandedItemId && !quantityById[expandedItemId]) {
+      setExpandedItemId(null);
+    }
+  }, [expandedItemId, quantityById]);
+
   if (!menu.length) {
     return <p className="muted">Menu unavailable right now.</p>;
   }
@@ -361,11 +401,52 @@ function MenuList({ menu, quantityById, onAdd, onUpdate }) {
     <div className="menu-items" aria-live="polite">
       {menu.map((item) => {
         const quantity = quantityById[item.id] || 0;
+        const currentCartItem = cartItemById[item.id];
+        const instructions = currentCartItem?.specialInstructions || '';
+        const isExpanded = expandedItemId === item.id;
         return (
-          <div className="menu-row" key={item.id}>
-            <div>
+          <div className="menu-row menu-row--with-instructions" key={item.id}>
+            <div className="menu-row__content">
               <strong>{item.name}</strong>
               {item.description && <p className="muted">{item.description}</p>}
+              {quantity > 0 ? (
+                <div className="menu-row__instructions">
+                  <button
+                    type="button"
+                    className="menu-instructions-toggle"
+                    onClick={() => {
+                      setExpandedItemId((current) => (current === item.id ? null : item.id));
+                    }}
+                  >
+                    {isExpanded ? (
+                      'Hide Instructions'
+                    ) : (
+                      <>
+                        <span>Add Instructions</span>
+                        <span className="menu-instructions-toggle__hint">Optional</span>
+                      </>
+                    )}
+                  </button>
+                  {isExpanded ? (
+                    <div className="menu-instructions-editor">
+                      <textarea
+                        rows="2"
+                        value={instructions}
+                        onChange={(event) => {
+                          const nextInstructions = event.target.value;
+                          onUpdateInstructions(item.id, nextInstructions);
+                        }}
+                        placeholder="Add a note for the kitchen"
+                      />
+                      <p className="muted menu-instructions-help">
+                        Example: less spicy, no onions, sauce on the side
+                      </p>
+                    </div>
+                  ) : instructions ? (
+                    <p className="menu-instructions-preview">{instructions}</p>
+                  ) : null}
+                </div>
+              ) : null}
             </div>
             <div className="stepper">
               <span className="price">{formatCurrency(item.price)}</span>
@@ -452,6 +533,9 @@ function CartSummary({
                   <span>
                     {cartItem.quantity} × {formatCurrency(cartItem.price)}
                   </span>
+                  {cartItem.specialInstructions ? (
+                    <span className="cart-item-instructions">{cartItem.specialInstructions}</span>
+                  ) : null}
                 </div>
                 <strong>{formatCurrency(cartItem.price * cartItem.quantity)}</strong>
               </li>

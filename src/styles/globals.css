@@ -355,9 +355,82 @@ textarea {
   align-items: center;
 }
 
+.menu-row--with-instructions {
+  align-items: flex-start;
+}
+
+.menu-row__content {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
 .menu-row strong {
   display: block;
   margin-bottom: 0.35rem;
+}
+
+.menu-row--with-instructions strong {
+  margin-bottom: 0;
+}
+
+.menu-row__instructions {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.menu-instructions-toggle {
+  align-self: flex-start;
+  border: 1px solid #cbd5e1;
+  border-radius: 999px;
+  background: #fff;
+  color: #0f172a;
+  font-size: 0.82rem;
+  font-weight: 800;
+  padding: 0.42rem 0.78rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  flex-wrap: wrap;
+}
+
+.menu-instructions-toggle__hint {
+  border-radius: 999px;
+  background: #fef3c7;
+  color: #92400e;
+  font-size: 0.68rem;
+  font-weight: 800;
+  padding: 0.12rem 0.45rem;
+  letter-spacing: 0.02em;
+}
+
+.menu-instructions-editor {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+
+.menu-instructions-editor textarea {
+  min-height: 74px;
+  resize: vertical;
+}
+
+.menu-instructions-help,
+.menu-instructions-preview {
+  margin: 0;
+  font-size: 0.82rem;
+  line-height: 1.4;
+}
+
+.menu-instructions-preview {
+  color: #0f172a;
+  background: #f8fafc;
+  border: 1px dashed #d7e1ee;
+  border-radius: 0.8rem;
+  padding: 0.45rem 0.65rem;
 }
 
 .stepper {
@@ -467,6 +540,14 @@ textarea {
   font-weight: 500;
   color: #475569;
   font-size: 0.92rem;
+}
+
+.cart-item-instructions {
+  color: #0f172a;
+  font-size: 0.82rem;
+  line-height: 1.35;
+  margin-top: 0.1rem;
+  padding-left: 0.1rem;
 }
 
 .cart-preview-items li + li {
@@ -763,6 +844,14 @@ textarea {
   font-weight: 500;
   color: #64748b;
   font-size: 0.9rem;
+}
+
+.order-item-instructions {
+  display: block;
+  margin-top: 0.1rem;
+  color: #0f172a;
+  font-size: 0.8rem;
+  line-height: 1.35;
 }
 
 .order-totals {
@@ -1613,6 +1702,11 @@ hr {
   gap: 0.2rem;
 }
 
+.kitchen-menu-item__copy strong,
+.kitchen-menu-item__copy p {
+  margin: 0;
+}
+
 .kitchen-menu-item__title-row {
   display: flex;
   justify-content: space-between;
@@ -1663,7 +1757,7 @@ hr {
 .kitchen-menu-item__actions {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 0.45rem;
+  gap: 0.4rem;
 }
 
 .kitchen-menu-item__actions .primary-btn {
@@ -1672,6 +1766,7 @@ hr {
   padding: 0.65rem 0.8rem;
   border-radius: 0.85rem;
   font-size: 0.92rem;
+  border: 1px solid transparent;
 }
 
 .kitchen-menu-item__select {
@@ -1694,6 +1789,23 @@ hr {
   background: #fff;
   color: #dc2626;
   border: 1px solid #ef4444;
+}
+
+.kitchen-menu-item__actions .primary-btn.secondary,
+.kitchen-menu-item__actions .primary-btn.ghost {
+  background: #fff;
+  border: 1px solid #dbe4f0;
+  color: #334155;
+}
+
+.kitchen-menu-item__actions .primary-btn.secondary:hover:not(:disabled),
+.kitchen-menu-item__actions .primary-btn.ghost:hover:not(:disabled) {
+  border-color: #cfd8e3;
+  background: #f8fafc;
+}
+
+.kitchen-menu-item__actions .primary-btn.secondary {
+  font-weight: 800;
 }
 
 .primary-btn.danger:hover:not(:disabled) {
@@ -2450,6 +2562,35 @@ hr {
 
 .kitchen-order-card__item-name {
   flex: 1;
+}
+
+.kitchen-order-card__item-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 0.08rem;
+  min-width: 0;
+}
+
+.kitchen-order-card__item-note {
+  display: inline-flex;
+  align-items: flex-start;
+  gap: 0.35rem;
+  color: #92400e;
+  font-size: 0.8rem;
+  line-height: 1.35;
+  font-weight: 600;
+  word-break: break-word;
+  background: #fffbeb;
+  border: 1px solid #fde68a;
+  border-radius: 0.75rem;
+  padding: 0.35rem 0.5rem;
+  margin-top: 0.1rem;
+}
+
+.kitchen-order-card__item-note::before {
+  content: '📝';
+  flex: 0 0 auto;
+  line-height: 1;
 }
 
 .kitchen-order-card__footer {

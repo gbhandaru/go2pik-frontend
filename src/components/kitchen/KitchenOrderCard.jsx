@@ -88,7 +88,7 @@ export default function KitchenOrderCard({
             )}
             {priorityLabel && (
               <span className="kitchen-order-card__badge kitchen-order-card__badge--priority">
-                {priorityLabel}
+                Priority
               </span>
             )}
           </div>
@@ -110,12 +110,20 @@ export default function KitchenOrderCard({
       <div className="kitchen-order-card__items">
         <ul>
           {order.items?.length ? (
-            order.items.map((item) => (
-              <li key={`${order.id}-${item.id || item.name}`}>
-                <span className="kitchen-order-card__item-qty">{item.quantity || 1}×</span>
-                <span className="kitchen-order-card__item-name">{item.name}</span>
-              </li>
-            ))
+            order.items.map((item) => {
+              const itemInstructions = getItemInstructions(item);
+              return (
+                <li key={`${order.id}-${item.id || item.name}`}>
+                  <span className="kitchen-order-card__item-qty">{item.quantity || 1}×</span>
+                  <div className="kitchen-order-card__item-copy">
+                    <span className="kitchen-order-card__item-name">{item.name}</span>
+                    {itemInstructions ? (
+                      <span className="kitchen-order-card__item-note">{itemInstructions}</span>
+                    ) : null}
+                  </div>
+                </li>
+              );
+            })
           ) : (
             <li className="muted">No items listed</li>
           )}
@@ -173,5 +181,19 @@ export default function KitchenOrderCard({
         )}
       </footer>
     </article>
+  );
+}
+
+function getItemInstructions(item) {
+  if (!item) {
+    return '';
+  }
+
+  return (
+    item.specialInstructions ||
+    item.special_instructions ||
+    item.instructions ||
+    item.note ||
+    ''
   );
 }
