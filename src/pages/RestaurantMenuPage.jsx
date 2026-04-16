@@ -228,9 +228,8 @@ export default function RestaurantMenuPage() {
           <div className="menu-header">
             <p className="eyebrow">Menu</p>
             <h2>{restaurant.name}</h2>
-            <p className="muted">
-              {restaurant.cuisine} • {restaurant.rating} ⭐ • {restaurant.eta}
-            </p>
+            <p className="muted">{restaurant.cuisine} • {restaurant.eta}</p>
+            <p className="info-subtext">{formatRestaurantAddress(restaurant)}</p>
           </div>
 
           <PickupTimeCard
@@ -647,4 +646,28 @@ function getCustomerDisplayName(entity) {
     return getCustomerDisplayName(entity.profile);
   }
   return '';
+}
+
+function formatRestaurantAddress(restaurant) {
+  if (!restaurant) {
+    return '';
+  }
+
+  const line1 =
+    restaurant.address_line1 ||
+    restaurant.addressLine1 ||
+    restaurant.address1 ||
+    restaurant.street ||
+    '';
+  const line2 = restaurant.address_line2 || restaurant.addressLine2 || '';
+  const cityStateZip = [
+    restaurant.city,
+    restaurant.state,
+    restaurant.postal_code || restaurant.postalCode || restaurant.zip,
+  ]
+    .filter(Boolean)
+    .join(', ');
+  const location = restaurant.location || '';
+
+  return [line1, line2, cityStateZip, location].filter(Boolean).join(' • ');
 }

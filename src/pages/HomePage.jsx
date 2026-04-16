@@ -10,7 +10,7 @@ export default function HomePage() {
       <header className="home-hero">
         <p className="home-hero__eyebrow">Available near you</p>
         <h1>
-          Order ahead from nearby
+          Order ahead from nearby{' '}
           <span>restaurants</span>
         </h1>
         <p className="home-hero__subhead">Pickup only. No hidden fees.</p>
