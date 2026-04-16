@@ -46,6 +46,16 @@ function emitAuthEvent(type, message) {
   );
 }
 
+function isPublicAuthRoute(pathname) {
+  return [
+    '/login',
+    '/signup',
+    '/password-update',
+    '/kitchen/login',
+    '/kitchen/users/new',
+  ].some((route) => pathname === route || pathname.startsWith(`${route}/`));
+}
+
 async function refreshActiveSession() {
   const refreshToken = getActiveRefreshToken();
   if (!refreshToken) {
@@ -140,7 +150,10 @@ export async function apiRequest(path, options = {}) {
     if (response.status === 401 || response.status === 403) {
       clearAuthTokens();
       clearKitchenAuthTokens();
-      emitAuthEvent('go2pik:auth-expired', 'Session expired. Please sign in again.');
+      const pathname = typeof window !== 'undefined' ? window.location.pathname : '';
+      if (!isPublicAuthRoute(pathname)) {
+        emitAuthEvent('go2pik:auth-expired', 'Session expired. Please sign in again.');
+      }
     }
     const error = new Error(message);
     error.status = response.status;
