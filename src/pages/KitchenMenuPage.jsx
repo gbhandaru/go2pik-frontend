@@ -14,6 +14,7 @@ import {
   updateKitchenMenuItem,
 } from '../api/kitchenMenuApi.js';
 import { formatCurrency } from '../utils/formatCurrency.js';
+import { getKitchenRestaurantId } from '../services/authStorage.js';
 
 const MAIN_TABS = [
   { value: 'orders', label: 'Order' },
@@ -226,15 +227,16 @@ function toCategoryForm(category) {
 }
 
 function buildMenuItemPayload(form) {
+  const categoryId = form.categoryId === '' ? null : normalizeNumber(form.categoryId, form.categoryId);
   return {
     name: form.name.trim(),
     description: form.description.trim() || undefined,
     price: normalizeNumber(form.price, 0),
-    category_id: form.categoryId || null,
-    display_order: form.displayOrder === '' ? 0 : normalizeNumber(form.displayOrder, 0),
-    is_available: normalizeBoolean(form.isAvailable, true),
-    is_vegetarian: normalizeBoolean(form.isVegetarian, false),
-    is_vegan: normalizeBoolean(form.isVegan, false),
+    categoryId,
+    displayOrder: form.displayOrder === '' ? 0 : normalizeNumber(form.displayOrder, 0),
+    isVegetarian: normalizeBoolean(form.isVegetarian, false),
+    isVegan: normalizeBoolean(form.isVegan, false),
+    isAvailable: normalizeBoolean(form.isAvailable, true),
   };
 }
 
@@ -660,6 +662,7 @@ export default function KitchenMenuPage() {
   const [menuItems, setMenuItems] = useState([]);
   const [categories, setCategories] = useState([]);
   const [restaurant, setRestaurant] = useState(null);
+  const [restaurantId, setRestaurantId] = useState(() => getKitchenRestaurantId() || '');
   const [lastUpdated, setLastUpdated] = useState(null);
   const [itemForm, setItemForm] = useState({ ...EMPTY_ITEM_FORM });
   const [editingItemId, setEditingItemId] = useState(null);
@@ -684,6 +687,7 @@ export default function KitchenMenuPage() {
       setMenuItems(normalizeMenuItems(menuResponse.items || []));
       setCategories(nextCategories);
       setRestaurant(menuResponse.restaurant || null);
+      setRestaurantId((current) => current || getKitchenRestaurantId() || menuResponse.restaurant?.id || '');
       setLastUpdated(new Date());
       setBulkCategoryId((current) => current || (nextCategories[0]?.id ? String(nextCategories[0].id) : ''));
       setSelectedItemIds([]);
@@ -822,7 +826,7 @@ export default function KitchenMenuPage() {
 
     setDuplicatingId(item.id);
     try {
-      await createKitchenMenuItem(restaurant?.id, {
+      await createKitchenMenuItem(restaurantId, {
         ...buildMenuItemPayload(toItemForm(item)),
         name: nextName,
       });
@@ -840,7 +844,7 @@ export default function KitchenMenuPage() {
       showFeedback('error', 'Item name is required.');
       return;
     }
-    if (!restaurant?.id) {
+    if (!restaurantId) {
       showFeedback('error', 'Restaurant context is not available yet.');
       return;
     }
@@ -852,7 +856,7 @@ export default function KitchenMenuPage() {
         await updateKitchenMenuItem(editingItemId, payload);
         showFeedback('success', 'Menu item updated.');
       } else {
-        await createKitchenMenuItem(restaurant?.id, payload);
+        await createKitchenMenuItem(restaurantId, payload);
         showFeedback('success', 'Menu item created.');
       }
       closePanels();
@@ -904,7 +908,7 @@ export default function KitchenMenuPage() {
       showFeedback('error', 'Category name is required.');
       return;
     }
-    if (!restaurant?.id) {
+    if (!restaurantId) {
       showFeedback('error', 'Restaurant context is not available yet.');
       return;
     }
@@ -913,10 +917,10 @@ export default function KitchenMenuPage() {
     try {
       const payload = buildCategoryPayload(categoryForm);
       if (editingCategoryId) {
-        await updateKitchenMenuCategory(restaurant?.id, editingCategoryId, payload);
+        await updateKitchenMenuCategory(restaurantId, editingCategoryId, payload);
         showFeedback('success', 'Category updated.');
       } else {
-      await createKitchenMenuCategory(restaurant?.id, payload);
+        await createKitchenMenuCategory(restaurantId, payload);
         showFeedback('success', 'Category created.');
       }
       closePanels();
@@ -930,14 +934,14 @@ export default function KitchenMenuPage() {
   };
 
   const handleLoadCurrentExport = async () => {
-    if (!restaurant?.id) {
+    if (!restaurantId) {
       showFeedback('error', 'Restaurant context is not available yet.');
       return;
     }
 
     setBulkBusy(true);
     try {
-      const payload = await fetchKitchenMenuExport(restaurant?.id);
+      const payload = await fetchKitchenMenuExport(restaurantId);
       setBulkJson(JSON.stringify(payload, null, 2));
       setActivePanel('bulk');
       showFeedback('info', 'Current export loaded into the bulk import editor.');
@@ -957,7 +961,7 @@ export default function KitchenMenuPage() {
       showFeedback('error', 'Paste export JSON before importing.');
       return;
     }
-    if (!restaurant?.id) {
+    if (!restaurantId) {
       showFeedback('error', 'Restaurant context is not available yet.');
       return;
     }
@@ -965,7 +969,7 @@ export default function KitchenMenuPage() {
     setBulkBusy(true);
     try {
       const payload = JSON.parse(bulkJson);
-      await importKitchenMenu(restaurant?.id, payload);
+      await importKitchenMenu(restaurantId, payload);
       showFeedback('success', 'Bulk import completed.');
       await loadMenu();
     } catch (err) {
@@ -1064,7 +1068,7 @@ export default function KitchenMenuPage() {
       (item) =>
         updateKitchenMenuItem(item.id, {
           ...buildMenuItemPayload(toItemForm(item)),
-          category_id: bulkCategoryId,
+          categoryId: normalizeNumber(bulkCategoryId, bulkCategoryId),
         }),
       'Selected items moved to the new category.',
     );
@@ -1075,14 +1079,14 @@ export default function KitchenMenuPage() {
       showFeedback('error', 'Choose a CSV file first.');
       return;
     }
-    if (!restaurant?.id) {
+    if (!restaurantId) {
       showFeedback('error', 'Restaurant context is not available yet.');
       return;
     }
 
     setCsvBusy(true);
     try {
-      await importKitchenMenu(restaurant?.id, csvImportPayload);
+      await importKitchenMenu(restaurantId, csvImportPayload);
       showFeedback('success', 'CSV import completed.');
       await loadMenu();
     } catch (err) {
