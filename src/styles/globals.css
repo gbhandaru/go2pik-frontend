@@ -1502,6 +1502,11 @@ hr {
   gap: 0.75rem;
 }
 
+.kitchen-menu-category-collapsed {
+  margin: 0;
+  padding: 0.2rem 0 0.1rem;
+}
+
 .kitchen-menu-category-row {
   display: flex;
   justify-content: space-between;

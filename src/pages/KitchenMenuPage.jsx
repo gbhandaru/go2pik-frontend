@@ -463,6 +463,8 @@ function CategoryEditor({
   onCancel,
   saving,
   editing,
+  isOpen,
+  onToggleOpen,
 }) {
   return (
     <section className="card kitchen-menu-panel">
@@ -471,11 +473,9 @@ function CategoryEditor({
           <p className="eyebrow">Categories</p>
           <h2>Manage categories</h2>
         </div>
-        {editing ? (
-          <button type="button" className="kitchen-panel__toggle" onClick={onCancel}>
-            Close
-          </button>
-        ) : null}
+        <button type="button" className="kitchen-panel__toggle" onClick={onToggleOpen}>
+          {isOpen ? 'Hide' : 'Create Category'}
+        </button>
       </div>
 
       <div className="kitchen-menu-category-strip">
@@ -491,46 +491,54 @@ function CategoryEditor({
         )}
       </div>
 
-      <div className="kitchen-menu-form">
-        <label className="kitchen-menu-field">
-          <span>Name</span>
-          <input
-            value={categoryForm.name}
-            onChange={(event) => onChange('name', event.target.value)}
-            placeholder="Starters"
-          />
-        </label>
+      {isOpen ? (
+        <>
+          <div className="kitchen-menu-form">
+            <label className="kitchen-menu-field">
+              <span>Name</span>
+              <input
+                value={categoryForm.name}
+                onChange={(event) => onChange('name', event.target.value)}
+                placeholder="Starters"
+              />
+            </label>
 
-        <label className="kitchen-menu-field">
-          <span>Display order</span>
-          <input
-            type="number"
-            value={categoryForm.displayOrder}
-            onChange={(event) => onChange('displayOrder', event.target.value)}
-            placeholder="1"
-          />
-        </label>
-      </div>
+            <label className="kitchen-menu-field">
+              <span>Display order</span>
+              <input
+                type="number"
+                value={categoryForm.displayOrder}
+                onChange={(event) => onChange('displayOrder', event.target.value)}
+                placeholder="1"
+              />
+            </label>
+          </div>
 
-      <div className="kitchen-menu-checks">
-        <label>
-          <input
-            type="checkbox"
-            checked={categoryForm.isActive}
-            onChange={(event) => onChange('isActive', event.target.checked)}
-          />
-          Active
-        </label>
-      </div>
+          <div className="kitchen-menu-checks">
+            <label>
+              <input
+                type="checkbox"
+                checked={categoryForm.isActive}
+                onChange={(event) => onChange('isActive', event.target.checked)}
+              />
+              Active
+            </label>
+          </div>
 
-      <div className="kitchen-menu-actions">
-        <button type="button" className="primary-btn emphasis" onClick={onSave} disabled={saving}>
-          {saving ? 'Saving…' : editing ? 'Update Category' : 'Create Category'}
-        </button>
-        <button type="button" className="primary-btn ghost" onClick={onCancel} disabled={saving}>
-          Cancel
-        </button>
-      </div>
+          <div className="kitchen-menu-actions">
+            <button type="button" className="primary-btn emphasis" onClick={onSave} disabled={saving}>
+              {saving ? 'Saving…' : editing ? 'Update Category' : 'Create Category'}
+            </button>
+            <button type="button" className="primary-btn ghost" onClick={onCancel} disabled={saving}>
+              Cancel
+            </button>
+          </div>
+        </>
+      ) : (
+        <p className="muted kitchen-menu-category-collapsed">
+          Category editing is collapsed by default. Open it only when you need to add or edit groups.
+        </p>
+      )}
 
       <div className="kitchen-menu-category-list">
         {categories.map((category) => (
@@ -636,6 +644,7 @@ export default function KitchenMenuPage() {
   const [error, setError] = useState(null);
   const [feedback, setFeedback] = useState(null);
   const [activePanel, setActivePanel] = useState('list');
+  const [categoryEditorOpen, setCategoryEditorOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [menuFilter, setMenuFilter] = useState('all');
   const [savingItem, setSavingItem] = useState(false);
@@ -660,6 +669,8 @@ export default function KitchenMenuPage() {
   const [csvFileName, setCsvFileName] = useState('');
   const [csvImportPayload, setCsvImportPayload] = useState(null);
   const feedbackTimerRef = useRef(null);
+  const itemEditorRef = useRef(null);
+  const categoryEditorRef = useRef(null);
 
   const loadMenu = useCallback(async () => {
     setLoading(true);
@@ -677,6 +688,7 @@ export default function KitchenMenuPage() {
       setBulkCategoryId((current) => current || (nextCategories[0]?.id ? String(nextCategories[0].id) : ''));
       setSelectedItemIds([]);
       setBulkSelectMode(false);
+      setCategoryEditorOpen(false);
     } catch (err) {
       setMenuItems([]);
       setCategories([]);
@@ -709,6 +721,18 @@ export default function KitchenMenuPage() {
       }
     };
   }, [feedback]);
+
+  useEffect(() => {
+    if (activePanel === 'item') {
+      itemEditorRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+  }, [activePanel]);
+
+  useEffect(() => {
+    if (categoryEditorOpen) {
+      categoryEditorRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+  }, [categoryEditorOpen]);
 
   const categoryOptions = useMemo(() => normalizeCategories(categories), [categories]);
   const filteredMenuItems = useMemo(
@@ -754,8 +778,19 @@ export default function KitchenMenuPage() {
 
   const closePanels = () => {
     setActivePanel('list');
+    setCategoryEditorOpen(false);
     resetItemForm();
     resetCategoryForm();
+  };
+
+  const handleToggleCategoryEditor = () => {
+    setCategoryEditorOpen((current) => {
+      const next = !current;
+      if (!next) {
+        resetCategoryForm();
+      }
+      return next;
+    });
   };
 
   const handleItemFieldChange = (field, value) => {
@@ -861,7 +896,7 @@ export default function KitchenMenuPage() {
   const handleCategoryEdit = (category) => {
     setEditingCategoryId(category.id);
     setCategoryForm(toCategoryForm(category));
-    setActivePanel('category');
+    setCategoryEditorOpen(true);
   };
 
   const handleSaveCategory = async () => {
@@ -881,10 +916,11 @@ export default function KitchenMenuPage() {
         await updateKitchenMenuCategory(restaurant?.id, editingCategoryId, payload);
         showFeedback('success', 'Category updated.');
       } else {
-        await createKitchenMenuCategory(restaurant?.id, payload);
+      await createKitchenMenuCategory(restaurant?.id, payload);
         showFeedback('success', 'Category created.');
       }
       closePanels();
+      setCategoryEditorOpen(false);
       await loadMenu();
     } catch (err) {
       showFeedback('error', err.message || 'Unable to save category');
@@ -1151,16 +1187,18 @@ export default function KitchenMenuPage() {
         </section>
 
         {activePanel === 'item' ? (
-          <MenuItemEditor
-            title={editingItemId ? 'Edit menu item' : 'Create a new menu item'}
-            itemForm={itemForm}
-            categories={categoryOptions}
-            onChange={handleItemFieldChange}
-            onSave={handleSaveItem}
-            onCancel={closePanels}
-            saving={savingItem}
-            editing={Boolean(editingItemId)}
-          />
+          <div ref={itemEditorRef}>
+            <MenuItemEditor
+              title={editingItemId ? 'Edit menu item' : 'Create a new menu item'}
+              itemForm={itemForm}
+              categories={categoryOptions}
+              onChange={handleItemFieldChange}
+              onSave={handleSaveItem}
+              onCancel={closePanels}
+              saving={savingItem}
+              editing={Boolean(editingItemId)}
+            />
+          </div>
         ) : null}
 
         {activePanel === 'bulk' ? (
@@ -1269,16 +1307,20 @@ export default function KitchenMenuPage() {
           </div>
         </section>
 
-        <CategoryEditor
-          categories={categoryOptions}
-          categoryForm={categoryForm}
-          onChange={handleCategoryFieldChange}
-          onSave={handleSaveCategory}
-          onEdit={handleCategoryEdit}
-          onCancel={closePanels}
-          saving={savingCategory}
-          editing={Boolean(editingCategoryId)}
-        />
+        <div ref={categoryEditorRef}>
+          <CategoryEditor
+            categories={categoryOptions}
+            categoryForm={categoryForm}
+            onChange={handleCategoryFieldChange}
+            onSave={handleSaveCategory}
+            onEdit={handleCategoryEdit}
+            onCancel={closePanels}
+            onToggleOpen={handleToggleCategoryEditor}
+            isOpen={categoryEditorOpen}
+            saving={savingCategory}
+            editing={Boolean(editingCategoryId)}
+          />
+        </div>
       </div>
     );
   }
