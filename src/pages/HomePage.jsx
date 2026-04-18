@@ -1,10 +1,28 @@
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
+import { useAuth } from '../hooks/useAuth.jsx';
 import { fetchRestaurants } from '../api/restaurantsApi.js';
 import { useFetch } from '../hooks/useFetch.js';
 import { getRestaurantAddressLines } from '../utils/formatRestaurantAddress.js';
+import { hasCustomerGuestAccess } from '../services/authStorage.js';
 
 export default function HomePage() {
+  const navigate = useNavigate();
+  const { user } = useAuth();
   const { data: restaurants, loading, error } = useFetch(fetchRestaurants, []);
+  const canBrowseMenu = Boolean(user) || hasCustomerGuestAccess();
+
+  const handleViewMenu = (restaurantId, event) => {
+    if (canBrowseMenu) {
+      return;
+    }
+
+    event.preventDefault();
+    navigate('/login', {
+      state: {
+        from: { pathname: `/restaurants/${restaurantId}/menu` },
+      },
+    });
+  };
 
   return (
     <main className="page-section">
@@ -27,6 +45,7 @@ export default function HomePage() {
               key={restaurant.id}
               className="restaurant-card-link"
               to={`/restaurants/${restaurant.id}/menu`}
+              onClick={(event) => handleViewMenu(restaurant.id, event)}
             >
               <article className="card restaurant-card">
                 {restaurant.heroImage && (

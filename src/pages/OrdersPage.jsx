@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { fetchCustomerOrders } from '../api/customersApi.js';
 import { useAuth } from '../hooks/useAuth.jsx';
@@ -6,73 +6,21 @@ import { useFetch } from '../hooks/useFetch.js';
 import { formatCurrency } from '../utils/formatCurrency.js';
 import { getCustomerDisplayName, getCustomerId } from '../utils/customerIdentity.js';
 
-const ORDER_TABS = [
-  { value: 'past', label: 'Past Orders' },
-  { value: 'upcoming', label: 'Upcoming' },
-  { value: 'cancelled', label: 'Cancelled' },
-];
-
-const PAST_STATUSES = new Set(['completed', 'delivered', 'picked_up', 'pickup_complete']);
-const UPCOMING_STATUSES = new Set(['new', 'received', 'accepted', 'preparing', 'ready_for_pickup', 'scheduled']);
-const CANCELLED_STATUSES = new Set(['cancelled', 'canceled', 'rejected']);
-
 export default function OrdersPage() {
   const navigate = useNavigate();
   const { user, logout } = useAuth();
   const customerId = useMemo(() => getCustomerId(user), [user]);
   const customerName = useMemo(() => getCustomerDisplayName(user), [user]);
-  const [activeTab, setActiveTab] = useState('past');
   const { data, loading, error } = useFetch(
     () => (customerId ? fetchCustomerOrders(customerId) : Promise.resolve({ customer: null, orders: [] })),
     [customerId],
   );
 
   const customer = data?.customer || user || null;
-  const orders = data?.orders || [];
+  const orders = useMemo(() => sortOrdersByDate(data?.orders || []), [data?.orders]);
   const resolvedCustomerName = getCustomerDisplayName(customer) || customerName || 'Customer';
   const resolvedPhone = customer?.phone || customer?.phone_number || user?.phone || user?.phone_number || '';
   const resolvedEmail = customer?.email || user?.email || '';
-
-  const groupedOrders = useMemo(() => {
-    const next = {
-      past: [],
-      upcoming: [],
-      cancelled: [],
-    };
-
-    orders.forEach((order) => {
-      const bucket = getOrderBucket(order);
-      next[bucket].push(order);
-    });
-
-    return next;
-  }, [orders]);
-
-  useEffect(() => {
-    if (!orders.length) {
-      return;
-    }
-
-    if ((groupedOrders[activeTab] || []).length > 0) {
-      return;
-    }
-
-    if (groupedOrders.past.length) {
-      setActiveTab('past');
-      return;
-    }
-
-    if (groupedOrders.upcoming.length) {
-      setActiveTab('upcoming');
-      return;
-    }
-
-    if (groupedOrders.cancelled.length) {
-      setActiveTab('cancelled');
-    }
-  }, [activeTab, groupedOrders, orders.length]);
-
-  const activeOrders = groupedOrders[activeTab] || [];
 
   const handleLogout = async () => {
     await logout();
@@ -143,44 +91,33 @@ export default function OrdersPage() {
               <span>Back to Menu</span>
             </button>
             <div className="customer-orders-topbar__title">
-              <h1>My Orders</h1>
-              <p>Restaurant Name</p>
+              <h1>Restaurant Name</h1>
             </div>
-            <div className="customer-orders-topbar__spacer" />
+            <div className="customer-orders-topbar__actions">
+              <div className="customer-orders-topbar__chip" aria-hidden="true">
+                <span>🔍</span>
+              </div>
+              <div className="customer-orders-topbar__chip" aria-hidden="true">
+                <span>◌</span>
+              </div>
+              <div className="customer-orders-topbar__profile" aria-hidden="true">
+                {resolvedCustomerName.charAt(0).toUpperCase() || 'G'}
+              </div>
+            </div>
           </header>
-
-          <section className="customer-orders-tabs card" aria-label="Order filters">
-            <div className="customer-orders-tablist" role="tablist" aria-label="Order status tabs">
-              {ORDER_TABS.map((tab) => (
-                <button
-                  key={tab.value}
-                  type="button"
-                  role="tab"
-                  aria-selected={activeTab === tab.value}
-                  className={`customer-orders-tab${activeTab === tab.value ? ' active' : ''}`}
-                  onClick={() => setActiveTab(tab.value)}
-                >
-                  {tab.label}
-                </button>
-              ))}
-            </div>
-          </section>
 
           <section className="customer-orders-list">
             <div className="customer-orders-heading">
               <h2>My Orders</h2>
-              <span>{activeOrders.length} order{activeOrders.length === 1 ? '' : 's'}</span>
+              <span>{orders.length} order{orders.length === 1 ? '' : 's'}</span>
             </div>
 
-            {activeOrders.length === 0 ? (
+            {orders.length === 0 ? (
               <div className="card customer-orders-empty">
-                <p>No orders in this section yet.</p>
+                <p>No orders yet.</p>
               </div>
             ) : (
-              activeOrders.map((order) => {
-                const bucket = getOrderBucket(order);
-                const placedLabel = formatOrderPlacement(order, bucket);
-                const totalLabel = formatOrderTotal(order);
+              orders.map((order) => {
                 const statusLabel = formatOrderStatusLabel(order.status);
                 return (
                   <article className="card customer-order-card" key={order.id}>
@@ -188,9 +125,9 @@ export default function OrdersPage() {
                       <div className="customer-order-card__header">
                         <div>
                           <h3>{order.restaurant?.name || 'Unknown restaurant'}</h3>
-                          <p>{placedLabel}</p>
+                          <p>{formatOrderPlacement(order)}</p>
                         </div>
-                        <span className={`customer-order-card__status customer-order-card__status--${bucket}`}>
+                        <span className={`customer-order-card__status customer-order-card__status--${getOrderBucket(order)}`}>
                           {statusLabel}
                         </span>
                       </div>
@@ -210,7 +147,7 @@ export default function OrdersPage() {
                         </div>
                         <div>
                           <span>Total</span>
-                          <strong>{totalLabel}</strong>
+                          <strong>{formatOrderTotal(order)}</strong>
                         </div>
                       </div>
                     </div>
@@ -229,6 +166,20 @@ export default function OrdersPage() {
       </section>
     </main>
   );
+}
+
+function sortOrdersByDate(orders = []) {
+  return [...orders].sort((a, b) => {
+    const aTime = getOrderTimeValue(a);
+    const bTime = getOrderTimeValue(b);
+    return bTime - aTime;
+  });
+}
+
+function getOrderTimeValue(order) {
+  const raw = order?.created_at || order?.createdAt || order?.placedAt || order?.customer?.pickupTime || order?.pickupTime || 0;
+  const date = new Date(raw);
+  return Number.isNaN(date.getTime()) ? 0 : date.getTime();
 }
 
 function renderOrderItems(items = []) {
@@ -252,36 +203,26 @@ function renderOrderItems(items = []) {
 
 function getOrderBucket(order) {
   const status = String(order?.status || '').trim().toLowerCase();
-  if (CANCELLED_STATUSES.has(status)) {
+  if (status === 'cancelled' || status === 'canceled' || status === 'rejected') {
     return 'cancelled';
   }
-  if (PAST_STATUSES.has(status)) {
-    return 'past';
-  }
-  return 'upcoming';
+  return 'past';
 }
 
-function formatOrderPlacement(order, bucket = 'upcoming') {
+function formatOrderPlacement(order) {
   const pickup =
     order?.customer?.pickupTime ||
     order?.pickupTime ||
     order?.pickupRequest?.scheduledTime ||
     order?.pickupRequest?.readyTime ||
+    order?.placedAt ||
+    order?.createdAt ||
+    order?.created_at ||
     '';
 
   const date = pickup ? new Date(pickup) : null;
   if (date && !Number.isNaN(date.getTime())) {
-    const prefix = bucket === 'past' ? 'Picked up on' : 'Pickup at';
-    return `${prefix} ${date.toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' })} ${date.toLocaleTimeString([], {
-      hour: 'numeric',
-      minute: '2-digit',
-    })}`;
-  }
-
-  const createdAt = order?.created_at || order?.createdAt || order?.placedAt;
-  const createdDate = createdAt ? new Date(createdAt) : null;
-  if (createdDate && !Number.isNaN(createdDate.getTime())) {
-    return `Placed on ${createdDate.toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' })} ${createdDate.toLocaleTimeString([], {
+    return `Picked up on ${date.toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' })} ${date.toLocaleTimeString([], {
       hour: 'numeric',
       minute: '2-digit',
     })}`;
@@ -314,13 +255,10 @@ function formatPaymentLabel(order) {
 
 function formatOrderStatusLabel(status) {
   const normalized = String(status || '').trim().toLowerCase();
-  if (PAST_STATUSES.has(normalized)) {
-    return 'Completed';
-  }
-  if (CANCELLED_STATUSES.has(normalized)) {
+  if (normalized === 'cancelled' || normalized === 'canceled' || normalized === 'rejected') {
     return 'Cancelled';
   }
-  return 'Upcoming';
+  return 'Completed';
 }
 
 function capitalizeWords(value) {

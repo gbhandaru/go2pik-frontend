@@ -1,11 +1,12 @@
 import { useEffect, useMemo, useState } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { Navigate, useNavigate, useParams } from 'react-router-dom';
 import { submitOrder } from '../api/ordersApi.js';
 import { fetchRestaurantMenu } from '../api/restaurantsApi.js';
 import { useFetch } from '../hooks/useFetch.js';
 import { formatCurrency } from '../utils/formatCurrency.js';
 import { getRestaurantAddressLines } from '../utils/formatRestaurantAddress.js';
 import { useAuth } from '../hooks/useAuth.jsx';
+import { hasCustomerGuestAccess } from '../services/authStorage.js';
 
 const PICKUP_MODES = {
   ASAP: 'ASAP',
@@ -27,6 +28,7 @@ export default function RestaurantMenuPage() {
   const { data, loading, error } = useFetch(() => fetchRestaurantMenu(restaurantId), [restaurantId]);
   const asapReadyTime = useMemo(() => getTimeFromNow(PICKUP_WINDOW_MINUTES), []);
   const earliestAvailableTime = useMemo(() => getTimeFromNow(EARLIEST_PICKUP_MINUTES), []);
+  const canBrowseMenu = Boolean(user) || hasCustomerGuestAccess();
 
   useEffect(() => {
     setCart([]);
@@ -214,6 +216,16 @@ export default function RestaurantMenuPage() {
       <main className="page-section">
         <div className="page-empty-state">Loading menu...</div>
       </main>
+    );
+  }
+
+  if (!canBrowseMenu) {
+    return (
+      <Navigate
+        to="/login"
+        replace
+        state={{ from: { pathname: `/restaurants/${restaurantId}/menu` } }}
+      />
     );
   }
 

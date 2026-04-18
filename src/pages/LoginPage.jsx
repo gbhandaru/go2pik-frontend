@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth.jsx';
-import { consumeAuthNotice } from '../services/authStorage.js';
+import { clearCustomerGuestAccess, consumeAuthNotice, setCustomerGuestAccess } from '../services/authStorage.js';
 
 export default function LoginPage() {
   const { login, error, loading, isAuthenticated } = useAuth();
@@ -31,6 +31,7 @@ export default function LoginPage() {
     setLocalError(null);
     try {
       await login(form);
+      clearCustomerGuestAccess();
       const redirectTo = location.state?.from?.pathname || '/home';
       navigate(redirectTo, { replace: true });
     } catch (err) {
@@ -39,6 +40,7 @@ export default function LoginPage() {
   };
 
   const handleContinueAsGuest = () => {
+    setCustomerGuestAccess(true);
     navigate(location.state?.from?.pathname || '/home', { replace: true });
   };
 
