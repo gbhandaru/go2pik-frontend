@@ -521,8 +521,7 @@ function CartSummary({
   disabled,
   onPlaceOrder,
 }) {
-  const tax = 0;
-  const grandTotal = total + tax;
+  const grandTotal = total;
   const isCartEmpty = cart.length === 0;
   const cartPickupLabel =
     pickupMode === PICKUP_MODES.SCHEDULED
@@ -577,10 +576,6 @@ function CartSummary({
             <div>
               <span>Subtotal</span>
               <strong>{formatCurrency(total)}</strong>
-            </div>
-            <div>
-              <span>Tax</span>
-              <strong>{formatCurrency(tax)}</strong>
             </div>
             <div className="cart-preview-totals-grand">
               <span>Total</span>
