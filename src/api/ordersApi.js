@@ -60,6 +60,27 @@ export function submitOrder(payload) {
   );
 }
 
+export function startOrderVerification(payload) {
+  return apiRequest('/orders/verification/start', {
+    method: 'POST',
+    body: payload,
+  });
+}
+
+export function resendOrderVerification(payload) {
+  return apiRequest('/orders/verification/resend', {
+    method: 'POST',
+    body: payload,
+  });
+}
+
+export function confirmOrderVerification(payload) {
+  return apiRequest('/orders/verification/confirm', {
+    method: 'POST',
+    body: payload,
+  });
+}
+
 export function fetchOrderById(id) {
   return withFallback(`/orders/${id}`, undefined, () => {
     const order = mockOrders.find((item) => item.id === id);
