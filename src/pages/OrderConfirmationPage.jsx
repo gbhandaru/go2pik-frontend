@@ -71,7 +71,12 @@ function getConfirmationNumber(order) {
     return 'Order';
   }
 
-  const directValue = order.orderNumber || order.confirmationNumber || order.referenceNumber || order.reference;
+  const directValue =
+    order.orderNumber ||
+    order.confirmationNumber ||
+    order.referenceNumber ||
+    order.reference ||
+    order.automation?.confirmationNumber;
   if (directValue) {
     return directValue;
   }
@@ -152,6 +157,10 @@ function resolveCustomerName({ user, order }) {
   const orderEntities = [
     order?.customerName,
     order?.customer_name,
+    order?.customer?.name,
+    order?.order?.customer?.name,
+    order?.order?.customerName,
+    order?.order?.customer_name,
     order?.customer,
     order?.customerDetails,
     order?.customer_details,

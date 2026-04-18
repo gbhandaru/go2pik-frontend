@@ -187,14 +187,19 @@ export default function RestaurantMenuPage() {
       };
 
       const response = await submitOrder(payload);
+      const responseOrder = response?.order || {};
       navigate('/order-confirmation', {
         state: {
           order: {
             ...payload,
             ...response,
+            ...responseOrder,
+            customer: responseOrder.customer || payload.customer,
+            customerName: responseOrder.customer?.name || payload.customerName,
+            orderNumber: responseOrder.orderNumber || response?.automation?.confirmationNumber || payload.orderNumber,
             items: orderItems,
           },
-          customerName: customerName || undefined,
+          customerName: responseOrder.customer?.name || customerName || undefined,
         },
       });
     } catch (err) {
