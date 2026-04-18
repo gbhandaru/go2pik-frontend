@@ -176,6 +176,36 @@ img {
   font-size: 0.88rem;
   line-height: 1.35;
   color: #64748b;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.menu-address-line {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  min-width: 0;
+}
+
+.menu-address-line__pin {
+  flex: 0 0 auto;
+  font-size: 0.92rem;
+  color: #64748b;
+}
+
+.menu-back-link {
+  align-self: flex-start;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  border: none;
+  background: transparent;
+  color: #374151;
+  font-size: 0.98rem;
+  font-weight: 500;
+  padding: 0;
+  margin-bottom: 0.05rem;
 }
 
 .restaurant-card__details {
@@ -329,13 +359,42 @@ textarea {
 }
 
 .menu-panel {
-  gap: 1.25rem;
+  gap: 0.85rem;
+}
+
+.menu-header {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+}
+
+.menu-header .eyebrow {
+  margin: 0;
+}
+
+.menu-header h2 {
+  margin: 0;
+  font-size: 1.55rem;
+  line-height: 1.05;
+  font-weight: 700;
+}
+
+.menu-header .muted {
+  margin: 0;
 }
 
 .card-heading {
   display: flex;
   flex-direction: column;
-  gap: 0.25rem;
+  gap: 0.12rem;
+}
+
+.pickup-card .card-heading .eyebrow {
+  margin: 0;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.22em;
+  color: #8b8b8b;
 }
 
 .card-heading h3 {
@@ -347,7 +406,7 @@ textarea {
 .reorder-card {
   border: 1px solid #e2e8f0;
   border-radius: 1.25rem;
-  padding: 1.15rem 1.35rem;
+  padding: 0.85rem 1.05rem;
   background: #fff;
   box-shadow: 0 20px 40px rgba(15, 23, 42, 0.06);
 }
@@ -355,7 +414,7 @@ textarea {
 .pickup-card {
   display: flex;
   flex-direction: column;
-  gap: 0.75rem;
+  gap: 0.45rem;
 }
 
 .pickup-tabs {
@@ -364,15 +423,17 @@ textarea {
   background: #f8fafc;
   border: 1px solid #e2e8f0;
   border-radius: 999px;
-  padding: 0.35rem;
-  gap: 0.35rem;
+  padding: 0.24rem;
+  gap: 0.24rem;
 }
 
 .pickup-tab {
   border: none;
   border-radius: 999px;
-  padding: 0.65rem 1rem;
-  font-weight: 600;
+  padding: 0.53rem 1rem;
+  font-size: 0.98rem;
+  font-weight: 500;
+  letter-spacing: 0.01em;
   background: transparent;
   color: #475569;
   cursor: pointer;
@@ -380,31 +441,34 @@ textarea {
 }
 
 .pickup-tab.active {
-  background: #fff;
-  color: #065f46;
-  box-shadow: 0 10px 20px rgba(21, 128, 61, 0.16);
+  background: #5f7d58;
+  color: #fff;
+  box-shadow: 0 10px 20px rgba(95, 125, 88, 0.16);
 }
 
 .pickup-details {
-  font-size: 0.95rem;
-  color: #0f172a;
+  font-size: 0.92rem;
+  color: #1f2937;
   display: flex;
   flex-direction: column;
-  gap: 0.35rem;
+  gap: 0.1rem;
 }
 
 .scheduled-picker {
   display: flex;
   flex-direction: column;
-  gap: 0.35rem;
+  gap: 0.25rem;
 }
 
 .scheduled-picker label {
+  font-size: 0.9rem;
   font-weight: 600;
+  color: #374151;
 }
 
 .scheduled-picker input {
   max-width: 220px;
+  font-size: 0.95rem;
   font-weight: 600;
 }
 
@@ -415,12 +479,26 @@ textarea {
 }
 
 .pickup-window {
-  font-weight: 600;
+  font-size: 0.95rem;
+  font-weight: 500;
+  color: #1f2937;
   margin: 0;
+}
+
+.reorder-card__button {
+  align-self: flex-start;
+  border: 1px solid #ffffff;
+  background: rgba(255, 255, 255, 0.75);
+  color: #5f7d58;
+  border-radius: 999px;
+  padding: 0.4rem 1rem;
+  font-weight: 500;
 }
 
 .pickup-helper {
   margin: 0;
+  font-size: 0.82rem;
+  color: #6b7280;
 }
 
 .reorder-card {

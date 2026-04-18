@@ -65,6 +65,7 @@ export default function RestaurantMenuPage() {
   );
 
   const menu = data?.menu || [];
+  const categories = data?.categories || data?.menuCategories || data?.menu_categories || [];
   const restaurant = data?.restaurant;
 
   const lastOrder = useMemo(() => {
@@ -237,8 +238,9 @@ export default function RestaurantMenuPage() {
     <main className="page-section">
       <section className="menu-shell">
         <div className="card menu-panel">
-          <button type="button" className="primary-btn ghost" onClick={() => navigate('/home')}>
-            ← Back to restaurants
+          <button type="button" className="menu-back-link" onClick={() => navigate('/home')}>
+            <span aria-hidden="true">←</span>
+            <span>Back to restaurants</span>
           </button>
           <div className="menu-header">
             <p className="eyebrow">Menu</p>
@@ -265,6 +267,7 @@ export default function RestaurantMenuPage() {
 
           <MenuList
             menu={menu}
+            categories={categories}
             quantityById={quantityById}
             cartItemById={cartItemById}
             onAdd={addToCart}
@@ -295,15 +298,12 @@ export default function RestaurantMenuPage() {
 function renderRestaurantAddress(restaurant) {
   const { line1, secondary } = getRestaurantAddressLines(restaurant);
   return (
-    <>
-      {line1}
-      {secondary ? (
-        <>
-          <br />
-          <span className="menu-address-secondary">{secondary}</span>
-        </>
-      ) : null}
-    </>
+    <span className="menu-address-line">
+      <span className="menu-address-line__pin" aria-hidden="true">
+        📍
+      </span>
+      <span>{[line1, secondary].filter(Boolean).join(', ')}</span>
+    </span>
   );
 }
 
@@ -327,7 +327,6 @@ function PickupTimeCard({
     <section className="pickup-card" aria-labelledby="pickup-card-title">
       <div className="card-heading">
         <p className="eyebrow">Pickup time</p>
-        <h3 id="pickup-card-title">Choose how you'd like to pickup</h3>
       </div>
       <div className="pickup-tabs" role="tablist" aria-label="Pickup options">
         {[PICKUP_MODES.ASAP, PICKUP_MODES.SCHEDULED].map((mode) => {
@@ -406,7 +405,7 @@ function ReorderCard({ items = [], hasOrder, onReorder }) {
           <p className="muted">We will show your recent order here.</p>
         )}
       </div>
-      <button type="button" className="primary-btn secondary" onClick={onReorder} disabled={!hasOrder}>
+      <button type="button" className="reorder-card__button" onClick={onReorder} disabled={!hasOrder}>
         Reorder
       </button>
     </section>
@@ -414,9 +413,9 @@ function ReorderCard({ items = [], hasOrder, onReorder }) {
 }
 
 // Menu list stays lean so the cart retains secondary visual weight.
-function MenuList({ menu, quantityById, cartItemById, onAdd, onUpdate, onUpdateInstructions }) {
+function MenuList({ menu, categories, quantityById, cartItemById, onAdd, onUpdate, onUpdateInstructions }) {
   const [expandedItemId, setExpandedItemId] = useState(null);
-  const groupedMenu = useMemo(() => groupMenuItems(menu), [menu]);
+  const groupedMenu = useMemo(() => groupMenuItems(menu, categories), [menu, categories]);
   const [activeCategory, setActiveCategory] = useState('');
 
   useEffect(() => {
@@ -443,23 +442,25 @@ function MenuList({ menu, quantityById, cartItemById, onAdd, onUpdate, onUpdateI
 
   return (
     <div className="menu-catalog" aria-live="polite">
-      <div className="menu-catalog__tabs" role="tablist" aria-label="Menu categories">
-        {groupedMenu.map((group) => (
-          <button
-            key={group.key}
-            type="button"
-            role="tab"
-            aria-selected={activeCategory === group.key}
-            className={`menu-category-chip${activeCategory === group.key ? ' active' : ''}`}
-            onClick={() => {
-              setActiveCategory(group.key);
-              document.getElementById(group.key)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-            }}
-          >
-            {group.title}
-          </button>
-        ))}
-      </div>
+      {groupedMenu.length > 1 ? (
+        <div className="menu-catalog__tabs" role="tablist" aria-label="Menu categories">
+          {groupedMenu.map((group) => (
+            <button
+              key={group.key}
+              type="button"
+              role="tab"
+              aria-selected={activeCategory === group.key}
+              className={`menu-category-chip${activeCategory === group.key ? ' active' : ''}`}
+              onClick={() => {
+                setActiveCategory(group.key);
+                document.getElementById(group.key)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+              }}
+            >
+              {group.title}
+            </button>
+          ))}
+        </div>
+      ) : null}
 
       <div className="menu-catalog__groups">
         {groupedMenu.map((group) => (
@@ -571,19 +572,36 @@ function MenuItemCard({
   );
 }
 
-function groupMenuItems(menu = []) {
+function groupMenuItems(menu = [], categories = []) {
   const groups = new Map();
   const orderedKeys = [];
+  const normalizedCategories = normalizeMenuCategories(categories);
 
-  menu.forEach((item, index) => {
-    const category = getMenuItemCategory(item);
-    const key = slugify(category);
+  normalizedCategories.forEach((category, index) => {
+    const key = getCategoryGroupKey(category);
+    const title = category.name;
     if (!groups.has(key)) {
       groups.set(key, {
         key,
-        title: category,
-        order: getCategorySortOrder(category),
+        title,
+        order: normalizeNumber(category.displayOrder, index + 1),
         items: [],
+        category,
+      });
+      orderedKeys.push(key);
+    }
+  });
+
+  menu.forEach((item, index) => {
+    const categoryMatch = resolveMenuItemCategory(item, normalizedCategories);
+    const key = categoryMatch ? getCategoryGroupKey(categoryMatch) : 'uncategorized';
+    if (!groups.has(key)) {
+      groups.set(key, {
+        key,
+        title: categoryMatch?.name || 'Menu Items',
+        order: categoryMatch ? normalizeNumber(categoryMatch.displayOrder, orderedKeys.length + 1) : Number.MAX_SAFE_INTEGER,
+        items: [],
+        category: categoryMatch || null,
       });
       orderedKeys.push(key);
     }
@@ -608,59 +626,61 @@ function groupMenuItems(menu = []) {
     });
 }
 
-function getMenuItemCategory(item) {
-  const directCategory =
-    item.categoryName ||
-    item.category_name ||
-    item.category?.name ||
-    item.category?.title ||
-    item.category ||
-    item.section ||
-    item.group ||
+function normalizeMenuCategories(categories = []) {
+  return categories
+    .map((category, index) => ({
+      ...category,
+      id: category.id,
+      name: category.name || category.title || `Category ${index + 1}`,
+      displayOrder: normalizeNumber(category.display_order ?? category.displayOrder, index + 1),
+      isActive: category.is_active ?? category.isActive ?? true,
+    }))
+    .sort((a, b) => {
+      if (a.displayOrder !== b.displayOrder) {
+        return a.displayOrder - b.displayOrder;
+      }
+      return a.name.localeCompare(b.name);
+    });
+}
+
+function resolveMenuItemCategory(item, categories = []) {
+  const categoryId = item.categoryId ?? item.category_id ?? item.category?.id ?? '';
+  const categoryName =
+    item.categoryName ??
+    item.category_name ??
+    item.category?.name ??
+    item.category?.title ??
+    item.category ??
+    item.section ??
+    item.group ??
     '';
 
-  if (directCategory) {
-    return normalizeCategoryLabel(directCategory);
+  if (categoryId) {
+    const byId = categories.find((category) => String(category.id) === String(categoryId));
+    if (byId) {
+      return byId;
+    }
   }
 
-  const haystack = [item.name, item.description].filter(Boolean).join(' ').toLowerCase();
-  if (containsAny(haystack, ['biryani', 'biryani bowl', 'kacchi', 'dum'])) {
-    return 'Biryani';
-  }
-  if (containsAny(haystack, ['idli', 'dosa', 'vada', 'uttapam', 'pongal', 'sambar', 'south indian'])) {
-    return 'South Indian';
-  }
-  if (containsAny(haystack, ['drink', 'juice', 'lassi', 'tea', 'coffee', 'soda', 'water', 'shake'])) {
-    return 'Drinks';
-  }
-  if (containsAny(haystack, ['snack', 'fried', 'pakora', 'vada', 'puff', 'chaat', 'starter'])) {
-    return 'Snacks';
+  if (categoryName) {
+    const normalizedName = String(categoryName).trim().toLowerCase();
+    const byName = categories.find((category) => String(category.name).trim().toLowerCase() === normalizedName);
+    if (byName) {
+      return byName;
+    }
+
+    return {
+      id: categoryId || normalizedName,
+      name: String(categoryName).trim(),
+      displayOrder: Number.MAX_SAFE_INTEGER,
+    };
   }
 
-  return 'Menu Items';
+  return null;
 }
 
-function normalizeCategoryLabel(value) {
-  const normalized = String(value).trim();
-  const lower = normalized.toLowerCase();
-  if (lower === 'biriyani') return 'Biryani';
-  if (lower === 'biryanis') return 'Biryani';
-  if (lower === 'southindian' || lower === 'south indian') return 'South Indian';
-  if (lower === 'drink' || lower === 'drinks') return 'Drinks';
-  if (lower === 'snack' || lower === 'snacks') return 'Snacks';
-  if (lower === 'biryani' || lower === 'menu items') return normalized[0].toUpperCase() + normalized.slice(1);
-  return normalized;
-}
-
-function getCategorySortOrder(category) {
-  const order = {
-    'South Indian': 1,
-    Biryani: 2,
-    Snacks: 3,
-    Drinks: 4,
-    'Menu Items': 99,
-  };
-  return order[category] ?? 50;
+function getCategoryGroupKey(category) {
+  return `category:${String(category.id ?? category.name).trim().toLowerCase()}`;
 }
 
 function sortMenuItems(items = []) {
@@ -672,17 +692,6 @@ function sortMenuItems(items = []) {
     }
     return a.name.localeCompare(b.name);
   });
-}
-
-function slugify(value) {
-  return String(value)
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-+|-+$/g, '');
-}
-
-function containsAny(source, patterns) {
-  return patterns.some((pattern) => source.includes(pattern));
 }
 
 // Cart summary mirrors pickup choice and keeps the place order action focused.
