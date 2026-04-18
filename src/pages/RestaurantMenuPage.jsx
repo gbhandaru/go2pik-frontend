@@ -669,6 +669,11 @@ function getCategoryGroupKey(category) {
   return `category:${String(category.id ?? category.name).trim().toLowerCase()}`;
 }
 
+function normalizeNumber(value, fallback = 0) {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : fallback;
+}
+
 function sortMenuItems(items = []) {
   return [...items].sort((a, b) => {
     const aOrder = Number.isFinite(a.displayOrder) ? a.displayOrder : Number(a.__menuIndex || 0);
