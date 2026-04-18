@@ -73,6 +73,10 @@ img {
   color: #1f2937;
 }
 
+.customer-profile-trigger--link {
+  text-decoration: none;
+}
+
 .customer-profile-trigger__avatar {
   width: 2.15rem;
   height: 2.15rem;
