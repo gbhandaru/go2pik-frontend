@@ -293,7 +293,7 @@ function getVerificationPhone(orderDraft, user, verification) {
     const last = digits.slice(-4);
     return `${country}${area} *** ${last}`.replace(/\s+/g, ' ').trim();
   }
-  return '+1 510 *** 8796';
+  return '+1 510 *** 7548';
 }
 
 function parseVerificationDate(value) {
