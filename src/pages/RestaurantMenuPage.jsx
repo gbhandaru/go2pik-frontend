@@ -284,6 +284,7 @@ export default function RestaurantMenuPage() {
           submitting={submitting}
           orderError={orderError}
           disabled={!cart.length || missingScheduledTime}
+          onUpdateQuantity={updateQuantity}
           onPlaceOrder={handlePlaceOrder}
         />
       </section>
@@ -415,6 +416,8 @@ function ReorderCard({ items = [], hasOrder, onReorder }) {
 // Menu list stays lean so the cart retains secondary visual weight.
 function MenuList({ menu, quantityById, cartItemById, onAdd, onUpdate, onUpdateInstructions }) {
   const [expandedItemId, setExpandedItemId] = useState(null);
+  const groupedMenu = useMemo(() => groupMenuItems(menu), [menu]);
+  const [activeCategory, setActiveCategory] = useState('');
 
   useEffect(() => {
     if (expandedItemId && !quantityById[expandedItemId]) {
@@ -422,89 +425,264 @@ function MenuList({ menu, quantityById, cartItemById, onAdd, onUpdate, onUpdateI
     }
   }, [expandedItemId, quantityById]);
 
+  useEffect(() => {
+    if (!groupedMenu.length) {
+      setActiveCategory('');
+      return;
+    }
+
+    setActiveCategory((current) => {
+      const stillExists = groupedMenu.some((group) => group.key === current);
+      return stillExists ? current : groupedMenu[0].key;
+    });
+  }, [groupedMenu]);
+
   if (!menu.length) {
     return <p className="muted">Menu unavailable right now.</p>;
   }
 
   return (
-    <div className="menu-items" aria-live="polite">
-      {menu.map((item) => {
-        const quantity = quantityById[item.id] || 0;
-        const currentCartItem = cartItemById[item.id];
-        const instructions = currentCartItem?.specialInstructions || '';
-        const isExpanded = expandedItemId === item.id;
-        return (
-          <div className="menu-row menu-row--with-instructions" key={item.id}>
-            <div className="menu-row__content">
-              <strong>{item.name}</strong>
-              {item.description && <p className="muted">{item.description}</p>}
-              {quantity > 0 ? (
-                <div className="menu-row__instructions">
-                  <button
-                    type="button"
-                    className="menu-instructions-toggle"
-                    onClick={() => {
-                      setExpandedItemId((current) => (current === item.id ? null : item.id));
-                    }}
-                  >
-                    {isExpanded ? (
-                      'Hide Instructions'
-                    ) : (
-                      <>
-                        <span>Add Instructions</span>
-                        <span className="menu-instructions-toggle__hint">Optional</span>
-                      </>
-                    )}
-                  </button>
-                  {isExpanded ? (
-                    <div className="menu-instructions-editor">
-                      <textarea
-                        rows="2"
-                        value={instructions}
-                        onChange={(event) => {
-                          const nextInstructions = event.target.value;
-                          onUpdateInstructions(item.id, nextInstructions);
-                        }}
-                        placeholder="Add a note for the kitchen"
-                      />
-                      <p className="muted menu-instructions-help">
-                        Example: less spicy, no onions, sauce on the side
-                      </p>
-                    </div>
-                  ) : instructions ? (
-                    <p className="menu-instructions-preview">{instructions}</p>
-                  ) : null}
-                </div>
-              ) : null}
+    <div className="menu-catalog" aria-live="polite">
+      <div className="menu-catalog__tabs" role="tablist" aria-label="Menu categories">
+        {groupedMenu.map((group) => (
+          <button
+            key={group.key}
+            type="button"
+            role="tab"
+            aria-selected={activeCategory === group.key}
+            className={`menu-category-chip${activeCategory === group.key ? ' active' : ''}`}
+            onClick={() => {
+              setActiveCategory(group.key);
+              document.getElementById(group.key)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            }}
+          >
+            {group.title}
+          </button>
+        ))}
+      </div>
+
+      <div className="menu-catalog__groups">
+        {groupedMenu.map((group) => (
+          <section className="menu-category-section" id={group.key} key={group.key}>
+            <h2 className="menu-category-section__title">{group.title}</h2>
+            <div className="menu-grid">
+              {group.items.map((item, index) => (
+                <MenuItemCard
+                  key={item.id}
+                  item={item}
+                  quantity={quantityById[item.id] || 0}
+                  instructions={cartItemById[item.id]?.specialInstructions || ''}
+                  isInstructionsExpanded={expandedItemId === item.id}
+                  isBestseller={Boolean(item.isBestseller || item.is_bestseller || item.badge || (index === 0 && group.key === groupedMenu[0]?.key))}
+                  onAdd={onAdd}
+                  onUpdate={onUpdate}
+                  onToggleInstructions={() => {
+                    setExpandedItemId((current) => (current === item.id ? null : item.id));
+                  }}
+                  onUpdateInstructions={onUpdateInstructions}
+                />
+              ))}
             </div>
-            <div className="stepper">
-              <span className="price">{formatCurrency(item.price)}</span>
-              <div className="stepper-controls">
-                <button
-                  type="button"
-                  className="stepper-btn"
-                  aria-label={`Decrease ${item.name}`}
-                  onClick={() => onUpdate(item.id, quantity - 1)}
-                  disabled={quantity === 0}
-                >
-                  -
-                </button>
-                <span>{quantity}</span>
-                <button
-                  type="button"
-                  className="stepper-btn"
-                  aria-label={`Increase ${item.name}`}
-                  onClick={() => (quantity > 0 ? onUpdate(item.id, quantity + 1) : onAdd(item))}
-                >
-                  +
-                </button>
-              </div>
-            </div>
-          </div>
-        );
-      })}
+          </section>
+        ))}
+      </div>
     </div>
   );
+}
+
+function MenuItemCard({
+  item,
+  quantity,
+  instructions,
+  isInstructionsExpanded,
+  isBestseller,
+  onAdd,
+  onUpdate,
+  onToggleInstructions,
+  onUpdateInstructions,
+}) {
+  return (
+    <article className={`menu-item-card${quantity > 0 ? ' menu-item-card--selected' : ''}`}>
+      <div className="menu-item-card__top">
+        <div className="menu-item-card__copy">
+          <div className="menu-item-card__title-row">
+            <strong className="menu-item-card__title">{item.name}</strong>
+            <span className="menu-item-card__price">{formatCurrency(item.price)}</span>
+          </div>
+          {isBestseller ? <span className="menu-item-card__badge">Bestseller</span> : null}
+          {item.description ? <p className="menu-item-card__description">{item.description}</p> : null}
+        </div>
+
+        <div className="menu-item-card__action">
+          {quantity > 0 ? (
+            <div className="menu-stepper">
+              <button
+                type="button"
+                className="menu-stepper__btn"
+                aria-label={`Decrease ${item.name}`}
+                onClick={() => onUpdate(item.id, quantity - 1)}
+              >
+                -
+              </button>
+              <span className="menu-stepper__count">{quantity}</span>
+              <button
+                type="button"
+                className="menu-stepper__btn menu-stepper__btn--add"
+                aria-label={`Increase ${item.name}`}
+                onClick={() => onUpdate(item.id, quantity + 1)}
+              >
+                +
+              </button>
+            </div>
+          ) : (
+            <button type="button" className="menu-add-btn" onClick={() => onAdd(item)}>
+              Add
+            </button>
+          )}
+        </div>
+      </div>
+
+      {quantity > 0 ? (
+        <div className="menu-item-card__instructions">
+          <button type="button" className="menu-instructions-toggle" onClick={onToggleInstructions}>
+            {isInstructionsExpanded ? (
+              'Hide Instructions'
+            ) : (
+              <>
+                <span>Add Instructions</span>
+                <span className="menu-instructions-toggle__hint">Optional</span>
+              </>
+            )}
+          </button>
+          {isInstructionsExpanded ? (
+            <div className="menu-instructions-editor">
+              <textarea
+                rows="2"
+                value={instructions}
+                onChange={(event) => onUpdateInstructions(item.id, event.target.value)}
+                placeholder="Add a note for the kitchen"
+              />
+              <p className="muted menu-instructions-help">Example: less spicy, no onions, sauce on the side</p>
+            </div>
+          ) : null}
+        </div>
+      ) : null}
+    </article>
+  );
+}
+
+function groupMenuItems(menu = []) {
+  const groups = new Map();
+  const orderedKeys = [];
+
+  menu.forEach((item, index) => {
+    const category = getMenuItemCategory(item);
+    const key = slugify(category);
+    if (!groups.has(key)) {
+      groups.set(key, {
+        key,
+        title: category,
+        order: getCategorySortOrder(category),
+        items: [],
+      });
+      orderedKeys.push(key);
+    }
+
+    groups.get(key).items.push({
+      ...item,
+      __menuIndex: index,
+    });
+  });
+
+  return orderedKeys
+    .map((key) => groups.get(key))
+    .map((group) => ({
+      ...group,
+      items: sortMenuItems(group.items),
+    }))
+    .sort((a, b) => {
+      if (a.order !== b.order) {
+        return a.order - b.order;
+      }
+      return a.title.localeCompare(b.title);
+    });
+}
+
+function getMenuItemCategory(item) {
+  const directCategory =
+    item.categoryName ||
+    item.category_name ||
+    item.category?.name ||
+    item.category?.title ||
+    item.category ||
+    item.section ||
+    item.group ||
+    '';
+
+  if (directCategory) {
+    return normalizeCategoryLabel(directCategory);
+  }
+
+  const haystack = [item.name, item.description].filter(Boolean).join(' ').toLowerCase();
+  if (containsAny(haystack, ['biryani', 'biryani bowl', 'kacchi', 'dum'])) {
+    return 'Biryani';
+  }
+  if (containsAny(haystack, ['idli', 'dosa', 'vada', 'uttapam', 'pongal', 'sambar', 'south indian'])) {
+    return 'South Indian';
+  }
+  if (containsAny(haystack, ['drink', 'juice', 'lassi', 'tea', 'coffee', 'soda', 'water', 'shake'])) {
+    return 'Drinks';
+  }
+  if (containsAny(haystack, ['snack', 'fried', 'pakora', 'vada', 'puff', 'chaat', 'starter'])) {
+    return 'Snacks';
+  }
+
+  return 'Menu Items';
+}
+
+function normalizeCategoryLabel(value) {
+  const normalized = String(value).trim();
+  const lower = normalized.toLowerCase();
+  if (lower === 'biriyani') return 'Biryani';
+  if (lower === 'biryanis') return 'Biryani';
+  if (lower === 'southindian' || lower === 'south indian') return 'South Indian';
+  if (lower === 'drink' || lower === 'drinks') return 'Drinks';
+  if (lower === 'snack' || lower === 'snacks') return 'Snacks';
+  if (lower === 'biryani' || lower === 'menu items') return normalized[0].toUpperCase() + normalized.slice(1);
+  return normalized;
+}
+
+function getCategorySortOrder(category) {
+  const order = {
+    'South Indian': 1,
+    Biryani: 2,
+    Snacks: 3,
+    Drinks: 4,
+    'Menu Items': 99,
+  };
+  return order[category] ?? 50;
+}
+
+function sortMenuItems(items = []) {
+  return [...items].sort((a, b) => {
+    const aOrder = Number.isFinite(a.displayOrder) ? a.displayOrder : Number(a.__menuIndex || 0);
+    const bOrder = Number.isFinite(b.displayOrder) ? b.displayOrder : Number(b.__menuIndex || 0);
+    if (aOrder !== bOrder) {
+      return aOrder - bOrder;
+    }
+    return a.name.localeCompare(b.name);
+  });
+}
+
+function slugify(value) {
+  return String(value)
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '');
+}
+
+function containsAny(source, patterns) {
+  return patterns.some((pattern) => source.includes(pattern));
 }
 
 // Cart summary mirrors pickup choice and keeps the place order action focused.
@@ -519,16 +697,11 @@ function CartSummary({
   submitting,
   orderError,
   disabled,
+  onUpdateQuantity,
   onPlaceOrder,
 }) {
   const grandTotal = total;
   const isCartEmpty = cart.length === 0;
-  const cartPickupLabel =
-    pickupMode === PICKUP_MODES.SCHEDULED
-      ? scheduledPickupTime
-        ? `Scheduled ${formatTime(scheduledPickupTime)}`
-        : 'Schedule pickup time'
-      : 'ASAP (15–20 min)';
 
   return (
     <aside className="card cart-panel cart-summary cart-wireframe">
@@ -557,15 +730,30 @@ function CartSummary({
             {cart.map((cartItem) => (
               <li key={cartItem.id}>
                 <div className="cart-item-details">
-                  <strong>{cartItem.name}</strong>
-                  <span>
-                    {cartItem.quantity} × {formatCurrency(cartItem.price)}
-                  </span>
-                  {cartItem.specialInstructions ? (
-                    <span className="cart-item-instructions">{cartItem.specialInstructions}</span>
-                  ) : null}
+                  <div className="cart-item-details__top">
+                    <strong>{cartItem.name}</strong>
+                    <strong>{formatCurrency(cartItem.price * cartItem.quantity)}</strong>
+                  </div>
+                  <div className="cart-item-stepper">
+                    <button
+                      type="button"
+                      className="cart-stepper-btn"
+                      aria-label={`Decrease ${cartItem.name}`}
+                      onClick={() => onUpdateQuantity(cartItem.id, cartItem.quantity - 1)}
+                    >
+                      -
+                    </button>
+                    <span className="cart-stepper-count">{cartItem.quantity}</span>
+                    <button
+                      type="button"
+                      className="cart-stepper-btn cart-stepper-btn--add"
+                      aria-label={`Increase ${cartItem.name}`}
+                      onClick={() => onUpdateQuantity(cartItem.id, cartItem.quantity + 1)}
+                    >
+                      +
+                    </button>
+                  </div>
                 </div>
-                <strong>{formatCurrency(cartItem.price * cartItem.quantity)}</strong>
               </li>
             ))}
           </ul>
