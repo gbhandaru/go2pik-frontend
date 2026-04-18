@@ -706,6 +706,12 @@ textarea {
   letter-spacing: -0.02em;
 }
 
+.menu-category-section__count {
+  margin-left: 0.4rem;
+  color: #9aa4b5;
+  font-weight: 500;
+}
+
 .menu-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));

@@ -404,6 +404,14 @@ function MenuList({ menu, categories, quantityById, cartItemById, onAdd, onUpdat
   const groupedMenu = useMemo(() => groupMenuItems(menu, categories), [menu, categories]);
   const visibleCategoryGroups = useMemo(() => groupedMenu.filter((group) => Boolean(group.category)), [groupedMenu]);
   const [activeCategory, setActiveCategory] = useState('');
+  const displayedGroups = useMemo(() => {
+    if (!activeCategory) {
+      return groupedMenu;
+    }
+
+    const selectedGroup = groupedMenu.filter((group) => group.key === activeCategory);
+    return selectedGroup.length > 0 ? selectedGroup : groupedMenu;
+  }, [activeCategory, groupedMenu]);
 
   useEffect(() => {
     if (expandedItemId && !quantityById[expandedItemId]) {
@@ -450,9 +458,14 @@ function MenuList({ menu, categories, quantityById, cartItemById, onAdd, onUpdat
       ) : null}
 
       <div className="menu-catalog__groups">
-        {groupedMenu.map((group) => (
+        {displayedGroups.map((group) => (
           <section className="menu-category-section" id={group.key} key={group.key}>
-            {group.key === 'uncategorized' ? null : <h2 className="menu-category-section__title">{group.title}</h2>}
+            {group.key === 'uncategorized' ? null : (
+              <h2 className="menu-category-section__title">
+                {group.title}
+                <span className="menu-category-section__count">({group.items.length} Items)</span>
+              </h2>
+            )}
             <div className="menu-grid">
               {group.items.map((item, index) => (
                 <MenuItemCard
@@ -578,7 +591,7 @@ function MenuItemCard({
 function groupMenuItems(menu = [], categories = []) {
   const groups = new Map();
   const orderedKeys = [];
-  const normalizedCategories = normalizeMenuCategories(categories);
+  const normalizedCategories = mergeMenuCategories(categories, menu);
 
   normalizedCategories.forEach((category, index) => {
     const key = getCategoryGroupKey(category);
@@ -655,6 +668,29 @@ function normalizeMenuCategories(categories = []) {
     });
 }
 
+function mergeMenuCategories(categories = [], menu = []) {
+  const normalizedCategories = normalizeMenuCategories(categories);
+  const categoryMap = new Map();
+
+  normalizedCategories.forEach((category) => {
+    categoryMap.set(getCategoryGroupKey(category), category);
+  });
+
+  inferMenuCategoriesFromItems(menu).forEach((category) => {
+    const key = getCategoryGroupKey(category);
+    if (!categoryMap.has(key)) {
+      categoryMap.set(key, category);
+    }
+  });
+
+  return [...categoryMap.values()].sort((a, b) => {
+    if (a.displayOrder !== b.displayOrder) {
+      return a.displayOrder - b.displayOrder;
+    }
+    return a.name.localeCompare(b.name);
+  });
+}
+
 function normalizeBoolean(value, fallback = false) {
   if (value === null || value === undefined || value === '') {
     return fallback;
@@ -675,6 +711,64 @@ function normalizeBoolean(value, fallback = false) {
     }
   }
   return fallback;
+}
+
+function inferMenuCategoriesFromItems(menu = []) {
+  const inferredCategories = [];
+  const seen = new Set();
+
+  menu.forEach((item, index) => {
+    const descriptor = getMenuItemCategoryDescriptor(item);
+    if (!descriptor) {
+      return;
+    }
+
+    const key = getCategoryGroupKey(descriptor);
+    if (seen.has(key)) {
+      return;
+    }
+
+    seen.add(key);
+    inferredCategories.push({
+      id: descriptor.id || descriptor.name,
+      name: descriptor.name,
+      displayOrder: index + 1,
+      isActive: true,
+    });
+  });
+
+  return inferredCategories;
+}
+
+function getMenuItemCategoryDescriptor(item = {}) {
+  const categoryId = item.categoryId ?? item.category_id ?? item.category?.id ?? '';
+  const categoryName =
+    item.categoryName ??
+    item.category_name ??
+    item.categoryLabel ??
+    item.category_label ??
+    item.categoryTitle ??
+    item.category_title ??
+    item.menuCategoryName ??
+    item.menu_category_name ??
+    item.menuCategory ??
+    item.menu_category ??
+    item.category?.name ??
+    item.category?.title ??
+    item.category?.label ??
+    item.category ??
+    item.section ??
+    item.group ??
+    '';
+
+  if (!categoryId && !categoryName) {
+    return null;
+  }
+
+  return {
+    id: categoryId || categoryName,
+    name: categoryName || String(categoryId),
+  };
 }
 
 function resolveMenuItemCategory(item, categories = []) {
