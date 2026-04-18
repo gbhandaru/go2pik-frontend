@@ -402,6 +402,7 @@ function ReorderCard({ items = [], hasOrder, onReorder }) {
 function MenuList({ menu, categories, quantityById, cartItemById, onAdd, onUpdate, onUpdateInstructions }) {
   const [expandedItemId, setExpandedItemId] = useState(null);
   const groupedMenu = useMemo(() => groupMenuItems(menu, categories), [menu, categories]);
+  const visibleCategoryGroups = useMemo(() => groupedMenu.filter((group) => Boolean(group.category)), [groupedMenu]);
   const [activeCategory, setActiveCategory] = useState('');
 
   useEffect(() => {
@@ -411,16 +412,16 @@ function MenuList({ menu, categories, quantityById, cartItemById, onAdd, onUpdat
   }, [expandedItemId, quantityById]);
 
   useEffect(() => {
-    if (!groupedMenu.length) {
+    if (!visibleCategoryGroups.length) {
       setActiveCategory('');
       return;
     }
 
     setActiveCategory((current) => {
-      const stillExists = groupedMenu.some((group) => group.key === current);
-      return stillExists ? current : groupedMenu[0].key;
+      const stillExists = visibleCategoryGroups.some((group) => group.key === current);
+      return stillExists ? current : visibleCategoryGroups[0].key;
     });
-  }, [groupedMenu]);
+  }, [visibleCategoryGroups]);
 
   if (!menu.length) {
     return <p className="muted">Menu unavailable right now.</p>;
@@ -428,9 +429,9 @@ function MenuList({ menu, categories, quantityById, cartItemById, onAdd, onUpdat
 
   return (
     <div className="menu-catalog" aria-live="polite">
-      {groupedMenu.length > 1 ? (
+      {visibleCategoryGroups.length > 1 ? (
         <div className="menu-catalog__tabs" role="tablist" aria-label="Menu categories">
-          {groupedMenu.map((group) => (
+          {visibleCategoryGroups.map((group) => (
             <button
               key={group.key}
               type="button"
@@ -451,12 +452,13 @@ function MenuList({ menu, categories, quantityById, cartItemById, onAdd, onUpdat
       <div className="menu-catalog__groups">
         {groupedMenu.map((group) => (
           <section className="menu-category-section" id={group.key} key={group.key}>
-            <h2 className="menu-category-section__title">{group.title}</h2>
+            {group.key === 'uncategorized' ? null : <h2 className="menu-category-section__title">{group.title}</h2>}
             <div className="menu-grid">
               {group.items.map((item, index) => (
                 <MenuItemCard
                   key={item.id}
                   item={item}
+                  categoryLabel={group.category?.name || ''}
                   quantity={quantityById[item.id] || 0}
                   instructions={cartItemById[item.id]?.specialInstructions || ''}
                   isInstructionsExpanded={expandedItemId === item.id}
@@ -479,6 +481,7 @@ function MenuList({ menu, categories, quantityById, cartItemById, onAdd, onUpdat
 
 function MenuItemCard({
   item,
+  categoryLabel,
   quantity,
   instructions,
   isInstructionsExpanded,
@@ -496,8 +499,22 @@ function MenuItemCard({
             <strong className="menu-item-card__title">{item.name}</strong>
             <span className="menu-item-card__price">{formatCurrency(item.price)}</span>
           </div>
-          {isBestseller ? <span className="menu-item-card__badge">Bestseller</span> : null}
-          {item.description ? <p className="menu-item-card__description">{item.description}</p> : null}
+          {(categoryLabel || item.description) ? (
+            <p className="menu-item-card__meta">
+              {categoryLabel ? <span className="menu-item-card__meta-category">{categoryLabel}</span> : null}
+              {categoryLabel && item.description ? <span className="menu-item-card__meta-separator">•</span> : null}
+              {item.description ? <span className="menu-item-card__meta-description">{item.description}</span> : null}
+            </p>
+          ) : null}
+          <div className="menu-item-card__badges">
+            {normalizeBoolean(item.isAvailable ?? item.is_available ?? true) ? (
+              <span className="menu-item-card__status menu-item-card__status--available">ON</span>
+            ) : null}
+            {normalizeBoolean(item.isVegetarian ?? item.is_vegetarian ?? item.isVegan ?? item.is_vegan, false) ? (
+              <span className="menu-item-card__status menu-item-card__status--vegetarian">VEGETARIAN</span>
+            ) : null}
+            {isBestseller ? <span className="menu-item-card__status menu-item-card__status--featured">Bestseller</span> : null}
+          </div>
         </div>
 
         <div className="menu-item-card__action">
@@ -565,45 +582,54 @@ function groupMenuItems(menu = [], categories = []) {
 
   normalizedCategories.forEach((category, index) => {
     const key = getCategoryGroupKey(category);
-    const title = category.name;
-    if (!groups.has(key)) {
-      groups.set(key, {
-        key,
-        title,
-        order: normalizeNumber(category.displayOrder, index + 1),
-        items: [],
-        category,
-      });
-      orderedKeys.push(key);
-    }
+    groups.set(key, {
+      key,
+      title: category.name,
+      order: normalizeNumber(category.displayOrder, index + 1),
+      items: [],
+      category,
+    });
+    orderedKeys.push(key);
   });
+
+  const uncategorized = {
+    key: 'uncategorized',
+    title: 'All Items',
+    order: Number.MAX_SAFE_INTEGER,
+    items: [],
+    category: null,
+  };
 
   menu.forEach((item, index) => {
     const categoryMatch = resolveMenuItemCategory(item, normalizedCategories);
-    const key = categoryMatch ? getCategoryGroupKey(categoryMatch) : 'uncategorized';
-    if (!groups.has(key)) {
-      groups.set(key, {
-        key,
-        title: categoryMatch?.name || 'Menu Items',
-        order: categoryMatch ? normalizeNumber(categoryMatch.displayOrder, orderedKeys.length + 1) : Number.MAX_SAFE_INTEGER,
-        items: [],
-        category: categoryMatch || null,
+    if (categoryMatch) {
+      const key = getCategoryGroupKey(categoryMatch);
+      groups.get(key)?.items.push({
+        ...item,
+        __menuIndex: index,
       });
-      orderedKeys.push(key);
+      return;
     }
 
-    groups.get(key).items.push({
+    uncategorized.items.push({
       ...item,
       __menuIndex: index,
     });
   });
 
+  if (uncategorized.items.length > 0) {
+    groups.set(uncategorized.key, uncategorized);
+    orderedKeys.push(uncategorized.key);
+  }
+
   return orderedKeys
     .map((key) => groups.get(key))
+    .filter(Boolean)
     .map((group) => ({
       ...group,
       items: sortMenuItems(group.items),
     }))
+    .filter((group) => group.items.length > 0)
     .sort((a, b) => {
       if (a.order !== b.order) {
         return a.order - b.order;
@@ -629,13 +655,44 @@ function normalizeMenuCategories(categories = []) {
     });
 }
 
+function normalizeBoolean(value, fallback = false) {
+  if (value === null || value === undefined || value === '') {
+    return fallback;
+  }
+  if (typeof value === 'boolean') {
+    return value;
+  }
+  if (typeof value === 'number') {
+    return value !== 0;
+  }
+  if (typeof value === 'string') {
+    const normalized = value.trim().toLowerCase();
+    if (['true', '1', 'yes', 'y', 'available', 'active', 'on'].includes(normalized)) {
+      return true;
+    }
+    if (['false', '0', 'no', 'n', 'unavailable', 'inactive', 'off'].includes(normalized)) {
+      return false;
+    }
+  }
+  return fallback;
+}
+
 function resolveMenuItemCategory(item, categories = []) {
   const categoryId = item.categoryId ?? item.category_id ?? item.category?.id ?? '';
   const categoryName =
     item.categoryName ??
     item.category_name ??
+    item.categoryLabel ??
+    item.category_label ??
+    item.categoryTitle ??
+    item.category_title ??
+    item.menuCategoryName ??
+    item.menu_category_name ??
+    item.menuCategory ??
+    item.menu_category ??
     item.category?.name ??
     item.category?.title ??
+    item.category?.label ??
     item.category ??
     item.section ??
     item.group ??
@@ -654,12 +711,6 @@ function resolveMenuItemCategory(item, categories = []) {
     if (byName) {
       return byName;
     }
-
-    return {
-      id: categoryId || normalizedName,
-      name: String(categoryName).trim(),
-      displayOrder: Number.MAX_SAFE_INTEGER,
-    };
   }
 
   return null;
