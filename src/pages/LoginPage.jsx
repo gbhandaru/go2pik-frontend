@@ -39,7 +39,7 @@ export default function LoginPage() {
   };
 
   const handleContinueAsGuest = () => {
-    navigate('/home');
+    navigate(location.state?.from?.pathname || '/home', { replace: true });
   };
 
   return (

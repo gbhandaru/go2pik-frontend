@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { useLocation, useNavigate, useParams } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 import { submitOrder } from '../api/ordersApi.js';
 import { fetchRestaurantMenu } from '../api/restaurantsApi.js';
 import { useFetch } from '../hooks/useFetch.js';
@@ -17,8 +17,7 @@ const EARLIEST_PICKUP_MINUTES = 15;
 export default function RestaurantMenuPage() {
   const { restaurantId } = useParams();
   const navigate = useNavigate();
-  const location = useLocation();
-  const { user, loading: authLoading } = useAuth();
+  const { user } = useAuth();
   const customerName = useMemo(() => getCustomerDisplayName(user), [user]);
   const [cart, setCart] = useState([]);
   const [submitting, setSubmitting] = useState(false);
@@ -35,15 +34,6 @@ export default function RestaurantMenuPage() {
     setSelectedPickupMode(PICKUP_MODES.ASAP);
     setScheduledPickupTime('');
   }, [restaurantId]);
-
-  useEffect(() => {
-    if (!authLoading && !user) {
-      navigate('/login', {
-        replace: true,
-        state: { from: location },
-      });
-    }
-  }, [authLoading, location, navigate, user]);
 
   const totalItems = useMemo(() => cart.reduce((sum, item) => sum + item.quantity, 0), [cart]);
   const total = useMemo(() => cart.reduce((sum, item) => sum + item.price * item.quantity, 0), [cart]);
@@ -220,10 +210,6 @@ export default function RestaurantMenuPage() {
         <div className="page-empty-state">Loading menu...</div>
       </main>
     );
-  }
-
-  if (!authLoading && !user) {
-    return null;
   }
 
   if (error || !data?.restaurant) {

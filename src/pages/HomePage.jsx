@@ -1,11 +1,9 @@
 import { Link } from 'react-router-dom';
 import { fetchRestaurants } from '../api/restaurantsApi.js';
-import { useAuth } from '../hooks/useAuth.jsx';
 import { useFetch } from '../hooks/useFetch.js';
 import { getRestaurantAddressLines } from '../utils/formatRestaurantAddress.js';
 
 export default function HomePage() {
-  const { isAuthenticated } = useAuth();
   const { data: restaurants, loading, error } = useFetch(fetchRestaurants, []);
 
   return (
@@ -28,12 +26,7 @@ export default function HomePage() {
             <Link
               key={restaurant.id}
               className="restaurant-card-link"
-              to={isAuthenticated ? `/restaurants/${restaurant.id}/menu` : '/login'}
-              state={
-                isAuthenticated
-                  ? undefined
-                  : { from: { pathname: `/restaurants/${restaurant.id}/menu` } }
-              }
+              to={`/restaurants/${restaurant.id}/menu`}
             >
               <article className="card restaurant-card">
                 {restaurant.heroImage && (
@@ -45,13 +38,11 @@ export default function HomePage() {
                   <div className="restaurant-card__heading">
                     <p className="restaurant-card__tag">Restaurant</p>
                     <h2>{restaurant.name}</h2>
-                </div>
-                <div className="restaurant-card__meta">
-                  <p className="restaurant-card__pickup">{restaurant.eta || 'Pickup in 15–20 mins'}</p>
-                  <p className="restaurant-card__address">
-                    {renderRestaurantAddress(restaurant)}
-                  </p>
-                </div>
+                  </div>
+                  <div className="restaurant-card__meta">
+                    <p className="restaurant-card__pickup">{restaurant.eta || 'Pickup in 15–20 mins'}</p>
+                    <p className="restaurant-card__address">{renderRestaurantAddress(restaurant)}</p>
+                  </div>
                   <p className="restaurant-card__details">{restaurant.cuisine}</p>
                   <span className="primary-btn restaurant-card__cta">View Menu</span>
                 </div>
