@@ -93,18 +93,26 @@ function getCustomerName(entity) {
   }
 
   const directFields = [
+    entity.customerName,
+    entity.customer_name,
     entity.firstName,
     entity.first_name,
+    entity.givenName,
+    entity.given_name,
+    entity.middleName,
+    entity.middle_name,
+    entity.lastName,
+    entity.last_name,
     entity.preferredName,
     entity.preferred_name,
     entity.full_name,
     entity.fullName,
     entity.name,
-    entity.customerName,
-    entity.customer_name,
     entity.displayName,
     entity.display_name,
     entity.nickname,
+    entity.userName,
+    entity.user_name,
   ];
 
   const directMatch = directFields.find((value) => typeof value === 'string' && value.trim());
@@ -118,6 +126,14 @@ function getCustomerName(entity) {
       .join(' ');
   if (composite.trim()) {
     return composite.trim();
+  }
+
+  const nestedFields = [entity.profile, entity.user, entity.customer, entity.details, entity.data, entity.attributes, entity.result];
+  for (const nested of nestedFields) {
+    const nestedMatch = getCustomerName(nested);
+    if (nestedMatch) {
+      return nestedMatch;
+    }
   }
 
   return (
@@ -134,11 +150,18 @@ function resolveCustomerName({ user, order }) {
     return userMatch;
   }
   const orderEntities = [
+    order?.customerName,
+    order?.customer_name,
     order?.customer,
     order?.customerDetails,
     order?.customer_details,
     order?.customerInfo,
     order?.customer_info,
+    order?.profile,
+    order?.user,
+    order?.data,
+    order?.attributes,
+    order?.result,
   ];
   for (const entry of orderEntities) {
     const match = getCustomerName(entry);
@@ -192,7 +215,9 @@ export default function OrderConfirmationPage() {
   const total = order.total ?? subtotal;
   const browseMenuPath = getBrowseMenuPath(order);
 
-  const heroSubtitle = customerName ? `Thanks, ${customerName}!` : 'Thanks for your order!';
+  const heroSubtitle = customerName
+    ? `Thank you, ${customerName}! Your order is being prepared.`
+    : 'Thank you! Your order is being prepared.';
 
   const handleBrowseMenu = () => navigate(browseMenuPath);
   const handleBrowseRestaurants = () => navigate('/home');

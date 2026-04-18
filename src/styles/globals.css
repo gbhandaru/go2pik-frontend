@@ -1239,48 +1239,60 @@ textarea {
   display: flex;
   flex-direction: column;
   align-items: stretch;
-  gap: 0.85rem;
+  gap: 1rem;
   text-align: center;
 }
 
 .confirmation-hero {
   width: 100%;
   display: flex;
+  flex-direction: column;
   align-items: center;
   gap: 1rem;
-  text-align: left;
+  text-align: center;
+  padding-bottom: 0.15rem;
 }
 
 .confirmation-hero-copy h1 {
   margin: 0;
-  font-size: clamp(1.75rem, 4vw, 2.2rem);
+  font-size: clamp(1.68rem, 3.8vw, 2.05rem);
+  line-height: 1.12;
+  font-weight: 700;
+  letter-spacing: -0.04em;
 }
 
 .confirmation-hero-copy p {
-  margin: 0.15rem 0 0;
-  text-align: left;
+  margin: 0;
+  text-align: center;
 }
 
 .confirmation-icon {
-  width: 86px;
-  height: 86px;
+  width: 74px;
+  height: 74px;
   border-radius: 50%;
   background: radial-gradient(circle at top, #4ade80, #22c55e);
   color: #fff;
-  font-size: 2.5rem;
+  font-size: 2.1rem;
   display: flex;
   align-items: center;
   justify-content: center;
-  box-shadow: 0 20px 35px rgba(34, 197, 94, 0.35);
+  box-shadow: 0 18px 32px rgba(34, 197, 94, 0.3);
 }
 
 .confirmation-lede {
-  font-size: 1.1rem;
-  color: #0f172a;
+  font-size: clamp(1.02rem, 2.2vw, 1.08rem);
+  line-height: 1.45;
+  color: #2d3643;
+  font-weight: 600;
+  margin-top: 0.4rem;
 }
 
 .confirmation-subtext {
-  margin: 0.35rem 0 0;
+  margin-top: 0.55rem;
+  font-size: 0.95rem;
+  line-height: 1.45;
+  color: #7b8796;
+  font-weight: 500;
 }
 
 .pickup-info-card {
