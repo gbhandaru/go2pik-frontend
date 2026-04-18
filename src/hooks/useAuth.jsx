@@ -5,6 +5,7 @@ import {
   customerLogout,
   customerSignup,
   fetchCustomerProfile,
+  customerRefreshSession,
 } from '../api/authApi.js';
 import { sendWelcomeEmail } from '../api/customersApi.js';
 import {
@@ -93,21 +94,44 @@ export function AuthProvider({ children }) {
   useEffect(() => {
     async function hydrate() {
       const token = getAuthToken();
-      if (!token) {
+      const refreshToken = getRefreshToken();
+      if (!token && !refreshToken) {
         setState((prev) => ({ ...prev, loading: false }));
         return;
       }
       try {
-        const profile = await fetchCustomerProfile();
-        storeAuthTokens({ accessToken: token, profile });
-        setState({ user: profile, loading: false, error: null });
+        if (token) {
+          const profile = await fetchCustomerProfile();
+          storeAuthTokens({ accessToken: token, profile });
+          setState({ user: profile, loading: false, error: null });
+          return;
+        }
+
+        const response = await customerRefreshSession(refreshToken);
+        storeAuthTokens({
+          accessToken: response?.access_token,
+          refreshToken: response?.refresh_token,
+          profile: response?.user,
+        });
+        setState({ user: response?.user || null, loading: false, error: null });
       } catch (error) {
         clearAuthTokens();
-        setState({ user: null, loading: false, error: error.message });
+        setState({ user: null, loading: false, error: null });
       }
     }
 
     hydrate();
+  }, []);
+
+  useEffect(() => {
+    const handleAuthExpired = () => {
+      setState({ user: null, loading: false, error: null });
+    };
+
+    window.addEventListener('go2pik:auth-expired', handleAuthExpired);
+    return () => {
+      window.removeEventListener('go2pik:auth-expired', handleAuthExpired);
+    };
   }, []);
 
   const value = useMemo(() => ({

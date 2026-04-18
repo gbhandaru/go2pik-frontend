@@ -1,6 +1,8 @@
-import { useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import { fetchRestaurants } from '../api/restaurantsApi.js';
 import { createRestaurantUser } from '../api/authApi.js';
+import { useFetch } from '../hooks/useFetch.js';
 
 const INITIAL_FORM = {
   restaurantId: '',
@@ -13,9 +15,49 @@ const INITIAL_FORM = {
 export default function KitchenCreateUserPage() {
   const navigate = useNavigate();
   const [form, setForm] = useState(INITIAL_FORM);
+  const [restaurantQuery, setRestaurantQuery] = useState('');
+  const [restaurantReloadKey, setRestaurantReloadKey] = useState(0);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [success, setSuccess] = useState(null);
+  const { data: restaurantsData, loading: restaurantsLoading, error: restaurantsError } = useFetch(
+    fetchRestaurants,
+    [restaurantReloadKey],
+  );
+
+  const restaurants = useMemo(() => {
+    if (Array.isArray(restaurantsData)) {
+      return restaurantsData;
+    }
+
+    if (restaurantsData?.restaurants && Array.isArray(restaurantsData.restaurants)) {
+      return restaurantsData.restaurants;
+    }
+
+    return [];
+  }, [restaurantsData]);
+
+  const filteredRestaurants = useMemo(() => {
+    const normalizedQuery = restaurantQuery.trim().toLowerCase();
+    if (!normalizedQuery) {
+      return restaurants;
+    }
+
+    return restaurants.filter((restaurant) => {
+      const haystack = [
+        restaurant.id,
+        restaurant.name,
+        restaurant.cuisine,
+        restaurant.location,
+        restaurant.address_line1,
+        restaurant.addressLine1,
+      ]
+        .filter(Boolean)
+        .join(' ')
+        .toLowerCase();
+      return haystack.includes(normalizedQuery);
+    });
+  }, [restaurants, restaurantQuery]);
 
   const handleChange = (event) => {
     const { name, value } = event.target;
@@ -50,6 +92,14 @@ export default function KitchenCreateUserPage() {
     navigate('/kitchen/login', { replace: true });
   };
 
+  const handleRestaurantSelect = (event) => {
+    setForm((prev) => ({ ...prev, restaurantId: event.target.value }));
+  };
+
+  const refreshRestaurants = useCallback(() => {
+    setRestaurantReloadKey((current) => current + 1);
+  }, []);
+
   return (
     <main className="page-section kitchen-page">
       <form className="card" onSubmit={handleSubmit} style={{ maxWidth: 560, margin: '0 auto' }}>
@@ -58,15 +108,35 @@ export default function KitchenCreateUserPage() {
         <p className="kitchen-header__subtitle">Add a staff account for kitchen access.</p>
 
         <label className="form-group">
-          Restaurant ID
+          Restaurant lookup
           <input
-            required
-            type="text"
-            name="restaurantId"
-            placeholder="restaurant-123"
-            value={form.restaurantId}
-            onChange={handleChange}
+            type="search"
+            placeholder="Search restaurant name or ID"
+            value={restaurantQuery}
+            onChange={(event) => setRestaurantQuery(event.target.value)}
           />
+          <select
+            required
+            name="restaurantId"
+            value={form.restaurantId}
+            onChange={handleRestaurantSelect}
+            disabled={restaurantsLoading}
+          >
+            <option value="">{restaurantsLoading ? 'Loading restaurants…' : 'Select a restaurant'}</option>
+            {filteredRestaurants.map((restaurant) => (
+              <option key={restaurant.id} value={String(restaurant.id)}>
+                #{restaurant.id} - {restaurant.name}
+              </option>
+            ))}
+          </select>
+          <span className="muted">
+            Choose the restaurant from the list. We use its numeric database ID behind the scenes.
+          </span>
+          {restaurantsError ? (
+            <div className="auth-inline-notice">
+              {restaurantsError} <button type="button" className="text-link" onClick={refreshRestaurants}>Retry</button>
+            </div>
+          ) : null}
         </label>
 
         <label className="form-group">

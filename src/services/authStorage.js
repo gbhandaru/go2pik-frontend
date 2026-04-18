@@ -4,6 +4,8 @@ const PROFILE_KEY = 'go2pik.profile';
 const KITCHEN_ACCESS_TOKEN_KEY = 'go2pik.kitchenAccessToken';
 const KITCHEN_REFRESH_TOKEN_KEY = 'go2pik.kitchenRefreshToken';
 const KITCHEN_PROFILE_KEY = 'go2pik.kitchenProfile';
+const AUTH_NOTICE_KEY = 'go2pik.authNotice';
+const KITCHEN_AUTH_NOTICE_KEY = 'go2pik.kitchenAuthNotice';
 
 function safeStorage() {
   if (typeof window === 'undefined') {
@@ -56,6 +58,23 @@ export function clearAuthTokens() {
   storage?.removeItem(ACCESS_TOKEN_KEY);
   storage?.removeItem(REFRESH_TOKEN_KEY);
   storage?.removeItem(PROFILE_KEY);
+}
+
+export function setAuthNotice(message) {
+  const storage = safeStorage();
+  if (!storage) return;
+  if (message) {
+    storage.setItem(AUTH_NOTICE_KEY, message);
+  } else {
+    storage.removeItem(AUTH_NOTICE_KEY);
+  }
+}
+
+export function consumeAuthNotice() {
+  const storage = safeStorage();
+  const message = storage?.getItem(AUTH_NOTICE_KEY) || '';
+  storage?.removeItem(AUTH_NOTICE_KEY);
+  return message;
 }
 
 export function getKitchenAuthToken() {
@@ -150,4 +169,21 @@ export function clearKitchenAuthTokens() {
   storage?.removeItem(KITCHEN_ACCESS_TOKEN_KEY);
   storage?.removeItem(KITCHEN_REFRESH_TOKEN_KEY);
   storage?.removeItem(KITCHEN_PROFILE_KEY);
+}
+
+export function setKitchenAuthNotice(message) {
+  const storage = safeStorage();
+  if (!storage) return;
+  if (message) {
+    storage.setItem(KITCHEN_AUTH_NOTICE_KEY, message);
+  } else {
+    storage.removeItem(KITCHEN_AUTH_NOTICE_KEY);
+  }
+}
+
+export function consumeKitchenAuthNotice() {
+  const storage = safeStorage();
+  const message = storage?.getItem(KITCHEN_AUTH_NOTICE_KEY) || '';
+  storage?.removeItem(KITCHEN_AUTH_NOTICE_KEY);
+  return message;
 }

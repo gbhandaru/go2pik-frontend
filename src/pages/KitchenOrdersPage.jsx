@@ -2,8 +2,10 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import KitchenOrderCard from '../components/kitchen/KitchenOrderCard.jsx';
 import KitchenTabs from '../components/kitchen/KitchenTabs.jsx';
+import { restaurantUserLogout } from '../api/authApi.js';
 import { updateOrderStatus } from '../api/ordersApi.js';
 import { useKitchenOrders } from '../hooks/useKitchenOrders.js';
+import { clearKitchenAuthTokens, getKitchenRefreshToken } from '../services/authStorage.js';
 
 const STATUS_FLOW = {
   new: 'accepted',
@@ -433,6 +435,20 @@ export default function KitchenOrdersPage() {
     }
   };
 
+  const handleLogout = async () => {
+    const refreshToken = getKitchenRefreshToken();
+    try {
+      if (refreshToken) {
+        await restaurantUserLogout(refreshToken);
+      }
+    } catch (error) {
+      console.warn('Failed to notify server about kitchen logout', error);
+    } finally {
+      clearKitchenAuthTokens();
+      navigate('/kitchen/login', { replace: true });
+    }
+  };
+
   let ordersContent = null;
   if (loading) {
     ordersContent = <div className="kitchen-empty-state">Loading orders…</div>;
@@ -511,6 +527,11 @@ export default function KitchenOrdersPage() {
           <button type="button" className="kitchen-icon-btn" onClick={refresh} aria-label="Refresh now">
             <svg viewBox="0 0 24 24" aria-hidden="true">
               <path d="M4 12a8 8 0 0 1 13.6-5.7L20 8.6V4h2v8h-8V10l2.7 2.7A6 6 0 1 0 18 17h2a8 8 0 1 1-16-5Z" />
+            </svg>
+          </button>
+          <button type="button" className="kitchen-icon-btn" onClick={handleLogout} aria-label="Logout">
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M10 17v-2h4V9h-4V7l-5 5 5 5Zm9-13H12V2h7a2 2 0 0 1 2 2v16a2 2 0 0 1-2 2h-7v-2h7V4Z" />
             </svg>
           </button>
         </div>
