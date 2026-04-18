@@ -1,10 +1,12 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Navigate, useLocation, useNavigate } from 'react-router-dom';
+import { fetchTwilioVerifyHealth } from '../api/healthApi.js';
 import { confirmOrderVerification, resendOrderVerification, startOrderVerification } from '../api/ordersApi.js';
+import { ENV } from '../config/env.js';
 import { useAuth } from '../hooks/useAuth.jsx';
 import { getCustomerDisplayName } from '../utils/customerIdentity.js';
 
-const VERIFICATION_LENGTH = 4;
+const DEFAULT_OTP_LENGTH = ENV.OTP_LENGTH;
 
 export default function VerificationPage() {
   const navigate = useNavigate();
@@ -13,15 +15,49 @@ export default function VerificationPage() {
   const orderDraft = location.state?.orderDraft || null;
   const fallbackCustomerName = location.state?.customerName || '';
   const customerName = getCustomerDisplayName(user) || fallbackCustomerName;
+  const [otpLength, setOtpLength] = useState(null);
   const [verification, setVerification] = useState(null);
-  const [code, setCode] = useState(() => Array.from({ length: VERIFICATION_LENGTH }, () => ''));
+  const [code, setCode] = useState([]);
   const [submitting, setSubmitting] = useState(false);
   const [starting, setStarting] = useState(false);
   const [error, setError] = useState('');
   const [now, setNow] = useState(Date.now());
   const inputsRef = useRef([]);
   const initialVerificationLoaded = useRef(false);
+  const resolvedOtpLength = otpLength;
   const phone = getVerificationPhone(orderDraft, user, verification);
+
+  useEffect(() => {
+    let active = true;
+
+    async function loadOtpLength() {
+      try {
+        const response = await fetchTwilioVerifyHealth();
+        if (!active) {
+          return;
+        }
+        const nextLength = normalizePositiveInteger(response?.otpLength ?? response?.serviceDetails?.codeLength, DEFAULT_OTP_LENGTH);
+        setOtpLength(nextLength);
+      } catch {
+        if (active) {
+          setOtpLength(DEFAULT_OTP_LENGTH);
+        }
+      }
+    }
+
+    loadOtpLength();
+
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!resolvedOtpLength) {
+      return;
+    }
+    setCode(Array.from({ length: resolvedOtpLength }, () => ''));
+  }, [resolvedOtpLength]);
 
   useEffect(() => {
     const timer = window.setInterval(() => {
@@ -32,7 +68,7 @@ export default function VerificationPage() {
   }, []);
 
   useEffect(() => {
-    if (!orderDraft || authLoading || initialVerificationLoaded.current) {
+    if (!orderDraft || authLoading || !resolvedOtpLength || initialVerificationLoaded.current) {
       return;
     }
 
@@ -57,7 +93,7 @@ export default function VerificationPage() {
           return;
         }
         setVerification(response?.verification || null);
-        setCode(Array.from({ length: VERIFICATION_LENGTH }, () => ''));
+        setCode(Array.from({ length: resolvedOtpLength }, () => ''));
         inputsRef.current[0]?.focus();
       } catch (err) {
         if (active) {
@@ -76,7 +112,7 @@ export default function VerificationPage() {
     return () => {
       active = false;
     };
-  }, [orderDraft, authLoading, user, customerName]);
+  }, [orderDraft, authLoading, resolvedOtpLength, user, customerName]);
 
   const codeValue = useMemo(() => code.join(''), [code]);
   const isCodeComplete = code.every((digit) => /\d/.test(digit));
@@ -91,6 +127,18 @@ export default function VerificationPage() {
     return <Navigate to="/home" replace />;
   }
 
+  if (!resolvedOtpLength) {
+    return (
+      <main className="page-section verification-page">
+        <section className="verification-shell">
+          <div className="verification-card">
+            <p className="muted">Loading verification settings...</p>
+          </div>
+        </section>
+      </main>
+    );
+  }
+
   const handleChange = (index, value) => {
     const digit = String(value || '').replace(/\D/g, '').slice(-1);
     setCode((prev) => {
@@ -100,7 +148,7 @@ export default function VerificationPage() {
     });
     setError('');
 
-    if (digit && index < VERIFICATION_LENGTH - 1) {
+    if (digit && index < resolvedOtpLength - 1) {
       inputsRef.current[index + 1]?.focus();
     }
   };
@@ -112,21 +160,21 @@ export default function VerificationPage() {
     if (event.key === 'ArrowLeft' && index > 0) {
       inputsRef.current[index - 1]?.focus();
     }
-    if (event.key === 'ArrowRight' && index < VERIFICATION_LENGTH - 1) {
+    if (event.key === 'ArrowRight' && index < resolvedOtpLength - 1) {
       inputsRef.current[index + 1]?.focus();
     }
   };
 
   const handlePaste = (event) => {
-    const pasted = event.clipboardData.getData('text').replace(/\D/g, '').slice(0, VERIFICATION_LENGTH);
+    const pasted = event.clipboardData.getData('text').replace(/\D/g, '').slice(0, resolvedOtpLength);
     if (!pasted) {
       return;
     }
     event.preventDefault();
-    const next = Array.from({ length: VERIFICATION_LENGTH }, (_, index) => pasted[index] || '');
+    const next = Array.from({ length: resolvedOtpLength }, (_, index) => pasted[index] || '');
     setCode(next);
     setError('');
-    const focusIndex = Math.min(pasted.length, VERIFICATION_LENGTH - 1);
+    const focusIndex = Math.min(pasted.length, resolvedOtpLength - 1);
     inputsRef.current[focusIndex]?.focus();
   };
 
@@ -147,7 +195,7 @@ export default function VerificationPage() {
     })
       .then((response) => {
         setVerification(response?.verification || null);
-        setCode(Array.from({ length: VERIFICATION_LENGTH }, () => ''));
+        setCode(Array.from({ length: resolvedOtpLength }, () => ''));
         inputsRef.current[0]?.focus();
       })
       .catch((err) => {
@@ -161,7 +209,7 @@ export default function VerificationPage() {
   const handleVerify = async (event) => {
     event.preventDefault();
     if (!isCodeComplete) {
-      setError('Enter the 4-digit code to continue.');
+      setError(`Enter the ${resolvedOtpLength}-digit code to continue.`);
       return;
     }
 
@@ -209,7 +257,7 @@ export default function VerificationPage() {
             <LockIcon />
           </div>
           <h1>Verification Code</h1>
-          <p className="verification-lede">Please enter the 4-digit code sent to</p>
+          <p className="verification-lede">Please enter the {resolvedOtpLength}-digit code sent to</p>
           <p className="verification-phone">{phone}</p>
           {verificationExpiresAt ? (
             <div className="verification-meta">
@@ -322,6 +370,11 @@ function formatCountdown(diffMs) {
     return `${minutes}m ${seconds.toString().padStart(2, '0')}s`;
   }
   return `${seconds}s`;
+}
+
+function normalizePositiveInteger(value, fallback) {
+  const parsed = Number.parseInt(value, 10);
+  return Number.isInteger(parsed) && parsed > 0 ? parsed : fallback;
 }
 
 function buildVerificationStartPayload(orderDraft, user, customerName) {
