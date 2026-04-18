@@ -397,17 +397,45 @@ function buildVerificationStartPayload(orderDraft, user, customerName) {
     items,
     customer: {
       name: customerName || orderDraft?.customer?.name || orderDraft?.customerName || user?.name || user?.full_name || '',
-      phone:
+      phone: normalizeE164Phone(
         orderDraft?.customer?.phone ||
         orderDraft?.customer?.phone_number ||
         user?.phone ||
         user?.phone_number ||
         '',
+      ),
       email: orderDraft?.customer?.email || user?.email || '',
       pickupTime: pickupTime || undefined,
       notes: orderDraft?.customer?.notes || orderDraft?.pickupRequest?.summary || '',
     },
   };
+}
+
+function normalizeE164Phone(value) {
+  const input = String(value || '').trim();
+  if (!input) {
+    return '';
+  }
+
+  if (input.startsWith('+')) {
+    const digits = input.replace(/\D/g, '');
+    return digits ? `+${digits}` : '';
+  }
+
+  const digits = input.replace(/\D/g, '');
+  if (!digits) {
+    return '';
+  }
+
+  if (digits.length === 11 && digits.startsWith('1')) {
+    return `+${digits}`;
+  }
+
+  if (digits.length === 10) {
+    return `+1${digits}`;
+  }
+
+  return `+${digits}`;
 }
 
 function LockIcon() {
