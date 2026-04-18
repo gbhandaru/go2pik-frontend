@@ -185,6 +185,7 @@ export default function RestaurantMenuPage() {
       state: {
         orderDraft: payload,
         customerName: customerName || undefined,
+        customerPhone: user?.phone || user?.phone_number || '',
       },
     });
   };
