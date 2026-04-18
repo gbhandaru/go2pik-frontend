@@ -8,7 +8,7 @@ import { getCustomerDisplayName, getCustomerId } from '../utils/customerIdentity
 
 export default function OrdersPage() {
   const navigate = useNavigate();
-  const { user, logout } = useAuth();
+  const { user } = useAuth();
   const customerId = useMemo(() => getCustomerId(user), [user]);
   const customerName = useMemo(() => getCustomerDisplayName(user), [user]);
   const { data, loading, error } = useFetch(
@@ -21,11 +21,6 @@ export default function OrdersPage() {
   const resolvedCustomerName = getCustomerDisplayName(customer) || customerName || 'Customer';
   const resolvedPhone = customer?.phone || customer?.phone_number || user?.phone || user?.phone_number || '';
   const resolvedEmail = customer?.email || user?.email || '';
-
-  const handleLogout = async () => {
-    await logout();
-    navigate('/login', { replace: true });
-  };
 
   const handleReorder = (order) => {
     const restaurantId = order?.restaurant?.id;
@@ -74,12 +69,6 @@ export default function OrdersPage() {
                 <RestaurantIcon />
               </span>
               Restaurants
-            </button>
-            <button type="button" className="customer-orders-nav__item customer-orders-nav__item--logout" onClick={handleLogout}>
-              <span className="customer-orders-nav__icon" aria-hidden="true">
-                <LogoutIcon />
-              </span>
-              Logout
             </button>
           </nav>
         </aside>
@@ -281,14 +270,6 @@ function RestaurantIcon() {
     <svg viewBox="0 0 24 24" aria-hidden="true">
       <path d="M4 10 12 4l8 6v10H4Z" />
       <path d="M9 20v-6h6v6" />
-    </svg>
-  );
-}
-
-function LogoutIcon() {
-  return (
-    <svg viewBox="0 0 24 24" aria-hidden="true">
-      <path d="M10 17v-2h4V9h-4V7l-5 5 5 5Zm9-13H12V2h7a2 2 0 0 1 2 2v16a2 2 0 0 1-2 2h-7v-2h7V4Z" />
     </svg>
   );
 }

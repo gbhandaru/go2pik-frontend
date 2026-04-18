@@ -1,3 +1,4 @@
+import { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth.jsx';
 import { getStoredProfile } from '../../services/authStorage.js';
@@ -5,14 +6,46 @@ import { getCustomerDisplayName, getCustomerInitial } from '../../utils/customer
 
 export default function CustomerProfileMenu() {
   const { user, loading } = useAuth();
+  const menuRef = useRef(null);
+  const [open, setOpen] = useState(false);
 
   const storedProfile = getStoredProfile();
   const profileSource = user || (loading ? storedProfile : null);
   const customerInitial = getCustomerInitial(profileSource);
 
+  useEffect(() => {
+    const handlePointerDown = (event) => {
+      if (menuRef.current && !menuRef.current.contains(event.target)) {
+        setOpen(false);
+      }
+    };
+
+    document.addEventListener('pointerdown', handlePointerDown);
+    return () => {
+      document.removeEventListener('pointerdown', handlePointerDown);
+    };
+  }, []);
+
   return (
-    <Link className="customer-profile-trigger customer-profile-trigger--link" to="/orders" aria-label="My Orders">
-      <span className="customer-profile-trigger__avatar">{customerInitial}</span>
-    </Link>
+    <div className="customer-profile" ref={menuRef}>
+      <button
+        type="button"
+        className="customer-profile-trigger customer-profile-trigger--button"
+        aria-label="Open customer menu"
+        aria-haspopup="menu"
+        aria-expanded={open}
+        onClick={() => setOpen((prev) => !prev)}
+      >
+        <span className="customer-profile-trigger__avatar">{customerInitial}</span>
+      </button>
+
+      {open ? (
+        <div className="customer-profile-menu customer-profile-menu--compact" role="menu" aria-label="Customer menu">
+          <Link className="customer-profile-menu__item" to="/orders" role="menuitem" onClick={() => setOpen(false)}>
+            My Orders
+          </Link>
+        </div>
+      ) : null}
+    </div>
   );
 }
