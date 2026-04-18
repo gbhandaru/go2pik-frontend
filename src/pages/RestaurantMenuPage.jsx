@@ -1,9 +1,10 @@
 import { useEffect, useMemo, useState } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { submitOrder } from '../api/ordersApi.js';
 import { fetchRestaurantMenu } from '../api/restaurantsApi.js';
 import { useFetch } from '../hooks/useFetch.js';
 import { formatCurrency } from '../utils/formatCurrency.js';
+import { getRestaurantAddressLines } from '../utils/formatRestaurantAddress.js';
 import { useAuth } from '../hooks/useAuth.jsx';
 
 const PICKUP_MODES = {
@@ -16,7 +17,8 @@ const EARLIEST_PICKUP_MINUTES = 15;
 export default function RestaurantMenuPage() {
   const { restaurantId } = useParams();
   const navigate = useNavigate();
-  const { user } = useAuth();
+  const location = useLocation();
+  const { user, loading: authLoading } = useAuth();
   const customerName = useMemo(() => getCustomerDisplayName(user), [user]);
   const [cart, setCart] = useState([]);
   const [submitting, setSubmitting] = useState(false);
@@ -33,6 +35,15 @@ export default function RestaurantMenuPage() {
     setSelectedPickupMode(PICKUP_MODES.ASAP);
     setScheduledPickupTime('');
   }, [restaurantId]);
+
+  useEffect(() => {
+    if (!authLoading && !user) {
+      navigate('/login', {
+        replace: true,
+        state: { from: location },
+      });
+    }
+  }, [authLoading, location, navigate, user]);
 
   const totalItems = useMemo(() => cart.reduce((sum, item) => sum + item.quantity, 0), [cart]);
   const total = useMemo(() => cart.reduce((sum, item) => sum + item.price * item.quantity, 0), [cart]);
@@ -210,6 +221,10 @@ export default function RestaurantMenuPage() {
     );
   }
 
+  if (!authLoading && !user) {
+    return null;
+  }
+
   if (error || !data?.restaurant) {
     return (
       <main className="page-section">
@@ -229,7 +244,7 @@ export default function RestaurantMenuPage() {
             <p className="eyebrow">Menu</p>
             <h2>{restaurant.name}</h2>
             <p className="muted">{restaurant.cuisine} • {restaurant.eta}</p>
-            <p className="info-subtext">{formatRestaurantAddress(restaurant)}</p>
+            <p className="info-subtext">{renderRestaurantAddress(restaurant)}</p>
           </div>
 
           <PickupTimeCard
@@ -273,6 +288,21 @@ export default function RestaurantMenuPage() {
         />
       </section>
     </main>
+  );
+}
+
+function renderRestaurantAddress(restaurant) {
+  const { line1, secondary } = getRestaurantAddressLines(restaurant);
+  return (
+    <>
+      {line1}
+      {secondary ? (
+        <>
+          <br />
+          <span className="menu-address-secondary">{secondary}</span>
+        </>
+      ) : null}
+    </>
   );
 }
 
@@ -646,28 +676,4 @@ function getCustomerDisplayName(entity) {
     return getCustomerDisplayName(entity.profile);
   }
   return '';
-}
-
-function formatRestaurantAddress(restaurant) {
-  if (!restaurant) {
-    return '';
-  }
-
-  const line1 =
-    restaurant.address_line1 ||
-    restaurant.addressLine1 ||
-    restaurant.address1 ||
-    restaurant.street ||
-    '';
-  const line2 = restaurant.address_line2 || restaurant.addressLine2 || '';
-  const cityStateZip = [
-    restaurant.city,
-    restaurant.state,
-    restaurant.postal_code || restaurant.postalCode || restaurant.zip,
-  ]
-    .filter(Boolean)
-    .join(', ');
-  const location = restaurant.location || '';
-
-  return [line1, line2, cityStateZip, location].filter(Boolean).join(' • ');
 }

@@ -44,6 +44,7 @@ export default function KitchenCreateUserPage() {
     }
 
     return restaurants.filter((restaurant) => {
+      const nestedAddress = typeof restaurant.address === 'object' && restaurant.address ? restaurant.address : null;
       const haystack = [
         restaurant.id,
         restaurant.name,
@@ -51,6 +52,10 @@ export default function KitchenCreateUserPage() {
         restaurant.location,
         restaurant.address_line1,
         restaurant.addressLine1,
+        nestedAddress?.line1,
+        nestedAddress?.city,
+        nestedAddress?.state,
+        nestedAddress?.formatted,
       ]
         .filter(Boolean)
         .join(' ')
