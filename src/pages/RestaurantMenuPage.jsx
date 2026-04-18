@@ -6,6 +6,7 @@ import { formatCurrency } from '../utils/formatCurrency.js';
 import { getRestaurantAddressLines } from '../utils/formatRestaurantAddress.js';
 import { useAuth } from '../hooks/useAuth.jsx';
 import { hasCustomerGuestAccess } from '../services/authStorage.js';
+import { getCustomerPhone } from '../utils/customerIdentity.js';
 
 const PICKUP_MODES = {
   ASAP: 'ASAP',
@@ -166,6 +167,7 @@ export default function RestaurantMenuPage() {
       specialInstructions: cartItemById[id]?.specialInstructions || '',
     }));
 
+    const customerPhone = getCustomerPhone(user);
     const payload = {
       restaurantId: restaurant.id,
       restaurant,
@@ -177,7 +179,13 @@ export default function RestaurantMenuPage() {
         scheduledTime: scheduledPickupTime,
         summary: pickupSummary,
       },
-      customer: user || undefined,
+      customer: {
+        name: customerName || getCustomerDisplayName(user) || '',
+        phone: customerPhone || '',
+        email: user?.email || '',
+        pickupTime: selectedPickupMode === PICKUP_MODES.SCHEDULED ? scheduledPickupTime || undefined : undefined,
+        notes: pickupSummary || '',
+      },
       customerName: customerName || undefined,
     };
 
@@ -185,7 +193,7 @@ export default function RestaurantMenuPage() {
       state: {
         orderDraft: payload,
         customerName: customerName || undefined,
-        customerPhone: user?.phone || user?.phone_number || '',
+        customerPhone: customerPhone || '',
       },
     });
   };
