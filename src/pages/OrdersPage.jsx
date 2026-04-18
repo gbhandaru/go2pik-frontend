@@ -90,9 +90,7 @@ export default function OrdersPage() {
               <span aria-hidden="true">←</span>
               <span>Back to Menu</span>
             </button>
-            <div className="customer-orders-topbar__title">
-              <h1>Restaurant Name</h1>
-            </div>
+            <div className="customer-orders-topbar__title" aria-hidden="true" />
             <div className="customer-orders-topbar__actions">
               <div className="customer-orders-topbar__chip" aria-hidden="true">
                 <span>🔍</span>

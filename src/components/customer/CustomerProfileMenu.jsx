@@ -10,13 +10,13 @@ import {
 import { getCustomerDisplayName, getCustomerInitial } from '../../utils/customerIdentity.js';
 
 export default function CustomerProfileMenu() {
-  const { user, logout, isAuthenticated } = useAuth();
+  const { user, logout, isAuthenticated, loading } = useAuth();
   const navigate = useNavigate();
   const [open, setOpen] = useState(false);
   const menuRef = useRef(null);
 
-  const storedProfile = useMemo(() => getStoredProfile(), []);
-  const profileSource = user || storedProfile || null;
+  const storedProfile = getStoredProfile();
+  const profileSource = user || (loading ? storedProfile : null);
   const customerName = useMemo(() => getCustomerDisplayName(profileSource), [profileSource]);
   const customerInitial = useMemo(() => getCustomerInitial(profileSource), [profileSource]);
   const hasCustomerSession = Boolean(isAuthenticated || profileSource);
@@ -112,7 +112,7 @@ export default function CustomerProfileMenu() {
                 onClick={() => {
                   setCustomerGuestAccess(true);
                   setOpen(false);
-                  navigate('/home');
+                  navigate('/home', { replace: true });
                 }}
               >
                 <span className="customer-profile-menu__icon" aria-hidden="true">

@@ -326,18 +326,8 @@ img {
   text-align: center;
 }
 
-.customer-orders-topbar__title h1 {
-  margin: 0;
-  font-size: 1.08rem;
-  font-weight: 600;
-  color: #29313b;
-}
-
-.customer-orders-topbar__title p {
-  margin: 0.08rem 0 0;
-  color: #1f2937;
-  font-size: 1.02rem;
-  font-weight: 500;
+.customer-orders-topbar__title:empty {
+  min-height: 1.75rem;
 }
 
 .customer-orders-topbar__spacer {
