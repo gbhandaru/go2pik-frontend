@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Navigate, useNavigate, useParams } from 'react-router-dom';
-import { submitOrder } from '../api/ordersApi.js';
 import { fetchRestaurantMenu } from '../api/restaurantsApi.js';
 import { useFetch } from '../hooks/useFetch.js';
 import { formatCurrency } from '../utils/formatCurrency.js';
@@ -21,8 +20,6 @@ export default function RestaurantMenuPage() {
   const { user } = useAuth();
   const customerName = useMemo(() => getCustomerDisplayName(user), [user]);
   const [cart, setCart] = useState([]);
-  const [submitting, setSubmitting] = useState(false);
-  const [orderError, setOrderError] = useState(null);
   const [selectedPickupMode, setSelectedPickupMode] = useState(PICKUP_MODES.ASAP);
   const [scheduledPickupTime, setScheduledPickupTime] = useState('');
   const { data, loading, error } = useFetch(() => fetchRestaurantMenu(restaurantId), [restaurantId]);
@@ -32,7 +29,6 @@ export default function RestaurantMenuPage() {
 
   useEffect(() => {
     setCart([]);
-    setOrderError(null);
     setSelectedPickupMode(PICKUP_MODES.ASAP);
     setScheduledPickupTime('');
   }, [restaurantId]);
@@ -161,54 +157,36 @@ export default function RestaurantMenuPage() {
     if (selectedPickupMode === PICKUP_MODES.SCHEDULED && !scheduledPickupTime) {
       return;
     }
-    setSubmitting(true);
-    setOrderError(null);
-    try {
-      const orderItems = cart.map(({ id, name, price, quantity }) => ({
-        id,
-        name,
-        price,
-        quantity,
-        lineTotal: price * quantity,
-        specialInstructions: cartItemById[id]?.specialInstructions || '',
-      }));
+    const orderItems = cart.map(({ id, name, price, quantity }) => ({
+      id,
+      name,
+      price,
+      quantity,
+      lineTotal: price * quantity,
+      specialInstructions: cartItemById[id]?.specialInstructions || '',
+    }));
 
-      const payload = {
-        restaurantId: restaurant.id,
-        restaurant,
-        items: orderItems,
-        subtotal: total,
-        total,
-        pickupRequest: {
-          type: selectedPickupMode,
-          scheduledTime: scheduledPickupTime,
-          summary: pickupSummary,
-        },
-        customer: user || undefined,
+    const payload = {
+      restaurantId: restaurant.id,
+      restaurant,
+      items: orderItems,
+      subtotal: total,
+      total,
+      pickupRequest: {
+        type: selectedPickupMode,
+        scheduledTime: scheduledPickupTime,
+        summary: pickupSummary,
+      },
+      customer: user || undefined,
+      customerName: customerName || undefined,
+    };
+
+    navigate('/checkout', {
+      state: {
+        orderDraft: payload,
         customerName: customerName || undefined,
-      };
-
-      const response = await submitOrder(payload);
-      const responseOrder = response?.order || {};
-      navigate('/order-confirmation', {
-        state: {
-          order: {
-            ...payload,
-            ...response,
-            ...responseOrder,
-            customer: responseOrder.customer || payload.customer,
-            customerName: responseOrder.customer?.name || payload.customerName,
-            orderNumber: responseOrder.orderNumber || response?.automation?.confirmationNumber || payload.orderNumber,
-            items: orderItems,
-          },
-          customerName: responseOrder.customer?.name || customerName || undefined,
-        },
-      });
-    } catch (err) {
-      setOrderError(err.message || 'Unable to place your order right now.');
-    } finally {
-      setSubmitting(false);
-    }
+      },
+    });
   };
 
   if (loading) {
@@ -287,8 +265,6 @@ export default function RestaurantMenuPage() {
           pickupMode={selectedPickupMode}
           scheduledPickupTime={scheduledPickupTime}
           paymentMessage="No online payment required"
-          submitting={submitting}
-          orderError={orderError}
           disabled={!cart.length || missingScheduledTime}
           onUpdateQuantity={updateQuantity}
           onPlaceOrder={handlePlaceOrder}

@@ -1,13 +1,13 @@
-import { Navigate, Route, Routes } from 'react-router-dom';
+import { Navigate, Route, Routes, useLocation } from 'react-router-dom';
 import LandingPage from '../pages/LandingPage.jsx';
 import LoginPage from '../pages/LoginPage.jsx';
 import PasswordUpdatePage from '../pages/PasswordUpdatePage.jsx';
 import SignupPage from '../pages/SignupPage.jsx';
 import HomePage from '../pages/HomePage.jsx';
 import RestaurantMenuPage from '../pages/RestaurantMenuPage.jsx';
-import CheckoutPage from '../pages/CheckoutPage.jsx';
 import OrdersPage from '../pages/OrdersPage.jsx';
 import OrderConfirmationPage from '../pages/OrderConfirmationPage.jsx';
+import VerificationPage from '../pages/VerificationPage.jsx';
 import NotFoundPage from '../pages/NotFoundPage.jsx';
 import ProtectedRoute from './ProtectedRoute.jsx';
 import KitchenLoginPage from '../pages/KitchenLoginPage.jsx';
@@ -28,8 +28,9 @@ export default function AppRoutes() {
         <Route path="/home" element={<HomePage />} />
         <Route path="/password-update" element={<PasswordUpdatePage />} />
         <Route path="/restaurants/:restaurantId/menu" element={<RestaurantMenuPage />} />
+        <Route path="/verification" element={<VerificationRedirect />} />
         <Route element={<ProtectedRoute />}>
-          <Route path="/checkout" element={<CheckoutPage />} />
+          <Route path="/checkout" element={<VerificationPage />} />
           <Route path="/orders" element={<OrdersPage />} />
           <Route path="/order-confirmation" element={<OrderConfirmationPage />} />
         </Route>
@@ -44,4 +45,9 @@ export default function AppRoutes() {
       <Route path="*" element={<NotFoundPage />} />
     </Routes>
   );
+}
+
+function VerificationRedirect() {
+  const location = useLocation();
+  return <Navigate to="/checkout" replace state={location.state} />;
 }
