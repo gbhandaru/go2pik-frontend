@@ -23,6 +23,7 @@ export default function RestaurantMenuPage() {
   const [cart, setCart] = useState([]);
   const [selectedPickupMode, setSelectedPickupMode] = useState(PICKUP_MODES.ASAP);
   const [scheduledPickupTime, setScheduledPickupTime] = useState('');
+  const [orderError, setOrderError] = useState('');
   const { data, loading, error } = useFetch(() => fetchRestaurantMenu(restaurantId), [restaurantId]);
   const asapReadyTime = useMemo(() => getTimeFromNow(PICKUP_WINDOW_MINUTES), []);
   const earliestAvailableTime = useMemo(() => getTimeFromNow(EARLIEST_PICKUP_MINUTES), []);
@@ -152,10 +153,16 @@ export default function RestaurantMenuPage() {
   const earliestAvailableLabel = getEarliestAvailableLabel(earliestAvailableTime);
 
   const handlePlaceOrder = async () => {
+    setOrderError('');
     if (!cart.length || !restaurant) {
       return;
     }
     if (selectedPickupMode === PICKUP_MODES.SCHEDULED && !scheduledPickupTime) {
+      return;
+    }
+    const customerPhone = getCustomerPhone(user);
+    if (!customerPhone) {
+      setOrderError('A phone number is required before continuing to verification.');
       return;
     }
     const orderItems = cart.map(({ id, name, price, quantity }) => ({
@@ -167,7 +174,6 @@ export default function RestaurantMenuPage() {
       specialInstructions: cartItemById[id]?.specialInstructions || '',
     }));
 
-    const customerPhone = getCustomerPhone(user);
     const payload = {
       restaurantId: restaurant.id,
       restaurant,
@@ -193,8 +199,8 @@ export default function RestaurantMenuPage() {
       state: {
         orderDraft: payload,
         customerName: customerName || undefined,
-        customerPhone: customerPhone || '',
-      },
+      customerPhone: customerPhone || '',
+    },
     });
   };
 
@@ -275,6 +281,7 @@ export default function RestaurantMenuPage() {
           scheduledPickupTime={scheduledPickupTime}
           paymentMessage="No online payment required"
           disabled={!cart.length || missingScheduledTime}
+          orderError={orderError}
           onUpdateQuantity={updateQuantity}
           onPlaceOrder={handlePlaceOrder}
         />
