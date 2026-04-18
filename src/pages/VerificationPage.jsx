@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Navigate, useLocation, useNavigate } from 'react-router-dom';
-import { submitOrder } from '../api/ordersApi.js';
+import { confirmOrderVerification, resendOrderVerification, startOrderVerification } from '../api/ordersApi.js';
 import { useAuth } from '../hooks/useAuth.jsx';
 import { getCustomerDisplayName } from '../utils/customerIdentity.js';
 
@@ -9,22 +9,83 @@ const VERIFICATION_LENGTH = 4;
 export default function VerificationPage() {
   const navigate = useNavigate();
   const location = useLocation();
-  const { user } = useAuth();
+  const { user, loading: authLoading } = useAuth();
   const orderDraft = location.state?.orderDraft || null;
   const fallbackCustomerName = location.state?.customerName || '';
   const customerName = getCustomerDisplayName(user) || fallbackCustomerName;
-  const phone = getVerificationPhone(orderDraft, user);
+  const [verification, setVerification] = useState(null);
   const [code, setCode] = useState(() => Array.from({ length: VERIFICATION_LENGTH }, () => ''));
   const [submitting, setSubmitting] = useState(false);
+  const [starting, setStarting] = useState(false);
   const [error, setError] = useState('');
+  const [now, setNow] = useState(Date.now());
   const inputsRef = useRef([]);
+  const initialVerificationLoaded = useRef(false);
+  const phone = getVerificationPhone(orderDraft, user, verification);
 
   useEffect(() => {
-    inputsRef.current[0]?.focus();
+    const timer = window.setInterval(() => {
+      setNow(Date.now());
+    }, 1000);
+
+    return () => window.clearInterval(timer);
   }, []);
+
+  useEffect(() => {
+    if (!orderDraft || authLoading || initialVerificationLoaded.current) {
+      return;
+    }
+
+    let active = true;
+    initialVerificationLoaded.current = true;
+
+    async function requestVerification() {
+      const payload = buildVerificationStartPayload(orderDraft, user, customerName);
+      if (!payload.customer.phone) {
+        if (active) {
+          setError('A phone number is required to send the verification code.');
+          setStarting(false);
+        }
+        return;
+      }
+
+      setStarting(true);
+      setError('');
+      try {
+        const response = await startOrderVerification(payload);
+        if (!active) {
+          return;
+        }
+        setVerification(response?.verification || null);
+        setCode(Array.from({ length: VERIFICATION_LENGTH }, () => ''));
+        inputsRef.current[0]?.focus();
+      } catch (err) {
+        if (active) {
+          setError(err.message || 'Unable to send verification code right now.');
+          setVerification(null);
+        }
+      } finally {
+        if (active) {
+          setStarting(false);
+        }
+      }
+    }
+
+    requestVerification();
+
+    return () => {
+      active = false;
+    };
+  }, [orderDraft, authLoading, user, customerName]);
 
   const codeValue = useMemo(() => code.join(''), [code]);
   const isCodeComplete = code.every((digit) => /\d/.test(digit));
+  const verificationExpiresAt = parseVerificationDate(verification?.expiresAt);
+  const resendAvailableAt = parseVerificationDate(verification?.resendAvailableAt);
+  const canResend = !resendAvailableAt || now >= resendAvailableAt.getTime();
+  const resendCountdown = canResend ? '' : formatCountdown(resendAvailableAt.getTime() - now);
+  const expiryCountdown = verificationExpiresAt ? formatCountdown(verificationExpiresAt.getTime() - now) : '';
+  const resendButtonLabel = canResend ? 'Resend Code' : `Resend in ${resendCountdown}`;
 
   if (!orderDraft) {
     return <Navigate to="/home" replace />;
@@ -70,9 +131,31 @@ export default function VerificationPage() {
   };
 
   const handleResend = () => {
+    if (!canResend || starting) {
+      return;
+    }
+
+    if (!verification?.id) {
+      setError('Verification session is missing. Please restart checkout.');
+      return;
+    }
+
+    setStarting(true);
     setError('');
-    setCode(Array.from({ length: VERIFICATION_LENGTH }, () => ''));
-    inputsRef.current[0]?.focus();
+    resendOrderVerification({
+      verificationId: verification.id,
+    })
+      .then((response) => {
+        setVerification(response?.verification || null);
+        setCode(Array.from({ length: VERIFICATION_LENGTH }, () => ''));
+        inputsRef.current[0]?.focus();
+      })
+      .catch((err) => {
+        setError(err.message || 'Unable to resend verification code right now.');
+      })
+      .finally(() => {
+        setStarting(false);
+      });
   };
 
   const handleVerify = async (event) => {
@@ -85,13 +168,22 @@ export default function VerificationPage() {
     setSubmitting(true);
     setError('');
     try {
-      const response = await submitOrder(orderDraft);
+      const response = await confirmOrderVerification({
+        verificationId: verification?.id,
+        code: codeValue,
+        customer: orderDraft.customer,
+        customerName: orderDraft.customerName,
+        restaurantId: orderDraft.restaurantId,
+        restaurant: orderDraft.restaurant,
+        items: orderDraft.items,
+        subtotal: orderDraft.subtotal,
+        total: orderDraft.total,
+      });
       const responseOrder = response?.order || {};
       navigate('/order-confirmation', {
         replace: true,
         state: {
           order: {
-            ...orderDraft,
             ...response,
             ...responseOrder,
             customer: responseOrder.customer || orderDraft.customer,
@@ -119,6 +211,14 @@ export default function VerificationPage() {
           <h1>Verification Code</h1>
           <p className="verification-lede">Please enter the 4-digit code sent to</p>
           <p className="verification-phone">{phone}</p>
+          {verificationExpiresAt ? (
+            <div className="verification-meta">
+              <p>
+                Expires at <strong>{formatVerificationDateTime(verificationExpiresAt)}</strong>
+              </p>
+              {expiryCountdown ? <p className="muted">Expires in {expiryCountdown}</p> : null}
+            </div>
+          ) : null}
 
           <div className="verification-code-row" onPaste={handlePaste}>
             {code.map((digit, index) => (
@@ -141,14 +241,30 @@ export default function VerificationPage() {
           </div>
 
           <p className="verification-resend-copy">Didn&apos;t receive a code?</p>
-          <button type="button" className="verification-resend" onClick={handleResend}>
-            Resend Code
+          <button
+            type="button"
+            className="verification-resend"
+            onClick={handleResend}
+            disabled={!canResend || starting}
+            aria-describedby="verification-resend-helper"
+          >
+            {starting ? 'Sending...' : resendButtonLabel}
           </button>
+          <p id="verification-resend-helper" className="muted verification-resend-meta">
+            {canResend
+              ? 'You can request a new code now.'
+              : `Resend unlocks in ${resendCountdown}`}
+          </p>
+          {resendAvailableAt ? (
+            <p className="muted verification-resend-meta">
+              Resend available at {formatVerificationDateTime(resendAvailableAt)}
+            </p>
+          ) : null}
 
           {error ? <p className="error-text verification-error">{error}</p> : null}
 
-          <button className="verification-submit" type="submit" disabled={submitting || !isCodeComplete}>
-            {submitting ? 'Verifying…' : 'Verify'}
+          <button className="verification-submit" type="submit" disabled={submitting || starting || !isCodeComplete}>
+            {submitting ? 'Verifying…' : starting ? 'Sending code…' : 'Verify'}
           </button>
 
           <p className="muted verification-note">
@@ -160,8 +276,16 @@ export default function VerificationPage() {
   );
 }
 
-function getVerificationPhone(orderDraft, user) {
-  const rawPhone = orderDraft?.customer?.phone || orderDraft?.customer?.phone_number || user?.phone || user?.phone_number || '';
+function getVerificationPhone(orderDraft, user, verification) {
+  const rawPhone =
+    verification?.customerPhone ||
+    verification?.customer_phone ||
+    orderDraft?.customer?.phone ||
+    orderDraft?.customer?.phone_number ||
+    user?.phone ||
+    user?.phone_number ||
+    orderDraft?.customerPhone ||
+    '';
   const digits = String(rawPhone).replace(/\D/g, '');
   if (digits.length >= 10) {
     const country = digits.length > 10 ? `+${digits.slice(0, digits.length - 10)} ` : '+1 ';
@@ -170,6 +294,67 @@ function getVerificationPhone(orderDraft, user) {
     return `${country}${area} *** ${last}`.replace(/\s+/g, ' ').trim();
   }
   return '+1 510 *** 8796';
+}
+
+function parseVerificationDate(value) {
+  if (!value) {
+    return null;
+  }
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? null : date;
+}
+
+function formatVerificationDateTime(date) {
+  return date.toLocaleString([], {
+    month: 'short',
+    day: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
+  });
+}
+
+function formatCountdown(diffMs) {
+  const clamped = Math.max(0, diffMs);
+  const totalSeconds = Math.ceil(clamped / 1000);
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = totalSeconds % 60;
+  if (minutes > 0) {
+    return `${minutes}m ${seconds.toString().padStart(2, '0')}s`;
+  }
+  return `${seconds}s`;
+}
+
+function buildVerificationStartPayload(orderDraft, user, customerName) {
+  const items = Array.isArray(orderDraft?.items)
+    ? orderDraft.items.map((item) => ({
+        sku: item.sku || item.menuItemId || item.id || item.name,
+        quantity: item.quantity || 1,
+        notes: item.specialInstructions || item.notes || '',
+      }))
+    : [];
+
+  const pickupTime =
+    orderDraft?.pickupRequest?.scheduledTime ||
+    orderDraft?.customer?.pickupTime ||
+    orderDraft?.pickupTime ||
+    '';
+
+  return {
+    restaurantId: orderDraft?.restaurantId || orderDraft?.restaurant?.id,
+    items,
+    customer: {
+      name: customerName || orderDraft?.customer?.name || orderDraft?.customerName || user?.name || user?.full_name || '',
+      phone:
+        orderDraft?.customer?.phone ||
+        orderDraft?.customer?.phone_number ||
+        user?.phone ||
+        user?.phone_number ||
+        '',
+      email: orderDraft?.customer?.email || user?.email || '',
+      pickupTime: pickupTime || undefined,
+      notes: orderDraft?.customer?.notes || orderDraft?.pickupRequest?.summary || '',
+    },
+  };
 }
 
 function LockIcon() {
