@@ -20,10 +20,12 @@ export default function RestaurantMenuPage() {
   const navigate = useNavigate();
   const { user } = useAuth();
   const customerName = useMemo(() => getCustomerDisplayName(user), [user]);
+  const initialCustomerPhone = useMemo(() => getCustomerPhone(user), [user]);
   const [cart, setCart] = useState([]);
   const [selectedPickupMode, setSelectedPickupMode] = useState(PICKUP_MODES.ASAP);
   const [scheduledPickupTime, setScheduledPickupTime] = useState('');
   const [orderError, setOrderError] = useState('');
+  const [customerPhoneInput, setCustomerPhoneInput] = useState(initialCustomerPhone);
   const { data, loading, error } = useFetch(() => fetchRestaurantMenu(restaurantId), [restaurantId]);
   const asapReadyTime = useMemo(() => getTimeFromNow(PICKUP_WINDOW_MINUTES), []);
   const earliestAvailableTime = useMemo(() => getTimeFromNow(EARLIEST_PICKUP_MINUTES), []);
@@ -34,6 +36,10 @@ export default function RestaurantMenuPage() {
     setSelectedPickupMode(PICKUP_MODES.ASAP);
     setScheduledPickupTime('');
   }, [restaurantId]);
+
+  useEffect(() => {
+    setCustomerPhoneInput((prev) => prev || initialCustomerPhone);
+  }, [initialCustomerPhone]);
 
   const totalItems = useMemo(() => cart.reduce((sum, item) => sum + item.quantity, 0), [cart]);
   const total = useMemo(() => cart.reduce((sum, item) => sum + item.price * item.quantity, 0), [cart]);
@@ -160,9 +166,9 @@ export default function RestaurantMenuPage() {
     if (selectedPickupMode === PICKUP_MODES.SCHEDULED && !scheduledPickupTime) {
       return;
     }
-    const customerPhone = getCustomerPhone(user);
+    const customerPhone = customerPhoneInput.trim();
     if (!customerPhone) {
-      setOrderError('A phone number is required before continuing to verification.');
+      setOrderError('Please enter a phone number before continuing to verification.');
       return;
     }
     const orderItems = cart.map(({ id, name, price, quantity }) => ({
@@ -199,8 +205,8 @@ export default function RestaurantMenuPage() {
       state: {
         orderDraft: payload,
         customerName: customerName || undefined,
-      customerPhone: customerPhone || '',
-    },
+        customerPhone: customerPhone || '',
+      },
     });
   };
 
@@ -282,6 +288,8 @@ export default function RestaurantMenuPage() {
           paymentMessage="No online payment required"
           disabled={!cart.length || missingScheduledTime}
           orderError={orderError}
+          customerPhone={customerPhoneInput}
+          onCustomerPhoneChange={setCustomerPhoneInput}
           onUpdateQuantity={updateQuantity}
           onPlaceOrder={handlePlaceOrder}
         />
@@ -881,6 +889,8 @@ function CartSummary({
   paymentMessage,
   submitting,
   orderError,
+  customerPhone,
+  onCustomerPhoneChange,
   disabled,
   onUpdateQuantity,
   onPlaceOrder,
@@ -965,6 +975,17 @@ function CartSummary({
           <p className="muted">{paymentMessage}</p>
         </div>
       </div>
+
+      <label className="cart-phone-field">
+        Customer phone
+        <input
+          type="tel"
+          value={customerPhone}
+          onChange={(event) => onCustomerPhoneChange(event.target.value)}
+          placeholder="+1 555 123 4567"
+          autoComplete="tel"
+        />
+      </label>
 
       {orderError && <p className="error-text">{orderError}</p>}
 
