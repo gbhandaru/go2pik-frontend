@@ -402,15 +402,19 @@ function ReorderCard({ items = [], hasOrder, onReorder }) {
 function MenuList({ menu, categories, quantityById, cartItemById, onAdd, onUpdate, onUpdateInstructions }) {
   const [expandedItemId, setExpandedItemId] = useState(null);
   const groupedMenu = useMemo(() => groupMenuItems(menu, categories), [menu, categories]);
-  const visibleCategoryGroups = useMemo(() => groupedMenu.filter((group) => Boolean(group.category)), [groupedMenu]);
+  const visibleCategoryGroups = useMemo(() => groupedMenu.filter((group) => group.key !== 'uncategorized'), [groupedMenu]);
   const [activeCategory, setActiveCategory] = useState('');
   const displayedGroups = useMemo(() => {
-    if (!activeCategory) {
-      return groupedMenu;
+    if (activeCategory) {
+      const selectedGroup = groupedMenu.filter((group) => group.key === activeCategory);
+      return selectedGroup.length > 0 ? selectedGroup : groupedMenu;
     }
 
-    const selectedGroup = groupedMenu.filter((group) => group.key === activeCategory);
-    return selectedGroup.length > 0 ? selectedGroup : groupedMenu;
+    if (visibleCategoryGroups.length > 0) {
+      return groupedMenu.filter((group) => group.key === visibleCategoryGroups[0].key);
+    }
+
+    return groupedMenu;
   }, [activeCategory, groupedMenu]);
 
   useEffect(() => {
@@ -431,6 +435,24 @@ function MenuList({ menu, categories, quantityById, cartItemById, onAdd, onUpdat
     });
   }, [visibleCategoryGroups]);
 
+  useEffect(() => {
+    if (!activeCategory) {
+      return;
+    }
+
+    const target = document.getElementById(activeCategory);
+    if (!target) {
+      return;
+    }
+
+    const frame = window.requestAnimationFrame(() => {
+      const offset = Math.max(12, target.getBoundingClientRect().top + window.scrollY - 88);
+      window.scrollTo({ top: offset, behavior: 'smooth' });
+    });
+
+    return () => window.cancelAnimationFrame(frame);
+  }, [activeCategory, displayedGroups]);
+
   if (!menu.length) {
     return <p className="muted">Menu unavailable right now.</p>;
   }
@@ -440,7 +462,7 @@ function MenuList({ menu, categories, quantityById, cartItemById, onAdd, onUpdat
       {visibleCategoryGroups.length > 1 ? (
         <div className="menu-catalog__tabs" role="tablist" aria-label="Menu categories">
           {visibleCategoryGroups.map((group) => (
-            <button
+              <button
               key={group.key}
               type="button"
               role="tab"
@@ -448,7 +470,6 @@ function MenuList({ menu, categories, quantityById, cartItemById, onAdd, onUpdat
               className={`menu-category-chip${activeCategory === group.key ? ' active' : ''}`}
               onClick={() => {
                 setActiveCategory(group.key);
-                document.getElementById(group.key)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
               }}
             >
               {group.title}
@@ -591,16 +612,26 @@ function MenuItemCard({
 function groupMenuItems(menu = [], categories = []) {
   const groups = new Map();
   const orderedKeys = [];
-  const normalizedCategories = mergeMenuCategories(categories, menu);
+  const normalizedCategories = normalizeMenuCategories(categories);
+  const seenMenuItemIds = new Set();
 
   normalizedCategories.forEach((category, index) => {
     const key = getCategoryGroupKey(category);
+    const categoryItems = Array.isArray(category.items) ? category.items : [];
     groups.set(key, {
       key,
       title: category.name,
       order: normalizeNumber(category.displayOrder, index + 1),
-      items: [],
+      items: categoryItems.map((item, itemIndex) => ({
+        ...item,
+        __menuIndex: itemIndex,
+      })),
       category,
+    });
+    categoryItems.forEach((item) => {
+      if (item?.id !== undefined && item?.id !== null) {
+        seenMenuItemIds.add(String(item.id));
+      }
     });
     orderedKeys.push(key);
   });
@@ -614,13 +645,47 @@ function groupMenuItems(menu = [], categories = []) {
   };
 
   menu.forEach((item, index) => {
-    const categoryMatch = resolveMenuItemCategory(item, normalizedCategories);
-    if (categoryMatch) {
-      const key = getCategoryGroupKey(categoryMatch);
+    if (item?.id !== undefined && item?.id !== null && seenMenuItemIds.has(String(item.id))) {
+      return;
+    }
+
+    const descriptor = getMenuItemCategoryDescriptor(item);
+    const matchedGroup = resolveMenuItemCategory(item, normalizedCategories);
+
+    if (matchedGroup) {
+      const key = getCategoryGroupKey(matchedGroup);
+      groups.get(key)?.items.push({ ...item, __menuIndex: index });
+      if (item?.id !== undefined && item?.id !== null) {
+        seenMenuItemIds.add(String(item.id));
+      }
+      return;
+    }
+
+    if (descriptor) {
+      const key = getCategoryGroupKey(descriptor);
+      if (!groups.has(key)) {
+        groups.set(key, {
+          key,
+          title: descriptor.name,
+          order: orderedKeys.length + 1,
+          items: [],
+          category: {
+            id: descriptor.id || descriptor.name,
+            name: descriptor.name,
+            displayOrder: orderedKeys.length + 1,
+            isActive: true,
+          },
+        });
+        orderedKeys.push(key);
+      }
+
       groups.get(key)?.items.push({
         ...item,
         __menuIndex: index,
       });
+      if (item?.id !== undefined && item?.id !== null) {
+        seenMenuItemIds.add(String(item.id));
+      }
       return;
     }
 
@@ -668,29 +733,6 @@ function normalizeMenuCategories(categories = []) {
     });
 }
 
-function mergeMenuCategories(categories = [], menu = []) {
-  const normalizedCategories = normalizeMenuCategories(categories);
-  const categoryMap = new Map();
-
-  normalizedCategories.forEach((category) => {
-    categoryMap.set(getCategoryGroupKey(category), category);
-  });
-
-  inferMenuCategoriesFromItems(menu).forEach((category) => {
-    const key = getCategoryGroupKey(category);
-    if (!categoryMap.has(key)) {
-      categoryMap.set(key, category);
-    }
-  });
-
-  return [...categoryMap.values()].sort((a, b) => {
-    if (a.displayOrder !== b.displayOrder) {
-      return a.displayOrder - b.displayOrder;
-    }
-    return a.name.localeCompare(b.name);
-  });
-}
-
 function normalizeBoolean(value, fallback = false) {
   if (value === null || value === undefined || value === '') {
     return fallback;
@@ -713,35 +755,14 @@ function normalizeBoolean(value, fallback = false) {
   return fallback;
 }
 
-function inferMenuCategoriesFromItems(menu = []) {
-  const inferredCategories = [];
-  const seen = new Set();
-
-  menu.forEach((item, index) => {
-    const descriptor = getMenuItemCategoryDescriptor(item);
-    if (!descriptor) {
-      return;
-    }
-
-    const key = getCategoryGroupKey(descriptor);
-    if (seen.has(key)) {
-      return;
-    }
-
-    seen.add(key);
-    inferredCategories.push({
-      id: descriptor.id || descriptor.name,
-      name: descriptor.name,
-      displayOrder: index + 1,
-      isActive: true,
-    });
-  });
-
-  return inferredCategories;
-}
-
 function getMenuItemCategoryDescriptor(item = {}) {
-  const categoryId = item.categoryId ?? item.category_id ?? item.category?.id ?? '';
+  const categoryId =
+    item.categoryId ??
+    item.category_id ??
+    item.category?.id ??
+    item.category?.categoryId ??
+    item.category?.category_id ??
+    '';
   const categoryName =
     item.categoryName ??
     item.category_name ??
@@ -756,6 +777,8 @@ function getMenuItemCategoryDescriptor(item = {}) {
     item.category?.name ??
     item.category?.title ??
     item.category?.label ??
+    item.category?.categoryName ??
+    item.category?.category_name ??
     item.category ??
     item.section ??
     item.group ??
@@ -772,7 +795,13 @@ function getMenuItemCategoryDescriptor(item = {}) {
 }
 
 function resolveMenuItemCategory(item, categories = []) {
-  const categoryId = item.categoryId ?? item.category_id ?? item.category?.id ?? '';
+  const categoryId =
+    item.categoryId ??
+    item.category_id ??
+    item.category?.id ??
+    item.category?.categoryId ??
+    item.category?.category_id ??
+    '';
   const categoryName =
     item.categoryName ??
     item.category_name ??
@@ -787,6 +816,8 @@ function resolveMenuItemCategory(item, categories = []) {
     item.category?.name ??
     item.category?.title ??
     item.category?.label ??
+    item.category?.categoryName ??
+    item.category?.category_name ??
     item.category ??
     item.section ??
     item.group ??
