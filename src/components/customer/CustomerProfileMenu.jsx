@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth.jsx';
-import { setAuthNotice } from '../../services/authStorage.js';
+import { getStoredProfile, setAuthNotice } from '../../services/authStorage.js';
 import { getCustomerDisplayName, getCustomerInitial } from '../../utils/customerIdentity.js';
 
 export default function CustomerProfileMenu() {
@@ -10,8 +10,11 @@ export default function CustomerProfileMenu() {
   const [open, setOpen] = useState(false);
   const menuRef = useRef(null);
 
-  const customerName = useMemo(() => getCustomerDisplayName(user), [user]);
-  const customerInitial = useMemo(() => getCustomerInitial(user), [user]);
+  const storedProfile = useMemo(() => getStoredProfile(), []);
+  const profileSource = user || storedProfile || null;
+  const customerName = useMemo(() => getCustomerDisplayName(profileSource), [profileSource]);
+  const customerInitial = useMemo(() => getCustomerInitial(profileSource), [profileSource]);
+  const hasCustomerSession = Boolean(isAuthenticated || profileSource);
 
   useEffect(() => {
     const handleDocumentClick = (event) => {
@@ -42,7 +45,7 @@ export default function CustomerProfileMenu() {
     navigate('/login', { replace: true });
   };
 
-  if (!isAuthenticated) {
+  if (!hasCustomerSession) {
     return (
       <button
         type="button"
@@ -77,7 +80,7 @@ export default function CustomerProfileMenu() {
             <span className="customer-profile-menu__avatar">{customerInitial}</span>
             <div>
               <strong>{customerName || 'Customer'}</strong>
-              <span>{user?.phone || user?.phone_number || user?.email || ''}</span>
+              <span>{profileSource?.phone || profileSource?.phone_number || profileSource?.email || ''}</span>
             </div>
           </div>
           <Link className="customer-profile-menu__item" to="/orders" onClick={() => setOpen(false)}>
