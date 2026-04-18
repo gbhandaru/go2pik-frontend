@@ -16,16 +16,24 @@ import KitchenOrdersPage from '../pages/KitchenOrdersPage.jsx';
 import KitchenMenuPage from '../pages/KitchenMenuPage.jsx';
 import KitchenReadyPage from '../pages/KitchenReadyPage.jsx';
 import KitchenCompletedPage from '../pages/KitchenCompletedPage.jsx';
+import CustomerLayout from '../components/customer/CustomerLayout.jsx';
 
 export default function AppRoutes() {
   return (
     <Routes>
-      <Route path="/" element={<LandingPage />} />
-      <Route path="/login" element={<LoginPage />} />
-      <Route path="/signup" element={<SignupPage />} />
-      <Route path="/home" element={<HomePage />} />
-      <Route path="/password-update" element={<PasswordUpdatePage />} />
-      <Route path="/restaurants/:restaurantId/menu" element={<RestaurantMenuPage />} />
+      <Route element={<CustomerLayout />}>
+        <Route path="/" element={<LandingPage />} />
+        <Route path="/login" element={<LoginPage />} />
+        <Route path="/signup" element={<SignupPage />} />
+        <Route path="/home" element={<HomePage />} />
+        <Route path="/password-update" element={<PasswordUpdatePage />} />
+        <Route path="/restaurants/:restaurantId/menu" element={<RestaurantMenuPage />} />
+        <Route element={<ProtectedRoute />}>
+          <Route path="/checkout" element={<CheckoutPage />} />
+          <Route path="/orders" element={<OrdersPage />} />
+          <Route path="/order-confirmation" element={<OrderConfirmationPage />} />
+        </Route>
+      </Route>
       <Route path="/kitchen/login" element={<KitchenLoginPage />} />
       <Route path="/kitchen/users/new" element={<KitchenCreateUserPage />} />
       <Route path="/kitchen" element={<Navigate to="/kitchen/orders" replace />} />
@@ -33,11 +41,6 @@ export default function AppRoutes() {
       <Route path="/kitchen/menu" element={<KitchenMenuPage />} />
       <Route path="/kitchen/ready" element={<KitchenReadyPage />} />
       <Route path="/kitchen/completed" element={<KitchenCompletedPage />} />
-      <Route element={<ProtectedRoute />}>
-        <Route path="/checkout" element={<CheckoutPage />} />
-        <Route path="/orders" element={<OrdersPage />} />
-        <Route path="/order-confirmation" element={<OrderConfirmationPage />} />
-      </Route>
       <Route path="*" element={<NotFoundPage />} />
     </Routes>
   );

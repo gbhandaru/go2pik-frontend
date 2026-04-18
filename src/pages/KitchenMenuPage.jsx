@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import KitchenTabs from '../components/kitchen/KitchenTabs.jsx';
 import {
   createKitchenMenuCategory,
@@ -1399,6 +1399,11 @@ export default function KitchenMenuPage() {
           <span>Last updated: {formatTimestamp(lastUpdated)}</span>
         </div>
         <div className="kitchen-dashboard__actions">
+          <Link className="kitchen-icon-btn kitchen-icon-btn--link" to="/kitchen/users/new" aria-label="Create restaurant user">
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M15 14a4 4 0 1 0-4-4 4 4 0 0 0 4 4Zm-7 7v-1a5 5 0 0 1 5-5h1a5 5 0 0 1 5 5v1h-2v-1a3 3 0 0 0-3-3h-1a3 3 0 0 0-3 3v1Zm11-10V8h-2V5h-2v3h-2v2h2v3h2v-3Z" />
+            </svg>
+          </Link>
           <button type="button" className="kitchen-icon-btn" onClick={loadMenu} aria-label="Refresh menu">
             <svg viewBox="0 0 24 24" aria-hidden="true">
               <path d="M4 12a8 8 0 0 1 13.6-5.7L20 8.6V4h2v8h-8V10l2.7 2.7A6 6 0 1 0 18 17h2a8 8 0 1 1-16-5Z" />
