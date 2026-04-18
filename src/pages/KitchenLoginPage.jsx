@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { restaurantUserLogin } from '../api/authApi.js';
 import { consumeKitchenAuthNotice, storeKitchenAuthTokens } from '../services/authStorage.js';
 
@@ -67,11 +67,6 @@ export default function KitchenLoginPage() {
         <button className="primary-btn" type="submit" disabled={loading}>
           {loading ? 'Signing in…' : 'Sign in'}
         </button>
-        <div className="auth-links login-links">
-          <Link className="text-link" to="/kitchen/users/new">
-            Create restaurant user
-          </Link>
-        </div>
       </form>
     </main>
   );

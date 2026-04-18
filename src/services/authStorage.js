@@ -6,6 +6,7 @@ const KITCHEN_REFRESH_TOKEN_KEY = 'go2pik.kitchenRefreshToken';
 const KITCHEN_PROFILE_KEY = 'go2pik.kitchenProfile';
 const AUTH_NOTICE_KEY = 'go2pik.authNotice';
 const KITCHEN_AUTH_NOTICE_KEY = 'go2pik.kitchenAuthNotice';
+const CUSTOMER_GUEST_ACCESS_KEY = 'go2pik.customerGuestAccess';
 
 function safeStorage() {
   if (typeof window === 'undefined') {
@@ -75,6 +76,26 @@ export function consumeAuthNotice() {
   const message = storage?.getItem(AUTH_NOTICE_KEY) || '';
   storage?.removeItem(AUTH_NOTICE_KEY);
   return message;
+}
+
+export function hasCustomerGuestAccess() {
+  const storage = safeStorage();
+  return storage?.getItem(CUSTOMER_GUEST_ACCESS_KEY) === 'true';
+}
+
+export function setCustomerGuestAccess(enabled) {
+  const storage = safeStorage();
+  if (!storage) return;
+  if (enabled) {
+    storage.setItem(CUSTOMER_GUEST_ACCESS_KEY, 'true');
+  } else {
+    storage.removeItem(CUSTOMER_GUEST_ACCESS_KEY);
+  }
+}
+
+export function clearCustomerGuestAccess() {
+  const storage = safeStorage();
+  storage?.removeItem(CUSTOMER_GUEST_ACCESS_KEY);
 }
 
 export function getKitchenAuthToken() {

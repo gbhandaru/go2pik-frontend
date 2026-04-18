@@ -1,3 +1,5 @@
+import { Link } from 'react-router-dom';
+
 export default function KitchenHeader({
   restaurantName = 'Go2Pik Kitchen',
   title = 'Kitchen Dashboard',
@@ -14,6 +16,11 @@ export default function KitchenHeader({
       </div>
       {(children || onLogout) ? (
         <div className="kitchen-header__actions">
+          <Link className="kitchen-icon-btn kitchen-icon-btn--link" to="/kitchen/users/new" aria-label="Create restaurant user">
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M15 14a4 4 0 1 0-4-4 4 4 0 0 0 4 4Zm-7 7v-1a5 5 0 0 1 5-5h1a5 5 0 0 1 5 5v1h-2v-1a3 3 0 0 0-3-3h-1a3 3 0 0 0-3 3v1Zm11-10V8h-2V5h-2v3h-2v2h2v3h2v-3Z" />
+            </svg>
+          </Link>
           {children}
           {onLogout ? (
             <button type="button" className="kitchen-icon-btn" onClick={onLogout} aria-label="Logout">
