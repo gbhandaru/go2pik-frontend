@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Navigate, useNavigate, useParams } from 'react-router-dom';
 import { fetchRestaurantMenu } from '../api/restaurantsApi.js';
 import { useFetch } from '../hooks/useFetch.js';
@@ -26,6 +26,8 @@ export default function RestaurantMenuPage() {
   const [scheduledPickupTime, setScheduledPickupTime] = useState('');
   const [orderError, setOrderError] = useState('');
   const [customerPhoneInput, setCustomerPhoneInput] = useState(initialCustomerPhone);
+  const [showPhoneModal, setShowPhoneModal] = useState(false);
+  const phoneInputRef = useRef(null);
   const { data, loading, error } = useFetch(() => fetchRestaurantMenu(restaurantId), [restaurantId]);
   const asapReadyTime = useMemo(() => getTimeFromNow(PICKUP_WINDOW_MINUTES), []);
   const earliestAvailableTime = useMemo(() => getTimeFromNow(EARLIEST_PICKUP_MINUTES), []);
@@ -40,6 +42,12 @@ export default function RestaurantMenuPage() {
   useEffect(() => {
     setCustomerPhoneInput((prev) => prev || initialCustomerPhone);
   }, [initialCustomerPhone]);
+
+  useEffect(() => {
+    if (showPhoneModal) {
+      phoneInputRef.current?.focus();
+    }
+  }, [showPhoneModal]);
 
   const totalItems = useMemo(() => cart.reduce((sum, item) => sum + item.quantity, 0), [cart]);
   const total = useMemo(() => cart.reduce((sum, item) => sum + item.price * item.quantity, 0), [cart]);
@@ -166,11 +174,17 @@ export default function RestaurantMenuPage() {
     if (selectedPickupMode === PICKUP_MODES.SCHEDULED && !scheduledPickupTime) {
       return;
     }
+    setShowPhoneModal(true);
+  };
+
+  const handleSendOtp = () => {
+    setOrderError('');
     const customerPhone = customerPhoneInput.trim();
     if (!customerPhone) {
       setOrderError('Please enter a phone number before continuing to verification.');
       return;
     }
+
     const orderItems = cart.map(({ id, name, price, quantity }) => ({
       id,
       name,
@@ -193,7 +207,7 @@ export default function RestaurantMenuPage() {
       },
       customer: {
         name: customerName || getCustomerDisplayName(user) || '',
-        phone: customerPhone || '',
+        phone: customerPhone,
         email: user?.email || '',
         pickupTime: selectedPickupMode === PICKUP_MODES.SCHEDULED ? scheduledPickupTime || undefined : undefined,
         notes: pickupSummary || '',
@@ -201,11 +215,12 @@ export default function RestaurantMenuPage() {
       customerName: customerName || undefined,
     };
 
+    setShowPhoneModal(false);
     navigate('/checkout', {
       state: {
         orderDraft: payload,
         customerName: customerName || undefined,
-        customerPhone: customerPhone || '',
+        customerPhone,
       },
     });
   };
@@ -288,12 +303,29 @@ export default function RestaurantMenuPage() {
           paymentMessage="No online payment required"
           disabled={!cart.length || missingScheduledTime}
           orderError={orderError}
-          customerPhone={customerPhoneInput}
-          onCustomerPhoneChange={setCustomerPhoneInput}
           onUpdateQuantity={updateQuantity}
           onPlaceOrder={handlePlaceOrder}
         />
       </section>
+
+      {showPhoneModal ? (
+        <PhoneModal
+          customerPhone={customerPhoneInput}
+          error={orderError}
+          onClose={() => {
+            setShowPhoneModal(false);
+            setOrderError('');
+          }}
+          onCustomerPhoneChange={(value) => {
+            setCustomerPhoneInput(value);
+            if (orderError) {
+              setOrderError('');
+            }
+          }}
+          onSendOtp={handleSendOtp}
+          phoneInputRef={phoneInputRef}
+        />
+      ) : null}
     </main>
   );
 }
@@ -889,8 +921,6 @@ function CartSummary({
   paymentMessage,
   submitting,
   orderError,
-  customerPhone,
-  onCustomerPhoneChange,
   disabled,
   onUpdateQuantity,
   onPlaceOrder,
@@ -976,23 +1006,47 @@ function CartSummary({
         </div>
       </div>
 
-      <label className="cart-phone-field">
-        Customer phone
-        <input
-          type="tel"
-          value={customerPhone}
-          onChange={(event) => onCustomerPhoneChange(event.target.value)}
-          placeholder="+1 555 123 4567"
-          autoComplete="tel"
-        />
-      </label>
-
       {orderError && <p className="error-text">{orderError}</p>}
 
       <button className="primary-btn cart-preview-cta" type="button" disabled={disabled || submitting} onClick={onPlaceOrder}>
         {submitting ? 'Placing order…' : 'Place order'}
       </button>
     </aside>
+  );
+}
+
+function PhoneModal({ customerPhone, error, onClose, onCustomerPhoneChange, onSendOtp, phoneInputRef }) {
+  return (
+    <div className="phone-modal-backdrop" role="presentation" onClick={onClose}>
+      <section
+        className="phone-modal"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="phone-modal-title"
+        onClick={(event) => event.stopPropagation()}
+      >
+        <button type="button" className="phone-modal__close" onClick={onClose} aria-label="Close phone modal">
+          ×
+        </button>
+        <p className="phone-modal__eyebrow">Confirm your order</p>
+        <h2 id="phone-modal-title">Enter phone number to receive pickup confirmation</h2>
+        <label className="phone-modal__field">
+          Phone number
+          <input
+            ref={phoneInputRef}
+            type="tel"
+            value={customerPhone}
+            onChange={(event) => onCustomerPhoneChange(event.target.value)}
+            placeholder="+1 555 123 4567"
+            autoComplete="tel"
+          />
+        </label>
+        {error ? <p className="error-text phone-modal__error">{error}</p> : null}
+        <button type="button" className="phone-modal__submit" onClick={onSendOtp}>
+          Send OTP
+        </button>
+      </section>
+    </div>
   );
 }
 
