@@ -1080,6 +1080,50 @@ textarea {
   gap: 0.65rem;
 }
 
+.reorder-item-button {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  width: 100%;
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: inherit;
+  text-align: left;
+}
+
+.reorder-item-button:hover .reorder-item-icon,
+.reorder-item-button:focus-visible .reorder-item-icon {
+  background: #e8f5ee;
+  color: #15803d;
+}
+
+.reorder-item-button__plus {
+  margin-left: auto;
+  width: 1.55rem;
+  height: 1.55rem;
+  border-radius: 999px;
+  border: 1px solid #d1fae5;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: #16a34a;
+  background: #f0fdf4;
+  font-size: 0.95rem;
+  font-weight: 700;
+  line-height: 1;
+  flex: 0 0 auto;
+  opacity: 0;
+  transform: translateX(0.2rem);
+  transition: opacity 0.18s ease, transform 0.18s ease, background 0.18s ease, color 0.18s ease;
+}
+
+.reorder-item-button:hover .reorder-item-button__plus,
+.reorder-item-button:focus-visible .reorder-item-button__plus {
+  opacity: 1;
+  transform: translateX(0);
+}
+
 .reorder-items li strong {
   display: block;
 }
