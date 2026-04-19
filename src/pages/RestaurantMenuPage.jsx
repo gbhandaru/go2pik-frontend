@@ -21,7 +21,7 @@ export default function RestaurantMenuPage() {
   const { user, canAccessCustomerFlow } = useAuth();
   const customerName = useMemo(() => getCustomerDisplayName(user), [user]);
   const initialCustomerPhone = useMemo(
-    () => getCustomerPhone(user) || getVerifiedCustomerPhone() || '',
+    () => getVerifiedCustomerPhone() || getCustomerPhone(user) || '',
     [user],
   );
   const [cart, setCart] = useState([]);
@@ -185,6 +185,7 @@ export default function RestaurantMenuPage() {
     if (selectedPickupMode === PICKUP_MODES.SCHEDULED && !scheduledPickupTime) {
       return;
     }
+    setCustomerPhoneInput(getVerifiedCustomerPhone() || getCustomerPhone(user) || '');
     setShowPhoneModal(true);
   };
 
@@ -1037,7 +1038,7 @@ function PhoneModal({
   phoneInputRef,
 }) {
   return (
-    <div className="phone-modal-backdrop" role="presentation" onClick={onClose}>
+    <div className="phone-modal-backdrop" role="presentation">
       <section
         className="phone-modal"
         role="dialog"
