@@ -5,7 +5,7 @@ export default function CustomerLayout() {
   return (
     <>
       <div className="customer-chrome">
-        <Link className="customer-chrome__home" to="/home" aria-label="Go to home page">
+        <Link className="customer-chrome__home" to="/" aria-label="Go to landing page">
           <span aria-hidden="true">⌂</span>
           <span>Home</span>
         </Link>

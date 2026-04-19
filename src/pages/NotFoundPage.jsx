@@ -6,7 +6,7 @@ export default function NotFoundPage() {
       <div className="page-empty-state">
         <h1>Oops! Page not found</h1>
         <p>The link you followed may be broken or the page may have been removed.</p>
-        <Link className="primary-btn" to="/home">
+        <Link className="primary-btn" to="/">
           Go back home
         </Link>
       </div>

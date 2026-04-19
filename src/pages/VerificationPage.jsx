@@ -127,7 +127,7 @@ export default function VerificationPage() {
   const resendButtonLabel = canResend ? 'Resend Code' : `Resend in ${resendCountdown}`;
 
   if (!orderDraft) {
-    return <Navigate to="/home" replace />;
+    return <Navigate to="/" replace />;
   }
 
   if (!resolvedOtpLength) {
