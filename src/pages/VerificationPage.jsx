@@ -295,30 +295,15 @@ export default function VerificationPage() {
             className="verification-resend"
             onClick={handleResend}
             disabled={!canResend || starting}
-            aria-describedby="verification-resend-helper"
           >
             {starting ? 'Sending...' : resendButtonLabel}
           </button>
-          <p id="verification-resend-helper" className="muted verification-resend-meta">
-            {canResend
-              ? 'You can request a new code now.'
-              : `Resend unlocks in ${resendCountdown}`}
-          </p>
-          {resendAvailableAt ? (
-            <p className="muted verification-resend-meta">
-              Resend available at {formatVerificationDateTime(resendAvailableAt)}
-            </p>
-          ) : null}
 
           {error ? <p className="error-text verification-error">{error}</p> : null}
 
           <button className="verification-submit" type="submit" disabled={submitting || starting || !isCodeComplete}>
-            {submitting ? 'Verifying…' : starting ? 'Sending code…' : 'Verify'}
+            {submitting ? 'Verifying…' : starting ? 'Sending code…' : 'Confirm Order'}
           </button>
-
-          <p className="muted verification-note">
-            Code entered: {codeValue || '----'} {customerName ? `• ${customerName}` : ''}
-          </p>
         </form>
       </section>
     </main>

@@ -49,6 +49,14 @@ export default function RestaurantMenuPage() {
     }
   }, [showPhoneModal]);
 
+  const normalizedCustomerPhone = useMemo(
+    () => normalizeUSPhoneNumber(customerPhoneInput),
+    [customerPhoneInput],
+  );
+  const isCustomerPhoneValid = Boolean(normalizedCustomerPhone);
+  const phoneValidationMessage =
+    customerPhoneInput.trim() && !isCustomerPhoneValid ? 'Please enter a valid US phone number' : '';
+
   const totalItems = useMemo(() => cart.reduce((sum, item) => sum + item.quantity, 0), [cart]);
   const total = useMemo(() => cart.reduce((sum, item) => sum + item.price * item.quantity, 0), [cart]);
   const quantityById = useMemo(
@@ -179,11 +187,11 @@ export default function RestaurantMenuPage() {
 
   const handleSendOtp = () => {
     setOrderError('');
-    const customerPhone = customerPhoneInput.trim();
-    if (!customerPhone) {
-      setOrderError('Please enter a phone number before continuing to verification.');
+    if (!isCustomerPhoneValid) {
+      setOrderError('Please enter a valid US phone number');
       return;
     }
+    const customerPhone = normalizedCustomerPhone;
 
     const orderItems = cart.map(({ id, name, price, quantity }) => ({
       id,
@@ -220,7 +228,7 @@ export default function RestaurantMenuPage() {
       state: {
         orderDraft: payload,
         customerName: customerName || undefined,
-        customerPhone,
+      customerPhone,
       },
     });
   };
@@ -311,7 +319,8 @@ export default function RestaurantMenuPage() {
       {showPhoneModal ? (
         <PhoneModal
           customerPhone={customerPhoneInput}
-          error={orderError}
+          error={phoneValidationMessage || orderError}
+          canSendCode={isCustomerPhoneValid}
           onClose={() => {
             setShowPhoneModal(false);
             setOrderError('');
@@ -1015,7 +1024,15 @@ function CartSummary({
   );
 }
 
-function PhoneModal({ customerPhone, error, onClose, onCustomerPhoneChange, onSendOtp, phoneInputRef }) {
+function PhoneModal({
+  customerPhone,
+  error,
+  canSendCode,
+  onClose,
+  onCustomerPhoneChange,
+  onSendOtp,
+  phoneInputRef,
+}) {
   return (
     <div className="phone-modal-backdrop" role="presentation" onClick={onClose}>
       <section
@@ -1042,12 +1059,36 @@ function PhoneModal({ customerPhone, error, onClose, onCustomerPhoneChange, onSe
           />
         </label>
         {error ? <p className="error-text phone-modal__error">{error}</p> : null}
-        <button type="button" className="phone-modal__submit" onClick={onSendOtp}>
-          Send OTP
+        <button
+          type="button"
+          className={`phone-modal__submit${canSendCode ? '' : ' is-disabled'}`}
+          onClick={onSendOtp}
+          disabled={!canSendCode}
+        >
+          Send Code
         </button>
+        <p className="phone-modal__helper">Used for pickup &amp; order updates only</p>
       </section>
     </div>
   );
+}
+
+function normalizeUSPhoneNumber(value) {
+  const input = String(value || '').trim();
+  if (!input) {
+    return '';
+  }
+
+  const digits = input.replace(/\D/g, '');
+  if (digits.length === 10) {
+    return `+1${digits}`;
+  }
+
+  if (digits.length === 11 && digits.startsWith('1')) {
+    return `+${digits}`;
+  }
+
+  return '';
 }
 
 function getPickupSummary(mode, scheduledTime, asapReadyTime) {
