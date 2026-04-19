@@ -161,6 +161,34 @@ export default function RestaurantMenuPage() {
     });
   };
 
+  const reorderSingleItem = (orderItem) => {
+    if (!orderItem) {
+      return;
+    }
+    setCart((prev) => {
+      const existing = prev.find((item) => item.id === orderItem.id);
+      if (existing) {
+        return prev.map((item) =>
+          item.id === orderItem.id
+            ? {
+                ...item,
+                quantity: item.quantity + (orderItem.quantity || 1),
+                specialInstructions: item.specialInstructions || orderItem.specialInstructions || '',
+              }
+            : item,
+        );
+      }
+      return [
+        ...prev,
+        {
+          ...orderItem,
+          quantity: orderItem.quantity || 1,
+          specialInstructions: orderItem.specialInstructions || '',
+        },
+      ];
+    });
+  };
+
   const handlePickupModeChange = (mode) => {
     setSelectedPickupMode(mode);
     if (mode === PICKUP_MODES.ASAP) {
@@ -289,6 +317,7 @@ export default function RestaurantMenuPage() {
             items={lastOrder?.items}
             hasOrder={Boolean(lastOrder?.items?.length)}
             onReorder={reorderLastOrder}
+            onReorderItem={reorderSingleItem}
           />
 
           <MenuList
@@ -423,7 +452,7 @@ function PickupTimeCard({
 }
 
 // Compact reorder card keeps the last order handy without overpowering the menu.
-function ReorderCard({ items = [], hasOrder, onReorder }) {
+function ReorderCard({ items = [], hasOrder, onReorder, onReorderItem }) {
   const previewItems = (items || []).slice(0, 3);
   return (
     <section className="reorder-card" aria-live="polite">
@@ -434,15 +463,25 @@ function ReorderCard({ items = [], hasOrder, onReorder }) {
           <ul className="reorder-items">
             {previewItems.map((item) => (
               <li key={item.id}>
-                <span className="reorder-item-icon" aria-hidden="true">
-                  {getItemBadgeLabel(item.name)}
-                </span>
-                <div>
-                  <strong>{item.name}</strong>
-                  <span className="muted">
-                    {item.quantity} × {formatCurrency(item.price)}
+                <button
+                  type="button"
+                  className="reorder-item-button"
+                  onClick={() => onReorderItem?.(item)}
+                  aria-label={`Reorder ${item.name}`}
+                >
+                  <span className="reorder-item-icon" aria-hidden="true">
+                    {getItemBadgeLabel(item.name)}
                   </span>
-                </div>
+                  <div>
+                    <strong>{item.name}</strong>
+                    <span className="muted">
+                      {item.quantity} × {formatCurrency(item.price)}
+                    </span>
+                  </div>
+                  <span className="reorder-item-button__plus" aria-hidden="true">
+                    +
+                  </span>
+                </button>
               </li>
             ))}
           </ul>
