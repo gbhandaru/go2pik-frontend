@@ -1,17 +1,15 @@
 import { useEffect, useRef, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth.jsx';
-import { getAuthToken, getRefreshToken, getStoredProfile } from '../../services/authStorage.js';
-import { getCustomerDisplayName, getCustomerInitial } from '../../utils/customerIdentity.js';
+import { getCustomerInitial } from '../../utils/customerIdentity.js';
 
 export default function CustomerProfileMenu() {
-  const { user, loading } = useAuth();
+  const location = useLocation();
+  const { user, loading, isGuest } = useAuth();
   const menuRef = useRef(null);
   const [open, setOpen] = useState(false);
 
-  const storedProfile = getStoredProfile();
-  const hasStoredSession = Boolean(getAuthToken() || getRefreshToken());
-  const profileSource = user || (loading && hasStoredSession ? storedProfile : null);
+  const profileSource = user || (isGuest ? { name: 'Guest' } : null);
   const customerInitial = getCustomerInitial(profileSource);
 
   useEffect(() => {
@@ -42,9 +40,21 @@ export default function CustomerProfileMenu() {
 
       {open ? (
         <div className="customer-profile-menu customer-profile-menu--compact" role="menu" aria-label="Customer menu">
-          <Link className="customer-profile-menu__item" to="/orders" role="menuitem" onClick={() => setOpen(false)}>
-            My Orders
-          </Link>
+          {user && !isGuest ? (
+            <Link className="customer-profile-menu__item" to="/orders" role="menuitem" onClick={() => setOpen(false)}>
+              My Orders
+            </Link>
+          ) : (
+            <Link
+              className="customer-profile-menu__item"
+              to="/login"
+              role="menuitem"
+              state={{ from: { pathname: location.pathname } }}
+              onClick={() => setOpen(false)}
+            >
+              Sign in
+            </Link>
+          )}
         </div>
       ) : null}
     </div>

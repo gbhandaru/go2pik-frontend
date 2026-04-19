@@ -6,9 +6,9 @@ import { getRestaurantAddressLines } from '../utils/formatRestaurantAddress.js';
 
 export default function HomePage() {
   const navigate = useNavigate();
-  const { user } = useAuth();
+  const { canAccessCustomerFlow } = useAuth();
   const { data: restaurants, loading, error } = useFetch(fetchRestaurants, []);
-  const canBrowseMenu = Boolean(user);
+  const canBrowseMenu = canAccessCustomerFlow;
 
   const handleViewMenu = (restaurantId, event) => {
     if (canBrowseMenu) {

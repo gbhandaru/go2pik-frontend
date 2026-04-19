@@ -25,14 +25,16 @@ export default function AppRoutes() {
         <Route path="/" element={<LandingPage />} />
         <Route path="/login" element={<LoginPage />} />
         <Route path="/signup" element={<SignupPage />} />
-        <Route path="/home" element={<HomePage />} />
         <Route path="/password-update" element={<PasswordUpdatePage />} />
-        <Route path="/restaurants/:restaurantId/menu" element={<RestaurantMenuPage />} />
-        <Route path="/verification" element={<VerificationRedirect />} />
-        <Route element={<ProtectedRoute />}>
+        <Route element={<ProtectedRoute allowGuest />}>
+          <Route path="/home" element={<HomePage />} />
+          <Route path="/restaurants/:restaurantId/menu" element={<RestaurantMenuPage />} />
+          <Route path="/verification" element={<VerificationRedirect />} />
           <Route path="/checkout" element={<VerificationPage />} />
-          <Route path="/orders" element={<OrdersPage />} />
           <Route path="/order-confirmation" element={<OrderConfirmationPage />} />
+        </Route>
+        <Route element={<ProtectedRoute allowGuest={false} />}>
+          <Route path="/orders" element={<OrdersPage />} />
         </Route>
       </Route>
       <Route path="/kitchen/login" element={<KitchenLoginPage />} />

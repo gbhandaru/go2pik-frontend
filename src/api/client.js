@@ -67,7 +67,7 @@ async function refreshActiveSession() {
 
     const accessToken = data?.access_token || data?.accessToken || null;
     const nextRefreshToken = data?.refresh_token || data?.refreshToken || null;
-    const profile = data?.user || data?.profile || null;
+    const profile = data?.user || data?.customer || data?.profile || null;
     const pathname = typeof window !== 'undefined' ? window.location.pathname : '';
 
     if (pathname.startsWith('/kitchen/')) {

@@ -1,8 +1,9 @@
-import { Outlet } from 'react-router-dom';
+import { Navigate, Outlet, useLocation } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth.jsx';
 
-export default function ProtectedRoute({ children }) {
-  const { isAuthenticated, loading } = useAuth();
+export default function ProtectedRoute({ children, allowGuest = true }) {
+  const location = useLocation();
+  const { isAuthenticated, isGuest, loading } = useAuth();
 
   if (loading) {
     return (
@@ -12,9 +13,8 @@ export default function ProtectedRoute({ children }) {
     );
   }
 
-  if (!isAuthenticated) {
-    console.warn('ProtectedRoute bypass active – allowing unauthenticated access for testing.');
-    return children || <Outlet />;
+  if (!isAuthenticated && !(allowGuest && isGuest)) {
+    return <Navigate to="/login" replace state={{ from: { pathname: location.pathname } }} />;
   }
 
   return children || <Outlet />;

@@ -12,7 +12,9 @@ import {
   clearAuthTokens,
   clearCustomerGuestAccess,
   getAuthToken,
+  hasCustomerGuestAccess,
   getRefreshToken,
+  setCustomerGuestAccess,
   storeAuthTokens,
 } from '../services/authStorage.js';
 
@@ -84,11 +86,16 @@ function notifyWelcomeEmail(payload) {
   });
 }
 
+function resolveCustomerProfile(response) {
+  return response?.user || response?.customer || response?.profile || null;
+}
+
 export function AuthProvider({ children }) {
   const [state, setState] = useState({
     user: null,
     loading: true,
     error: null,
+    sessionMode: 'loading',
   });
 
   useEffect(() => {
@@ -96,28 +103,46 @@ export function AuthProvider({ children }) {
       const token = getAuthToken();
       const refreshToken = getRefreshToken();
       if (!token && !refreshToken) {
-        clearAuthTokens();
-        setState((prev) => ({ ...prev, loading: false }));
+        const guestMode = hasCustomerGuestAccess();
+        if (!guestMode) {
+          clearAuthTokens();
+        }
+        setState({
+          user: null,
+          loading: false,
+          error: null,
+          sessionMode: guestMode ? 'guest' : 'anonymous',
+        });
         return;
       }
       try {
         if (token) {
-          const profile = await fetchCustomerProfile();
+          const profileResponse = await fetchCustomerProfile();
+          const profile = resolveCustomerProfile(profileResponse) || profileResponse;
           storeAuthTokens({ accessToken: token, profile });
-          setState({ user: profile, loading: false, error: null });
+          clearCustomerGuestAccess();
+          setState({ user: profile, loading: false, error: null, sessionMode: 'authenticated' });
           return;
         }
 
         const response = await customerRefreshSession(refreshToken);
+        clearCustomerGuestAccess();
+        const profile = resolveCustomerProfile(response);
         storeAuthTokens({
           accessToken: response?.access_token,
           refreshToken: response?.refresh_token,
-          profile: response?.user,
+          profile,
         });
-        setState({ user: response?.user || null, loading: false, error: null });
+        setState({
+          user: profile,
+          loading: false,
+          error: null,
+          sessionMode: profile ? 'authenticated' : 'anonymous',
+        });
       } catch (error) {
         clearAuthTokens();
-        setState({ user: null, loading: false, error: null });
+        clearCustomerGuestAccess();
+        setState({ user: null, loading: false, error: null, sessionMode: 'anonymous' });
       }
     }
 
@@ -126,7 +151,8 @@ export function AuthProvider({ children }) {
 
   useEffect(() => {
     const handleAuthExpired = () => {
-      setState({ user: null, loading: false, error: null });
+      clearCustomerGuestAccess();
+      setState({ user: null, loading: false, error: null, sessionMode: 'anonymous' });
     };
 
     window.addEventListener('go2pik:auth-expired', handleAuthExpired);
@@ -135,41 +161,85 @@ export function AuthProvider({ children }) {
     };
   }, []);
 
+  useEffect(() => {
+    const handleAuthUpdated = (event) => {
+      const profile = event.detail?.profile || null;
+      if (!profile) {
+        return;
+      }
+
+      storeAuthTokens({ profile });
+      setState((prev) => ({
+        ...prev,
+        user: profile,
+        loading: false,
+        error: null,
+        sessionMode: prev.sessionMode === 'guest' ? 'guest' : 'authenticated',
+      }));
+    };
+
+    window.addEventListener('go2pik:auth-updated', handleAuthUpdated);
+    return () => {
+      window.removeEventListener('go2pik:auth-updated', handleAuthUpdated);
+    };
+  }, []);
+
   const value = useMemo(() => ({
     ...state,
-    isAuthenticated: Boolean(state.user),
+    isAuthenticated: state.sessionMode === 'authenticated',
+    isGuest: state.sessionMode === 'guest',
+    canAccessCustomerFlow: state.sessionMode === 'authenticated' || state.sessionMode === 'guest',
     login: async (credentials) => {
       setState((prev) => ({ ...prev, loading: true, error: null }));
       try {
+        clearCustomerGuestAccess();
         const response = await customerLogin(credentials);
+        const profile = resolveCustomerProfile(response);
         storeAuthTokens({
           accessToken: response?.access_token,
           refreshToken: response?.refresh_token,
-          profile: response?.user,
+          profile,
         });
-        setState({ user: response?.user || null, loading: false, error: null });
+        setState({
+          user: profile,
+          loading: false,
+          error: null,
+          sessionMode: profile ? 'authenticated' : 'anonymous',
+        });
         return response;
       } catch (error) {
-        setState({ user: null, loading: false, error: error.message });
+        setState({ user: null, loading: false, error: error.message, sessionMode: 'anonymous' });
         throw error;
       }
     },
     signup: async (payload) => {
       setState((prev) => ({ ...prev, loading: true, error: null }));
       try {
+        clearCustomerGuestAccess();
         const response = await customerSignup(payload);
+        const profile = resolveCustomerProfile(response);
         storeAuthTokens({
           accessToken: response?.access_token,
           refreshToken: response?.refresh_token,
-          profile: response?.user,
+          profile,
         });
-        setState({ user: response?.user || null, loading: false, error: null });
+        setState({
+          user: profile,
+          loading: false,
+          error: null,
+          sessionMode: profile ? 'authenticated' : 'anonymous',
+        });
         notifyWelcomeEmail(response);
         return response;
       } catch (error) {
-        setState({ user: null, loading: false, error: error.message });
+        setState({ user: null, loading: false, error: error.message, sessionMode: 'anonymous' });
         throw error;
       }
+    },
+    continueAsGuest: () => {
+      clearAuthTokens();
+      setCustomerGuestAccess(true);
+      setState({ user: null, loading: false, error: null, sessionMode: 'guest' });
     },
     logout: async () => {
       const refreshToken = getRefreshToken();
@@ -182,7 +252,7 @@ export function AuthProvider({ children }) {
       }
       clearAuthTokens();
       clearCustomerGuestAccess();
-      setState({ user: null, loading: false, error: null });
+      setState({ user: null, loading: false, error: null, sessionMode: 'anonymous' });
     },
   }), [state]);
 

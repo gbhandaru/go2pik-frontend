@@ -40,6 +40,13 @@ export function updateCustomerPassword(payload) {
   });
 }
 
+export function updateCustomerPhone(payload) {
+  return safeRequest('/customers/me/phone', {
+    method: 'PATCH',
+    body: payload,
+  });
+}
+
 export function customerLogout(refreshToken) {
   return safeRequest('/auth/customers/logout', {
     method: 'POST',
