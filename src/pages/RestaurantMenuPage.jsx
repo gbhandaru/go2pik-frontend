@@ -201,6 +201,7 @@ export default function RestaurantMenuPage() {
       lineTotal: price * quantity,
       specialInstructions: cartItemById[id]?.specialInstructions || '',
     }));
+    const pickupTime = selectedPickupMode === PICKUP_MODES.SCHEDULED ? buildPickupTimestamp(scheduledPickupTime) : undefined;
 
     const payload = {
       restaurantId: restaurant.id,
@@ -210,14 +211,14 @@ export default function RestaurantMenuPage() {
       total,
       pickupRequest: {
         type: selectedPickupMode,
-        scheduledTime: scheduledPickupTime,
+        scheduledTime: pickupTime,
         summary: pickupSummary,
       },
       customer: {
         name: customerName || getCustomerDisplayName(user) || '',
         phone: customerPhone,
         email: user?.email || '',
-        pickupTime: selectedPickupMode === PICKUP_MODES.SCHEDULED ? scheduledPickupTime || undefined : undefined,
+        pickupTime,
         notes: pickupSummary || '',
       },
       customerName: customerName || undefined,
@@ -1089,6 +1090,24 @@ function normalizeUSPhoneNumber(value) {
   }
 
   return '';
+}
+
+function buildPickupTimestamp(timeValue) {
+  const input = String(timeValue || '').trim();
+  if (!input) {
+    return '';
+  }
+
+  const [hourString, minuteString] = input.split(':');
+  const hours = Number(hourString);
+  const minutes = Number(minuteString);
+  if (Number.isNaN(hours) || Number.isNaN(minutes)) {
+    return '';
+  }
+
+  const date = new Date();
+  date.setHours(hours, minutes, 0, 0);
+  return date.toISOString();
 }
 
 function getPickupSummary(mode, scheduledTime, asapReadyTime) {

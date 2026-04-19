@@ -36,7 +36,7 @@ export default function CheckoutPage() {
       <main className="page-section">
         <div className="page-empty-state">
           <p>Your cart is empty</p>
-          <button className="primary-btn" type="button" onClick={() => navigate('/home')}>
+          <button className="primary-btn" type="button" onClick={() => navigate('/')}>
             Browse restaurants
           </button>
         </div>

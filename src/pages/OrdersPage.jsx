@@ -64,7 +64,7 @@ export default function OrdersPage() {
               </span>
               My Orders
             </button>
-            <button type="button" className="customer-orders-nav__item" onClick={() => navigate('/home')}>
+            <button type="button" className="customer-orders-nav__item" onClick={() => navigate('/')}>
               <span className="customer-orders-nav__icon" aria-hidden="true">
                 <RestaurantIcon />
               </span>
@@ -75,7 +75,7 @@ export default function OrdersPage() {
 
         <section className="customer-orders-main">
           <header className="customer-orders-topbar card">
-            <button type="button" className="customer-orders-back" onClick={() => navigate('/home')}>
+            <button type="button" className="customer-orders-back" onClick={() => navigate('/')}>
               <span aria-hidden="true">←</span>
               <span>Back to Menu</span>
             </button>
