@@ -93,6 +93,44 @@ export function getCustomerDisplayName(entity) {
   return '';
 }
 
+export function getCustomerPhone(entity) {
+  if (!entity) {
+    return '';
+  }
+
+  if (typeof entity === 'string' || typeof entity === 'number') {
+    return String(entity).trim();
+  }
+
+  if (typeof entity !== 'object') {
+    return '';
+  }
+
+  const directFields = [
+    entity.customerPhone,
+    entity.customer_phone,
+    entity.phone,
+    entity.phone_number,
+    entity.mobile,
+    entity.mobile_number,
+  ];
+
+  const directMatch = directFields.find((value) => typeof value === 'string' && value.trim());
+  if (directMatch) {
+    return directMatch.trim();
+  }
+
+  const nestedKeys = ['customer', 'profile', 'user', 'data', 'attributes', 'result'];
+  for (const key of nestedKeys) {
+    const nested = getCustomerPhone(entity[key]);
+    if (nested) {
+      return nested;
+    }
+  }
+
+  return '';
+}
+
 export function getCustomerInitial(entity) {
   const name = getCustomerDisplayName(entity);
   return name ? name.charAt(0).toUpperCase() : 'G';

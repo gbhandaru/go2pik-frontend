@@ -10,9 +10,9 @@ import {
 import { sendWelcomeEmail } from '../api/customersApi.js';
 import {
   clearAuthTokens,
+  clearCustomerGuestAccess,
   getAuthToken,
   getRefreshToken,
-  getStoredProfile,
   storeAuthTokens,
 } from '../services/authStorage.js';
 
@@ -86,7 +86,7 @@ function notifyWelcomeEmail(payload) {
 
 export function AuthProvider({ children }) {
   const [state, setState] = useState({
-    user: getStoredProfile(),
+    user: null,
     loading: true,
     error: null,
   });
@@ -96,6 +96,7 @@ export function AuthProvider({ children }) {
       const token = getAuthToken();
       const refreshToken = getRefreshToken();
       if (!token && !refreshToken) {
+        clearAuthTokens();
         setState((prev) => ({ ...prev, loading: false }));
         return;
       }
@@ -180,6 +181,7 @@ export function AuthProvider({ children }) {
         console.warn('Failed to notify server about logout', error);
       }
       clearAuthTokens();
+      clearCustomerGuestAccess();
       setState({ user: null, loading: false, error: null });
     },
   }), [state]);

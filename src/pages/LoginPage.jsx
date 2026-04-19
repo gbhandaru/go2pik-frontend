@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth.jsx';
-import { clearCustomerGuestAccess, consumeAuthNotice, setCustomerGuestAccess } from '../services/authStorage.js';
+import { consumeAuthNotice } from '../services/authStorage.js';
 
 export default function LoginPage() {
   const { login, error, loading, isAuthenticated } = useAuth();
@@ -31,17 +31,11 @@ export default function LoginPage() {
     setLocalError(null);
     try {
       await login(form);
-      clearCustomerGuestAccess();
       const redirectTo = location.state?.from?.pathname || '/home';
       navigate(redirectTo, { replace: true });
     } catch (err) {
       setLocalError(err.message);
     }
-  };
-
-  const handleContinueAsGuest = () => {
-    setCustomerGuestAccess(true);
-    navigate(location.state?.from?.pathname || '/home', { replace: true });
   };
 
   return (
@@ -75,9 +69,6 @@ export default function LoginPage() {
         {(localError || error) && <p style={{ color: '#dc2626' }}>{localError || error}</p>}
         <button className="primary-btn" type="submit" disabled={loading}>
           {loading ? 'Signing in…' : 'Sign in'}
-        </button>
-        <button type="button" className="guest-link" onClick={handleContinueAsGuest}>
-          Continue as guest
         </button>
         <div className="auth-links login-links">
           <Link className="text-link" to="/password-update" state={{ email: form.email }}>

@@ -14,6 +14,7 @@ export default function VerificationPage() {
   const { user, loading: authLoading } = useAuth();
   const orderDraft = location.state?.orderDraft || null;
   const fallbackCustomerName = location.state?.customerName || '';
+  const fallbackCustomerPhone = location.state?.customerPhone || '';
   const customerName = getCustomerDisplayName(user) || fallbackCustomerName;
   const [otpLength, setOtpLength] = useState(null);
   const [verification, setVerification] = useState(null);
@@ -76,7 +77,7 @@ export default function VerificationPage() {
     initialVerificationLoaded.current = true;
 
     async function requestVerification() {
-      const payload = buildVerificationStartPayload(orderDraft, user, customerName);
+      const payload = buildVerificationStartPayload(orderDraft, customerName, fallbackCustomerPhone);
       if (!payload.customer.phone) {
         if (active) {
           setError('A phone number is required to send the verification code.');
@@ -294,30 +295,15 @@ export default function VerificationPage() {
             className="verification-resend"
             onClick={handleResend}
             disabled={!canResend || starting}
-            aria-describedby="verification-resend-helper"
           >
             {starting ? 'Sending...' : resendButtonLabel}
           </button>
-          <p id="verification-resend-helper" className="muted verification-resend-meta">
-            {canResend
-              ? 'You can request a new code now.'
-              : `Resend unlocks in ${resendCountdown}`}
-          </p>
-          {resendAvailableAt ? (
-            <p className="muted verification-resend-meta">
-              Resend available at {formatVerificationDateTime(resendAvailableAt)}
-            </p>
-          ) : null}
 
           {error ? <p className="error-text verification-error">{error}</p> : null}
 
           <button className="verification-submit" type="submit" disabled={submitting || starting || !isCodeComplete}>
-            {submitting ? 'Verifying…' : starting ? 'Sending code…' : 'Verify'}
+            {submitting ? 'Verifying…' : starting ? 'Sending code…' : 'Confirm Order'}
           </button>
-
-          <p className="muted verification-note">
-            Code entered: {codeValue || '----'} {customerName ? `• ${customerName}` : ''}
-          </p>
         </form>
       </section>
     </main>
@@ -377,7 +363,7 @@ function normalizePositiveInteger(value, fallback) {
   return Number.isInteger(parsed) && parsed > 0 ? parsed : fallback;
 }
 
-function buildVerificationStartPayload(orderDraft, user, customerName) {
+function buildVerificationStartPayload(orderDraft, customerName, customerPhone) {
   const items = Array.isArray(orderDraft?.items)
     ? orderDraft.items.map((item) => ({
         sku: item.sku || item.menuItemId || item.id || item.name,
@@ -391,20 +377,20 @@ function buildVerificationStartPayload(orderDraft, user, customerName) {
     orderDraft?.customer?.pickupTime ||
     orderDraft?.pickupTime ||
     '';
+  const normalizedPhone = normalizeE164Phone(
+    customerPhone ||
+    orderDraft?.customer?.phone ||
+    orderDraft?.customer?.phone_number ||
+    '',
+  );
 
   return {
     restaurantId: orderDraft?.restaurantId || orderDraft?.restaurant?.id,
     items,
     customer: {
-      name: customerName || orderDraft?.customer?.name || orderDraft?.customerName || user?.name || user?.full_name || '',
-      phone: normalizeE164Phone(
-        orderDraft?.customer?.phone ||
-        orderDraft?.customer?.phone_number ||
-        user?.phone ||
-        user?.phone_number ||
-        '',
-      ),
-      email: orderDraft?.customer?.email || user?.email || '',
+      name: customerName || orderDraft?.customer?.name || orderDraft?.customerName || '',
+      phone: normalizedPhone,
+      email: orderDraft?.customer?.email || '',
       pickupTime: pickupTime || undefined,
       notes: orderDraft?.customer?.notes || orderDraft?.pickupRequest?.summary || '',
     },
