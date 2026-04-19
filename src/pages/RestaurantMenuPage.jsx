@@ -17,7 +17,7 @@ const EARLIEST_PICKUP_MINUTES = 15;
 export default function RestaurantMenuPage() {
   const { restaurantId } = useParams();
   const navigate = useNavigate();
-  const { user } = useAuth();
+  const { user, canAccessCustomerFlow } = useAuth();
   const customerName = useMemo(() => getCustomerDisplayName(user), [user]);
   const initialCustomerPhone = useMemo(() => getCustomerPhone(user), [user]);
   const [cart, setCart] = useState([]);
@@ -30,7 +30,7 @@ export default function RestaurantMenuPage() {
   const { data, loading, error } = useFetch(() => fetchRestaurantMenu(restaurantId), [restaurantId]);
   const asapReadyTime = useMemo(() => getTimeFromNow(PICKUP_WINDOW_MINUTES), []);
   const earliestAvailableTime = useMemo(() => getTimeFromNow(EARLIEST_PICKUP_MINUTES), []);
-  const canBrowseMenu = Boolean(user);
+  const canBrowseMenu = canAccessCustomerFlow;
 
   useEffect(() => {
     setCart([]);

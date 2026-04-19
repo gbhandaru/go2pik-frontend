@@ -25,21 +25,6 @@ export function getRefreshToken() {
   return storage?.getItem(REFRESH_TOKEN_KEY) || null;
 }
 
-export function getStoredProfile() {
-  const storage = safeStorage();
-  const data = storage?.getItem(PROFILE_KEY);
-  if (!data) {
-    return null;
-  }
-  try {
-    return JSON.parse(data);
-  } catch (error) {
-    console.warn('Failed to parse cached profile', error);
-    storage?.removeItem(PROFILE_KEY);
-    return null;
-  }
-}
-
 export function storeAuthTokens({ accessToken, refreshToken, profile }) {
   const storage = safeStorage();
   if (!storage) return;

@@ -4,9 +4,9 @@ import { useAuth } from '../hooks/useAuth.jsx';
 import { consumeAuthNotice } from '../services/authStorage.js';
 
 export default function LoginPage() {
-  const { login, error, loading, isAuthenticated } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
+  const { login, continueAsGuest, error, loading, isAuthenticated, isGuest } = useAuth();
   const [form, setForm] = useState(() => ({ email: location.state?.email || '', password: '' }));
   const [localError, setLocalError] = useState(null);
   const [sessionNotice, setSessionNotice] = useState('');
@@ -16,10 +16,10 @@ export default function LoginPage() {
   }, []);
 
   useEffect(() => {
-    if (!loading && isAuthenticated) {
+    if (!loading && (isAuthenticated || isGuest)) {
       navigate(location.state?.from?.pathname || '/home', { replace: true });
     }
-  }, [isAuthenticated, loading, location.state, navigate]);
+  }, [isAuthenticated, isGuest, loading, location.state, navigate]);
 
   const handleChange = (event) => {
     const { name, value } = event.target;
@@ -31,8 +31,6 @@ export default function LoginPage() {
     setLocalError(null);
     try {
       await login(form);
-      const redirectTo = location.state?.from?.pathname || '/home';
-      navigate(redirectTo, { replace: true });
     } catch (err) {
       setLocalError(err.message);
     }
@@ -69,6 +67,12 @@ export default function LoginPage() {
         {(localError || error) && <p style={{ color: '#dc2626' }}>{localError || error}</p>}
         <button className="primary-btn" type="submit" disabled={loading}>
           {loading ? 'Signing in…' : 'Sign in'}
+        </button>
+        <button type="button" className="guest-link" onClick={() => {
+          continueAsGuest();
+          navigate(location.state?.from?.pathname || '/home', { replace: true });
+        }}>
+          Continue as guest
         </button>
         <div className="auth-links login-links">
           <Link className="text-link" to="/password-update" state={{ email: form.email }}>
