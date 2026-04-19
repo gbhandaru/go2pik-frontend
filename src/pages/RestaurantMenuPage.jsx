@@ -5,7 +5,6 @@ import { useFetch } from '../hooks/useFetch.js';
 import { formatCurrency } from '../utils/formatCurrency.js';
 import { getRestaurantAddressLines } from '../utils/formatRestaurantAddress.js';
 import { useAuth } from '../hooks/useAuth.jsx';
-import { hasCustomerGuestAccess } from '../services/authStorage.js';
 import { getCustomerPhone } from '../utils/customerIdentity.js';
 
 const PICKUP_MODES = {
@@ -31,7 +30,7 @@ export default function RestaurantMenuPage() {
   const { data, loading, error } = useFetch(() => fetchRestaurantMenu(restaurantId), [restaurantId]);
   const asapReadyTime = useMemo(() => getTimeFromNow(PICKUP_WINDOW_MINUTES), []);
   const earliestAvailableTime = useMemo(() => getTimeFromNow(EARLIEST_PICKUP_MINUTES), []);
-  const canBrowseMenu = Boolean(user) || hasCustomerGuestAccess();
+  const canBrowseMenu = Boolean(user);
 
   useEffect(() => {
     setCart([]);

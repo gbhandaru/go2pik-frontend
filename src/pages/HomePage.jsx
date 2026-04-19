@@ -3,13 +3,12 @@ import { useAuth } from '../hooks/useAuth.jsx';
 import { fetchRestaurants } from '../api/restaurantsApi.js';
 import { useFetch } from '../hooks/useFetch.js';
 import { getRestaurantAddressLines } from '../utils/formatRestaurantAddress.js';
-import { hasCustomerGuestAccess } from '../services/authStorage.js';
 
 export default function HomePage() {
   const navigate = useNavigate();
   const { user } = useAuth();
   const { data: restaurants, loading, error } = useFetch(fetchRestaurants, []);
-  const canBrowseMenu = Boolean(user) || hasCustomerGuestAccess();
+  const canBrowseMenu = Boolean(user);
 
   const handleViewMenu = (restaurantId, event) => {
     if (canBrowseMenu) {

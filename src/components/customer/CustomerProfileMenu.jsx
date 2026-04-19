@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth.jsx';
-import { getStoredProfile } from '../../services/authStorage.js';
+import { getAuthToken, getRefreshToken, getStoredProfile } from '../../services/authStorage.js';
 import { getCustomerDisplayName, getCustomerInitial } from '../../utils/customerIdentity.js';
 
 export default function CustomerProfileMenu() {
@@ -10,7 +10,8 @@ export default function CustomerProfileMenu() {
   const [open, setOpen] = useState(false);
 
   const storedProfile = getStoredProfile();
-  const profileSource = user || (loading ? storedProfile : null);
+  const hasStoredSession = Boolean(getAuthToken() || getRefreshToken());
+  const profileSource = user || (loading && hasStoredSession ? storedProfile : null);
   const customerInitial = getCustomerInitial(profileSource);
 
   useEffect(() => {

@@ -137,6 +137,9 @@ export async function apiRequest(path, options = {}) {
       } else {
         setAuthNotice('Session expired. Please sign in again.');
       }
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new Event('go2pik:auth-expired'));
+      }
     }
     const error = new Error(message);
     error.status = response.status;
