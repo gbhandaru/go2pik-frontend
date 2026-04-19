@@ -6,6 +6,7 @@ import { formatCurrency } from '../utils/formatCurrency.js';
 import { getRestaurantAddressLines } from '../utils/formatRestaurantAddress.js';
 import { useAuth } from '../hooks/useAuth.jsx';
 import { getCustomerPhone } from '../utils/customerIdentity.js';
+import { getVerifiedCustomerPhone } from '../services/authStorage.js';
 
 const PICKUP_MODES = {
   ASAP: 'ASAP',
@@ -19,7 +20,10 @@ export default function RestaurantMenuPage() {
   const navigate = useNavigate();
   const { user, canAccessCustomerFlow } = useAuth();
   const customerName = useMemo(() => getCustomerDisplayName(user), [user]);
-  const initialCustomerPhone = useMemo(() => getCustomerPhone(user), [user]);
+  const initialCustomerPhone = useMemo(
+    () => getCustomerPhone(user) || getVerifiedCustomerPhone() || '',
+    [user],
+  );
   const [cart, setCart] = useState([]);
   const [selectedPickupMode, setSelectedPickupMode] = useState(PICKUP_MODES.ASAP);
   const [scheduledPickupTime, setScheduledPickupTime] = useState('');

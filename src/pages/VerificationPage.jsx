@@ -5,6 +5,7 @@ import { confirmOrderVerification, resendOrderVerification, startOrderVerificati
 import { updateCustomerPhone } from '../api/authApi.js';
 import { ENV } from '../config/env.js';
 import { useAuth } from '../hooks/useAuth.jsx';
+import { setVerifiedCustomerPhone } from '../services/authStorage.js';
 import { getCustomerDisplayName } from '../utils/customerIdentity.js';
 
 const DEFAULT_OTP_LENGTH = ENV.OTP_LENGTH;
@@ -455,6 +456,7 @@ function persistVerifiedPhone(phone, user) {
   updateCustomerPhone({ phone: normalizedPhone })
     .then((response) => {
       const updatedProfile = response?.customer || profile;
+      setVerifiedCustomerPhone(updatedProfile?.phone || normalizedPhone);
       window.dispatchEvent(new CustomEvent('go2pik:auth-updated', { detail: { profile: updatedProfile } }));
     })
     .catch((error) => {
