@@ -86,6 +86,10 @@ function notifyWelcomeEmail(payload) {
   });
 }
 
+function resolveCustomerProfile(response) {
+  return response?.user || response?.customer || response?.profile || null;
+}
+
 export function AuthProvider({ children }) {
   const [state, setState] = useState({
     user: null,
@@ -113,7 +117,8 @@ export function AuthProvider({ children }) {
       }
       try {
         if (token) {
-          const profile = await fetchCustomerProfile();
+          const profileResponse = await fetchCustomerProfile();
+          const profile = resolveCustomerProfile(profileResponse) || profileResponse;
           storeAuthTokens({ accessToken: token, profile });
           clearCustomerGuestAccess();
           setState({ user: profile, loading: false, error: null, sessionMode: 'authenticated' });
@@ -122,16 +127,17 @@ export function AuthProvider({ children }) {
 
         const response = await customerRefreshSession(refreshToken);
         clearCustomerGuestAccess();
+        const profile = resolveCustomerProfile(response);
         storeAuthTokens({
           accessToken: response?.access_token,
           refreshToken: response?.refresh_token,
-          profile: response?.user,
+          profile,
         });
         setState({
-          user: response?.user || null,
+          user: profile,
           loading: false,
           error: null,
-          sessionMode: response?.user ? 'authenticated' : 'anonymous',
+          sessionMode: profile ? 'authenticated' : 'anonymous',
         });
       } catch (error) {
         clearAuthTokens();
@@ -155,6 +161,29 @@ export function AuthProvider({ children }) {
     };
   }, []);
 
+  useEffect(() => {
+    const handleAuthUpdated = (event) => {
+      const profile = event.detail?.profile || null;
+      if (!profile) {
+        return;
+      }
+
+      storeAuthTokens({ profile });
+      setState((prev) => ({
+        ...prev,
+        user: profile,
+        loading: false,
+        error: null,
+        sessionMode: prev.sessionMode === 'guest' ? 'guest' : 'authenticated',
+      }));
+    };
+
+    window.addEventListener('go2pik:auth-updated', handleAuthUpdated);
+    return () => {
+      window.removeEventListener('go2pik:auth-updated', handleAuthUpdated);
+    };
+  }, []);
+
   const value = useMemo(() => ({
     ...state,
     isAuthenticated: state.sessionMode === 'authenticated',
@@ -165,16 +194,17 @@ export function AuthProvider({ children }) {
       try {
         clearCustomerGuestAccess();
         const response = await customerLogin(credentials);
+        const profile = resolveCustomerProfile(response);
         storeAuthTokens({
           accessToken: response?.access_token,
           refreshToken: response?.refresh_token,
-          profile: response?.user,
+          profile,
         });
         setState({
-          user: response?.user || null,
+          user: profile,
           loading: false,
           error: null,
-          sessionMode: response?.user ? 'authenticated' : 'anonymous',
+          sessionMode: profile ? 'authenticated' : 'anonymous',
         });
         return response;
       } catch (error) {
@@ -187,16 +217,17 @@ export function AuthProvider({ children }) {
       try {
         clearCustomerGuestAccess();
         const response = await customerSignup(payload);
+        const profile = resolveCustomerProfile(response);
         storeAuthTokens({
           accessToken: response?.access_token,
           refreshToken: response?.refresh_token,
-          profile: response?.user,
+          profile,
         });
         setState({
-          user: response?.user || null,
+          user: profile,
           loading: false,
           error: null,
-          sessionMode: response?.user ? 'authenticated' : 'anonymous',
+          sessionMode: profile ? 'authenticated' : 'anonymous',
         });
         notifyWelcomeEmail(response);
         return response;

@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { Navigate, useLocation, useNavigate } from 'react-router-dom';
 import { fetchTwilioVerifyHealth } from '../api/healthApi.js';
 import { confirmOrderVerification, resendOrderVerification, startOrderVerification } from '../api/ordersApi.js';
+import { updateCustomerPhone } from '../api/authApi.js';
 import { ENV } from '../config/env.js';
 import { useAuth } from '../hooks/useAuth.jsx';
 import { getCustomerDisplayName } from '../utils/customerIdentity.js';
@@ -141,16 +142,30 @@ export default function VerificationPage() {
   }
 
   const handleChange = (index, value) => {
-    const digit = String(value || '').replace(/\D/g, '').slice(-1);
+    const digits = String(value || '').replace(/\D/g, '');
+    if (!digits) {
+      setCode((prev) => {
+        const next = [...prev];
+        next[index] = '';
+        return next;
+      });
+      setError('');
+      return;
+    }
+
     setCode((prev) => {
       const next = [...prev];
-      next[index] = digit;
+      const nextDigits = digits.slice(0, resolvedOtpLength - index).split('');
+      nextDigits.forEach((digit, offset) => {
+        next[index + offset] = digit;
+      });
       return next;
     });
     setError('');
 
-    if (digit && index < resolvedOtpLength - 1) {
-      inputsRef.current[index + 1]?.focus();
+    const nextFocusIndex = Math.min(index + digits.length, resolvedOtpLength - 1);
+    if (digits.length > 0 && nextFocusIndex < resolvedOtpLength) {
+      inputsRef.current[nextFocusIndex]?.focus();
     }
   };
 
@@ -229,6 +244,7 @@ export default function VerificationPage() {
         total: orderDraft.total,
       });
       const responseOrder = response?.order || {};
+      persistVerifiedPhone(orderDraft?.customer?.phone, user);
       navigate('/order-confirmation', {
         replace: true,
         state: {
@@ -422,6 +438,28 @@ function normalizeE164Phone(value) {
   }
 
   return `+${digits}`;
+}
+
+function persistVerifiedPhone(phone, user) {
+  const normalizedPhone = normalizeE164Phone(phone);
+  const currentPhone = normalizeE164Phone(user?.phone || user?.phone_number || '');
+  if (!user || !normalizedPhone || normalizedPhone === currentPhone) {
+    return;
+  }
+
+  const profile = {
+    ...user,
+    phone: normalizedPhone,
+  };
+
+  updateCustomerPhone({ phone: normalizedPhone })
+    .then((response) => {
+      const updatedProfile = response?.customer || profile;
+      window.dispatchEvent(new CustomEvent('go2pik:auth-updated', { detail: { profile: updatedProfile } }));
+    })
+    .catch((error) => {
+      console.warn('Failed to persist verified customer phone', error);
+    });
 }
 
 function LockIcon() {

@@ -48,13 +48,35 @@ img {
 .customer-chrome {
   position: fixed;
   top: 1rem;
+  left: 1rem;
   right: 1rem;
   z-index: 60;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
   pointer-events: none;
 }
 
 .customer-chrome > * {
   pointer-events: auto;
+}
+
+.customer-chrome__home {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  border: 1px solid rgba(15, 23, 42, 0.12);
+  border-radius: 999px;
+  padding: 0.45rem 0.8rem 0.45rem 0.72rem;
+  background: rgba(255, 255, 255, 0.92);
+  box-shadow: 0 12px 24px rgba(15, 23, 42, 0.08);
+  color: #1f2937;
+  font-weight: 600;
+}
+
+.customer-chrome__home span:first-child {
+  font-size: 1rem;
+  line-height: 1;
 }
 
 .customer-profile {
