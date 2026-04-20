@@ -298,6 +298,7 @@ export default function RestaurantMenuPage() {
         orderDraft: payload,
         customerName: customerName || undefined,
         customerPhone,
+        pendingVerification: true,
       },
     });
   };

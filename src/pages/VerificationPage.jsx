@@ -32,6 +32,7 @@ export default function VerificationPage() {
   const [code, setCode] = useState([]);
   const [submitting, setSubmitting] = useState(false);
   const [starting, setStarting] = useState(false);
+  const [pendingVerification, setPendingVerification] = useState(Boolean(location.state?.pendingVerification));
   const [error, setError] = useState('');
   const [startError, setStartError] = useState('');
   const [retryKey, setRetryKey] = useState(0);
@@ -50,6 +51,7 @@ export default function VerificationPage() {
     clearCustomerOrderVerification();
     setVerification(null);
     setStartError('');
+    setPendingVerification(Boolean(location.state.pendingVerification));
     setCode([]);
   }, [location.state?.orderDraft]);
 
@@ -126,12 +128,14 @@ export default function VerificationPage() {
           return;
         }
         setVerification(response?.verification || null);
+        setPendingVerification(false);
         setCode(Array.from({ length: resolvedOtpLength }, () => ''));
         inputsRef.current[0]?.focus();
       } catch (err) {
         if (active) {
           setStartError(err.message || 'Unable to send verification code right now.');
           setVerification(null);
+          setPendingVerification(false);
         }
       } finally {
         if (active) {
@@ -192,21 +196,15 @@ export default function VerificationPage() {
     );
   }
 
-  if (!resolvedOtpLength) {
+  if (!resolvedOtpLength || (pendingVerification && !verification && !startError)) {
     return (
       <main className="page-section verification-page">
         <section className="verification-shell">
-          <AsyncState title="Loading verification" message="Please wait while we prepare your code entry." loading />
-        </section>
-      </main>
-    );
-  }
-
-  if (starting && !verification && !startError) {
-    return (
-      <main className="page-section verification-page">
-        <section className="verification-shell">
-          <AsyncState title="Sending verification code" message="We are setting up your one-time code." loading />
+          <AsyncState
+            title="Sending verification code"
+            message="Please wait while we set up your one-time code."
+            loading
+          />
         </section>
       </main>
     );
