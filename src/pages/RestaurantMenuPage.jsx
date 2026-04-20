@@ -323,7 +323,7 @@ export default function RestaurantMenuPage() {
           message={menuErrorMessage}
           primaryActionLabel="Retry"
           onPrimaryAction={handleRetryMenu}
-          secondaryActionLabel="Back to restaurants"
+          secondaryActionLabel="Back to restaurant list"
           onSecondaryAction={() => navigate('/home')}
         />
       </main>
@@ -336,7 +336,7 @@ export default function RestaurantMenuPage() {
         <div className="card menu-panel">
           <button type="button" className="menu-back-link" onClick={() => navigate('/home')}>
             <span aria-hidden="true">←</span>
-            <span>Back to restaurants</span>
+            <span>Back to restaurant list</span>
           </button>
           <div className="menu-header">
             <p className="eyebrow">Menu</p>
@@ -378,7 +378,7 @@ export default function RestaurantMenuPage() {
               message="This restaurant has not published any items yet."
               primaryActionLabel="Retry"
               onPrimaryAction={handleRetryMenu}
-              secondaryActionLabel="Back to restaurants"
+              secondaryActionLabel="Back to restaurant list"
               onSecondaryAction={() => navigate('/home')}
             />
           )}

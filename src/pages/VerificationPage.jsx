@@ -191,10 +191,10 @@ export default function VerificationPage() {
       <main className="page-section">
         <AsyncState
           title="Order draft unavailable"
-          message="We could not restore your order. Retry to load the saved draft or return to restaurants."
+          message="We could not restore your order. Retry to load the saved draft or return to the restaurant list."
           primaryActionLabel="Retry"
           onPrimaryAction={handleRetryDraft}
-          secondaryActionLabel="Back to restaurants"
+          secondaryActionLabel="Back to restaurant list"
           onSecondaryAction={() => navigate('/home')}
         />
       </main>
@@ -223,7 +223,7 @@ export default function VerificationPage() {
           message={startError}
           primaryActionLabel="Retry"
           onPrimaryAction={handleRetryStart}
-          secondaryActionLabel={orderDraft?.restaurantId || orderDraft?.restaurant?.id ? 'Back to menu' : 'Back to restaurants'}
+          secondaryActionLabel={orderDraft?.restaurantId || orderDraft?.restaurant?.id ? 'Back to menu' : 'Back to restaurant list'}
           onSecondaryAction={handleBackToMenu}
         />
       </main>
