@@ -796,6 +796,25 @@ export default function KitchenMenuPage() {
     }
   }, [categoryEditorOpen]);
 
+  const categoryOptions = useMemo(() => normalizeCategories(categories), [categories]);
+  const filteredMenuItems = useMemo(
+    () => filterMenuItems(menuItems, searchQuery, menuFilter),
+    [menuItems, searchQuery, menuFilter],
+  );
+  const groupedItems = useMemo(
+    () => groupMenuItems(filteredMenuItems, categoryOptions),
+    [filteredMenuItems, categoryOptions],
+  );
+  const categoryLine = useMemo(
+    () => (categoryOptions.length ? categoryOptions.map((category) => category.name).join(' | ') : 'No categories yet'),
+    [categoryOptions],
+  );
+  const selectedItems = useMemo(
+    () => menuItems.filter((item) => selectedItemIds.includes(item.id)),
+    [menuItems, selectedItemIds],
+  );
+  const bulkCategoryOptions = useMemo(() => categoryOptions, [categoryOptions]);
+
   useEffect(() => {
     if (!groupedItems.length || typeof window === 'undefined' || !('IntersectionObserver' in window)) {
       return undefined;
@@ -840,25 +859,6 @@ export default function KitchenMenuPage() {
 
     return () => observer.disconnect();
   }, [groupedItems]);
-
-  const categoryOptions = useMemo(() => normalizeCategories(categories), [categories]);
-  const filteredMenuItems = useMemo(
-    () => filterMenuItems(menuItems, searchQuery, menuFilter),
-    [menuItems, searchQuery, menuFilter],
-  );
-  const groupedItems = useMemo(
-    () => groupMenuItems(filteredMenuItems, categoryOptions),
-    [filteredMenuItems, categoryOptions],
-  );
-  const categoryLine = useMemo(
-    () => (categoryOptions.length ? categoryOptions.map((category) => category.name).join(' | ') : 'No categories yet'),
-    [categoryOptions],
-  );
-  const selectedItems = useMemo(
-    () => menuItems.filter((item) => selectedItemIds.includes(item.id)),
-    [menuItems, selectedItemIds],
-  );
-  const bulkCategoryOptions = useMemo(() => categoryOptions, [categoryOptions]);
 
   const handleMainTabChange = (tab) => {
     if (tab === 'orders') {
