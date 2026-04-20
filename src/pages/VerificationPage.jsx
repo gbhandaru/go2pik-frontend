@@ -18,6 +18,7 @@ import {
 import { getCustomerDisplayName } from '../utils/customerIdentity.js';
 
 const DEFAULT_OTP_LENGTH = ENV.OTP_LENGTH;
+const VERIFICATION_START_TIMEOUT_MS = 12000;
 
 export default function VerificationPage() {
   const navigate = useNavigate();
@@ -32,6 +33,7 @@ export default function VerificationPage() {
   const [code, setCode] = useState([]);
   const [submitting, setSubmitting] = useState(false);
   const [starting, setStarting] = useState(false);
+  const [pendingVerification, setPendingVerification] = useState(Boolean(location.state?.pendingVerification));
   const [error, setError] = useState('');
   const [startError, setStartError] = useState('');
   const [retryKey, setRetryKey] = useState(0);
@@ -50,6 +52,7 @@ export default function VerificationPage() {
     clearCustomerOrderVerification();
     setVerification(null);
     setStartError('');
+    setPendingVerification(Boolean(location.state.pendingVerification));
     setCode([]);
   }, [location.state?.orderDraft]);
 
@@ -121,17 +124,23 @@ export default function VerificationPage() {
       setStarting(true);
       setError('');
       try {
-        const response = await startOrderVerification(payload);
+        const response = await withTimeout(
+          startOrderVerification(payload),
+          VERIFICATION_START_TIMEOUT_MS,
+          'Verification is taking longer than expected. Please retry from the menu.',
+        );
         if (!active) {
           return;
         }
         setVerification(response?.verification || null);
+        setPendingVerification(false);
         setCode(Array.from({ length: resolvedOtpLength }, () => ''));
         inputsRef.current[0]?.focus();
       } catch (err) {
         if (active) {
           setStartError(err.message || 'Unable to send verification code right now.');
           setVerification(null);
+          setPendingVerification(false);
         }
       } finally {
         if (active) {
@@ -182,23 +191,25 @@ export default function VerificationPage() {
       <main className="page-section">
         <AsyncState
           title="Order draft unavailable"
-          message="We could not restore your order. Retry to load the saved draft or return to restaurants."
+          message="We could not restore your order. Retry to load the saved draft or return to the restaurant list."
           primaryActionLabel="Retry"
           onPrimaryAction={handleRetryDraft}
-          secondaryActionLabel="Back to restaurants"
+          secondaryActionLabel="Back to restaurant list"
           onSecondaryAction={() => navigate('/home')}
         />
       </main>
     );
   }
 
-  if (!resolvedOtpLength) {
+  if (!resolvedOtpLength || (pendingVerification && !verification && !startError)) {
     return (
       <main className="page-section verification-page">
         <section className="verification-shell">
-          <div className="verification-card">
-            <p className="muted">Loading verification settings...</p>
-          </div>
+          <AsyncState
+            title="Sending verification code"
+            message="Please wait while we set up your one-time code."
+            loading
+          />
         </section>
       </main>
     );
@@ -212,7 +223,7 @@ export default function VerificationPage() {
           message={startError}
           primaryActionLabel="Retry"
           onPrimaryAction={handleRetryStart}
-          secondaryActionLabel={orderDraft?.restaurantId || orderDraft?.restaurant?.id ? 'Back to menu' : 'Back to restaurants'}
+          secondaryActionLabel={orderDraft?.restaurantId || orderDraft?.restaurant?.id ? 'Back to menu' : 'Back to restaurant list'}
           onSecondaryAction={handleBackToMenu}
         />
       </main>
@@ -467,6 +478,22 @@ function formatCountdown(diffMs) {
 function normalizePositiveInteger(value, fallback) {
   const parsed = Number.parseInt(value, 10);
   return Number.isInteger(parsed) && parsed > 0 ? parsed : fallback;
+}
+
+function withTimeout(promise, timeoutMs, timeoutMessage) {
+  let timeoutId;
+  const timeoutPromise = new Promise((_, reject) => {
+    timeoutId = window.setTimeout(() => {
+      reject(new Error(timeoutMessage));
+    }, timeoutMs);
+  });
+
+  return Promise.race([
+    promise.finally(() => {
+      window.clearTimeout(timeoutId);
+    }),
+    timeoutPromise,
+  ]);
 }
 
 function buildVerificationStartPayload(orderDraft, customerName, customerPhone) {

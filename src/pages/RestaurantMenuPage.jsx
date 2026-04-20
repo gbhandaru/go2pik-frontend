@@ -122,11 +122,12 @@ export default function RestaurantMenuPage() {
   }, [data?.lastOrder, customerOrdersData?.orders, restaurantId]);
 
   const addToCart = (menuItem, options = {}) => {
+    const identity = resolveMenuItemIdentity(menuItem);
     setCart((prev) => {
-      const existing = prev.find((item) => item.id === menuItem.id);
+      const existing = prev.find((item) => String(item.id) === String(identity));
       if (existing) {
         return prev.map((item) =>
-          item.id === menuItem.id
+          String(item.id) === String(identity)
             ? {
                 ...item,
                 quantity: item.quantity + 1,
@@ -139,6 +140,7 @@ export default function RestaurantMenuPage() {
         ...prev,
         {
           ...menuItem,
+          id: identity,
           quantity: 1,
           specialInstructions: options.specialInstructions ?? '',
         },
@@ -149,16 +151,16 @@ export default function RestaurantMenuPage() {
   const updateQuantity = (itemId, nextQuantity) => {
     setCart((prev) => {
       if (nextQuantity <= 0) {
-        return prev.filter((item) => item.id !== itemId);
+        return prev.filter((item) => String(item.id) !== String(itemId));
       }
-      return prev.map((item) => (item.id === itemId ? { ...item, quantity: nextQuantity } : item));
+      return prev.map((item) => (String(item.id) === String(itemId) ? { ...item, quantity: nextQuantity } : item));
     });
   };
 
   const updateInstructions = (itemId, specialInstructions) => {
     setCart((prev) =>
       prev.map((item) =>
-        item.id === itemId ? { ...item, specialInstructions } : item,
+        String(item.id) === String(itemId) ? { ...item, specialInstructions } : item,
       ),
     );
   };
@@ -170,14 +172,15 @@ export default function RestaurantMenuPage() {
     setCart((prev) => {
       const nextCart = [...prev];
       lastOrder.items.forEach((orderItem) => {
-        const index = nextCart.findIndex((item) => item.id === orderItem.id);
+        const orderItemId = resolveMenuItemIdentity(orderItem);
+        const index = nextCart.findIndex((item) => String(item.id) === String(orderItemId));
         if (index > -1) {
           nextCart[index] = {
             ...nextCart[index],
             quantity: nextCart[index].quantity + orderItem.quantity,
           };
         } else {
-          nextCart.push({ ...orderItem });
+          nextCart.push({ ...orderItem, id: orderItemId });
         }
       });
       return nextCart;
@@ -189,10 +192,11 @@ export default function RestaurantMenuPage() {
       return;
     }
     setCart((prev) => {
-      const existing = prev.find((item) => item.id === orderItem.id);
+      const orderItemId = resolveMenuItemIdentity(orderItem);
+      const existing = prev.find((item) => String(item.id) === String(orderItemId));
       if (existing) {
         return prev.map((item) =>
-          item.id === orderItem.id
+          String(item.id) === String(orderItemId)
             ? {
                 ...item,
                 quantity: item.quantity + (orderItem.quantity || 1),
@@ -205,6 +209,7 @@ export default function RestaurantMenuPage() {
         ...prev,
         {
           ...orderItem,
+          id: orderItemId,
           quantity: orderItem.quantity || 1,
           specialInstructions: orderItem.specialInstructions || '',
         },
@@ -242,7 +247,20 @@ export default function RestaurantMenuPage() {
     if (selectedPickupMode === PICKUP_MODES.SCHEDULED && !scheduledPickupTime) {
       return;
     }
-    setCustomerPhoneInput(getCustomerPhone(user) || '');
+    const draft = buildCustomerOrderDraft({
+      cart,
+      cartItemById,
+      customerName,
+      customerPhone: getCustomerPhone(user) || initialCustomerPhone,
+      restaurant,
+      scheduledPickupTime,
+      selectedPickupMode,
+      total,
+      pickupSummary,
+      user,
+    });
+    storeCustomerOrderDraft(draft);
+    setCustomerPhoneInput(getCustomerPhone(user) || initialCustomerPhone);
     setShowPhoneModal(true);
   };
 
@@ -253,37 +271,18 @@ export default function RestaurantMenuPage() {
       return;
     }
     const customerPhone = normalizedCustomerPhone;
-
-    const orderItems = cart.map(({ id, name, price, quantity }) => ({
-      id,
-      name,
-      price,
-      quantity,
-      lineTotal: price * quantity,
-      specialInstructions: cartItemById[id]?.specialInstructions || '',
-    }));
-    const pickupTime = selectedPickupMode === PICKUP_MODES.SCHEDULED ? buildPickupTimestamp(scheduledPickupTime) : undefined;
-
-    const payload = {
-      restaurantId: restaurant.id,
+    const payload = buildCustomerOrderDraft({
+      cart,
+      cartItemById,
+      customerName,
+      customerPhone,
       restaurant,
-      items: orderItems,
-      subtotal: total,
+      scheduledPickupTime,
+      selectedPickupMode,
       total,
-      pickupRequest: {
-        type: selectedPickupMode,
-        scheduledTime: pickupTime,
-        summary: pickupSummary,
-      },
-      customer: {
-        name: customerName || getCustomerDisplayName(user) || '',
-        phone: customerPhone,
-        email: user?.email || '',
-        pickupTime,
-        notes: pickupSummary || '',
-      },
-      customerName: customerName || undefined,
-    };
+      pickupSummary,
+      user,
+    });
 
     storeCustomerOrderDraft(payload);
     clearCustomerOrderVerification();
@@ -293,6 +292,7 @@ export default function RestaurantMenuPage() {
         orderDraft: payload,
         customerName: customerName || undefined,
         customerPhone,
+        pendingVerification: true,
       },
     });
   };
@@ -323,7 +323,7 @@ export default function RestaurantMenuPage() {
           message={menuErrorMessage}
           primaryActionLabel="Retry"
           onPrimaryAction={handleRetryMenu}
-          secondaryActionLabel="Back to restaurants"
+          secondaryActionLabel="Back to restaurant list"
           onSecondaryAction={() => navigate('/home')}
         />
       </main>
@@ -336,7 +336,7 @@ export default function RestaurantMenuPage() {
         <div className="card menu-panel">
           <button type="button" className="menu-back-link" onClick={() => navigate('/home')}>
             <span aria-hidden="true">←</span>
-            <span>Back to restaurants</span>
+            <span>Back to restaurant list</span>
           </button>
           <div className="menu-header">
             <p className="eyebrow">Menu</p>
@@ -378,7 +378,7 @@ export default function RestaurantMenuPage() {
               message="This restaurant has not published any items yet."
               primaryActionLabel="Retry"
               onPrimaryAction={handleRetryMenu}
-              secondaryActionLabel="Back to restaurants"
+              secondaryActionLabel="Back to restaurant list"
               onSecondaryAction={() => navigate('/home')}
             />
           )}
@@ -420,6 +420,50 @@ export default function RestaurantMenuPage() {
       ) : null}
     </main>
   );
+}
+
+function buildCustomerOrderDraft({
+  cart,
+  cartItemById,
+  customerName,
+  customerPhone,
+  restaurant,
+  scheduledPickupTime,
+  selectedPickupMode,
+  total,
+  pickupSummary,
+  user,
+}) {
+  const orderItems = cart.map(({ id, name, price, quantity }) => ({
+    id,
+    name,
+    price,
+    quantity,
+    lineTotal: price * quantity,
+    specialInstructions: cartItemById[id]?.specialInstructions || '',
+  }));
+  const pickupTime = selectedPickupMode === PICKUP_MODES.SCHEDULED ? buildPickupTimestamp(scheduledPickupTime) : undefined;
+
+  return {
+    restaurantId: restaurant.id,
+    restaurant,
+    items: orderItems,
+    subtotal: total,
+    total,
+    pickupRequest: {
+      type: selectedPickupMode,
+      scheduledTime: pickupTime,
+      summary: pickupSummary,
+    },
+    customer: {
+      name: customerName || getCustomerDisplayName(user) || '',
+      phone: customerPhone,
+      email: user?.email || '',
+      pickupTime,
+      notes: pickupSummary || '',
+    },
+    customerName: customerName || undefined,
+  };
 }
 
 function renderRestaurantAddress(restaurant) {
@@ -644,23 +688,27 @@ function MenuList({ menu, categories, quantityById, cartItemById, onAdd, onUpdat
               </h2>
             )}
             <div className="menu-grid">
-              {group.items.map((item, index) => (
-                <MenuItemCard
-                  key={item.id}
-                  item={item}
-                  categoryLabel={group.category?.name || ''}
-                  quantity={quantityById[item.id] || 0}
-                  instructions={cartItemById[item.id]?.specialInstructions || ''}
-                  isInstructionsExpanded={expandedItemId === item.id}
-                  isBestseller={Boolean(item.isBestseller || item.is_bestseller || item.badge || (index === 0 && group.key === groupedMenu[0]?.key))}
-                  onAdd={onAdd}
-                  onUpdate={onUpdate}
-                  onToggleInstructions={() => {
-                    setExpandedItemId((current) => (current === item.id ? null : item.id));
-                  }}
-                  onUpdateInstructions={onUpdateInstructions}
-                />
-              ))}
+              {group.items.map((item, index) => {
+                const menuItemIdentity = resolveMenuItemIdentity(item, index);
+                return (
+                  <MenuItemCard
+                    key={menuItemIdentity}
+                    item={item}
+                    itemId={menuItemIdentity}
+                    categoryLabel={group.category?.name || ''}
+                    quantity={quantityById[menuItemIdentity] || 0}
+                    instructions={cartItemById[menuItemIdentity]?.specialInstructions || ''}
+                    isInstructionsExpanded={expandedItemId === menuItemIdentity}
+                    isBestseller={Boolean(item.isBestseller || item.is_bestseller || item.badge || (index === 0 && group.key === groupedMenu[0]?.key))}
+                    onAdd={onAdd}
+                    onUpdate={onUpdate}
+                    onToggleInstructions={() => {
+                      setExpandedItemId((current) => (current === menuItemIdentity ? null : menuItemIdentity));
+                    }}
+                    onUpdateInstructions={onUpdateInstructions}
+                  />
+                );
+              })}
             </div>
           </section>
         ))}
@@ -671,6 +719,7 @@ function MenuList({ menu, categories, quantityById, cartItemById, onAdd, onUpdat
 
 function MenuItemCard({
   item,
+  itemId,
   categoryLabel,
   quantity,
   instructions,
@@ -714,7 +763,7 @@ function MenuItemCard({
                 type="button"
                 className="menu-stepper__btn"
                 aria-label={`Decrease ${item.name}`}
-                onClick={() => onUpdate(item.id, quantity - 1)}
+                onClick={() => onUpdate(itemId, quantity - 1)}
               >
                 -
               </button>
@@ -723,7 +772,7 @@ function MenuItemCard({
                 type="button"
                 className="menu-stepper__btn menu-stepper__btn--add"
                 aria-label={`Increase ${item.name}`}
-                onClick={() => onUpdate(item.id, quantity + 1)}
+                onClick={() => onUpdate(itemId, quantity + 1)}
               >
                 +
               </button>
@@ -753,7 +802,7 @@ function MenuItemCard({
               <textarea
                 rows="2"
                 value={instructions}
-                onChange={(event) => onUpdateInstructions(item.id, event.target.value)}
+                onChange={(event) => onUpdateInstructions(itemId, event.target.value)}
                 placeholder="Add a note for the kitchen"
               />
               <p className="muted menu-instructions-help">Example: less spicy, no onions, sauce on the side</p>
@@ -1006,6 +1055,31 @@ function normalizeNumber(value, fallback = 0) {
   return Number.isFinite(parsed) ? parsed : fallback;
 }
 
+function resolveMenuItemIdentity(item = {}, fallbackIndex = 0) {
+  const directKeys = [
+    item.id,
+    item.menuItemId,
+    item.menu_item_id,
+    item.menuItemID,
+    item.menu_itemID,
+    item.sku,
+    item.code,
+    item._id,
+  ];
+
+  const directMatch = directKeys.find((value) => value !== undefined && value !== null && String(value).trim());
+  if (directMatch !== undefined && directMatch !== null && String(directMatch).trim()) {
+    return String(directMatch).trim();
+  }
+
+  const name = String(item.name || item.title || item.label || '').trim();
+  if (name) {
+    return `${name.toLowerCase()}-${fallbackIndex}`;
+  }
+
+  return `item-${fallbackIndex}`;
+}
+
 function sortMenuItems(items = []) {
   return [...items].sort((a, b) => {
     const aOrder = Number.isFinite(a.displayOrder) ? a.displayOrder : Number(a.__menuIndex || 0);
@@ -1116,7 +1190,7 @@ function CartSummary({
       {orderError && <p className="error-text">{orderError}</p>}
 
       <button className="primary-btn cart-preview-cta" type="button" disabled={disabled || submitting} onClick={onPlaceOrder}>
-        {submitting ? 'Continuing…' : 'Continue to verification'}
+        {submitting ? 'Placing order…' : 'Place Order'}
       </button>
     </aside>
   );
@@ -1352,6 +1426,14 @@ function toScheduledTimeInput(value) {
   }
 
   return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`;
+}
+
+function LockIcon() {
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden="true">
+      <path d="M12 2a5 5 0 0 0-5 5v3H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8a2 2 0 0 0-2-2h-1V7a5 5 0 0 0-5-5Zm-3 8V7a3 3 0 1 1 6 0v3H9Zm3 3a1.5 1.5 0 0 1 .75 2.8V18h-1.5v-2.2A1.5 1.5 0 0 1 12 13Z" />
+    </svg>
+  );
 }
 
 function getItemBadgeLabel(name) {

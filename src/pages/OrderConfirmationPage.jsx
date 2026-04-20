@@ -201,8 +201,8 @@ export default function OrderConfirmationPage() {
         <div className="page-empty-state">
           <h2>Order complete</h2>
           <p>We could not find the confirmation details, but your order was submitted.</p>
-          <button type="button" className="primary-btn" onClick={() => navigate('/')}>
-            Back to restaurants
+          <button type="button" className="primary-btn" onClick={() => navigate('/home')}>
+            Back to restaurant list
           </button>
         </div>
       </main>
@@ -229,7 +229,7 @@ export default function OrderConfirmationPage() {
     : 'Thank you! Your order is being prepared.';
 
   const handleBrowseMenu = () => navigate(browseMenuPath);
-  const handleBrowseRestaurants = () => navigate('/');
+  const handleBrowseRestaurants = () => navigate('/home');
 
   return (
     <main className="page-section confirmation-page">

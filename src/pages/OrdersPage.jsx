@@ -59,8 +59,8 @@ export default function OrdersPage() {
           message={ordersErrorMessage}
           primaryActionLabel="Retry"
           onPrimaryAction={handleRetryOrders}
-          secondaryActionLabel="Back to restaurants"
-          onSecondaryAction={() => navigate('/')}
+          secondaryActionLabel="Back to restaurant list"
+          onSecondaryAction={() => navigate('/home')}
         />
       </main>
     );
@@ -84,20 +84,20 @@ export default function OrdersPage() {
               </span>
               My Orders
             </button>
-            <button type="button" className="customer-orders-nav__item" onClick={() => navigate('/')}>
+            <button type="button" className="customer-orders-nav__item" onClick={() => navigate('/home')}>
               <span className="customer-orders-nav__icon" aria-hidden="true">
                 <RestaurantIcon />
               </span>
-              Restaurants
+              Restaurant list
             </button>
           </nav>
         </aside>
 
         <section className="customer-orders-main">
           <header className="customer-orders-topbar card">
-            <button type="button" className="customer-orders-back" onClick={() => navigate('/')}>
+            <button type="button" className="customer-orders-back" onClick={() => navigate('/home')}>
               <span aria-hidden="true">←</span>
-              <span>Back to Menu</span>
+              <span>Back to restaurant list</span>
             </button>
             <div className="customer-orders-topbar__title" aria-hidden="true" />
             <div className="customer-orders-topbar__actions">
