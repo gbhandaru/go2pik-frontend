@@ -135,6 +135,10 @@ function getCategoryItemCount(items = []) {
   return `${items.length} Item${items.length === 1 ? '' : 's'}`;
 }
 
+function getKitchenCategorySectionId(categoryId) {
+  return `kitchen-category-${String(categoryId).trim()}`;
+}
+
 function escapeCsvValue(value) {
   if (value == null) return '';
   const stringValue = String(value);
@@ -1022,7 +1026,9 @@ export default function KitchenMenuPage() {
 
   const handleCategoryJump = (categoryId) => {
     setActiveCategoryId(String(categoryId));
-    const target = groupSectionRefs.current.get(String(categoryId));
+    const target =
+      document.getElementById(getKitchenCategorySectionId(categoryId)) ||
+      groupSectionRefs.current.get(String(categoryId));
     if (!target) {
       return;
     }
@@ -1397,6 +1403,7 @@ export default function KitchenMenuPage() {
                 <section
                   key={group.key}
                   className="kitchen-menu-group"
+                  id={group.category?.id ? getKitchenCategorySectionId(group.category.id) : undefined}
                   data-category-id={group.category?.id ? String(group.category.id) : undefined}
                   ref={(node) => {
                     if (!group.category?.id) {
