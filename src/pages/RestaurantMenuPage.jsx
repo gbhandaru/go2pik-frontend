@@ -6,6 +6,7 @@ import { useFetch } from '../hooks/useFetch.js';
 import { formatCurrency } from '../utils/formatCurrency.js';
 import { getRestaurantAddressLines } from '../utils/formatRestaurantAddress.js';
 import { useAuth } from '../hooks/useAuth.jsx';
+import { clearCustomerOrderVerification, getCustomerOrderDraft, storeCustomerOrderDraft } from '../services/authStorage.js';
 import { getCustomerPhone } from '../utils/customerIdentity.js';
 
 const PICKUP_MODES = {
@@ -38,10 +39,22 @@ export default function RestaurantMenuPage() {
   const canBrowseMenu = canAccessCustomerFlow;
 
   useEffect(() => {
+    const storedDraft = getCustomerOrderDraft();
+    const storedRestaurantId = storedDraft?.restaurantId || storedDraft?.restaurant?.id;
+    const matchesRestaurant = storedRestaurantId && String(storedRestaurantId) === String(restaurantId);
+
+    if (matchesRestaurant) {
+      setCart(Array.isArray(storedDraft.items) ? storedDraft.items.map((item) => ({ ...item })) : []);
+      setSelectedPickupMode(storedDraft?.pickupRequest?.type === PICKUP_MODES.SCHEDULED ? PICKUP_MODES.SCHEDULED : PICKUP_MODES.ASAP);
+      setScheduledPickupTime(toScheduledTimeInput(storedDraft?.pickupRequest?.scheduledTime));
+      setCustomerPhoneInput(storedDraft?.customer?.phone || storedDraft?.customerPhone || initialCustomerPhone);
+      return;
+    }
+
     setCart([]);
     setSelectedPickupMode(PICKUP_MODES.ASAP);
     setScheduledPickupTime('');
-  }, [restaurantId]);
+  }, [restaurantId, initialCustomerPhone]);
 
   useEffect(() => {
     setCustomerPhoneInput((prev) => prev || initialCustomerPhone);
@@ -261,12 +274,14 @@ export default function RestaurantMenuPage() {
       customerName: customerName || undefined,
     };
 
+    storeCustomerOrderDraft(payload);
+    clearCustomerOrderVerification();
     setShowPhoneModal(false);
     navigate('/checkout', {
       state: {
         orderDraft: payload,
         customerName: customerName || undefined,
-      customerPhone,
+        customerPhone,
       },
     });
   };
@@ -1085,7 +1100,7 @@ function CartSummary({
       {orderError && <p className="error-text">{orderError}</p>}
 
       <button className="primary-btn cart-preview-cta" type="button" disabled={disabled || submitting} onClick={onPlaceOrder}>
-        {submitting ? 'Placing order…' : 'Place order'}
+        {submitting ? 'Continuing…' : 'Continue to checkout'}
       </button>
     </aside>
   );
@@ -1132,7 +1147,7 @@ function PhoneModal({
           onClick={onSendOtp}
           disabled={!canSendCode}
         >
-          Send Code
+          Continue to checkout
         </button>
         <p className="phone-modal__helper">Used for pickup &amp; order updates only</p>
       </section>
@@ -1208,6 +1223,32 @@ function getAsapReadyLabel(value) {
 
 function getEarliestAvailableLabel(value) {
   return value ? `Earliest available: ${formatTime(value)}` : '';
+}
+
+function toScheduledTimeInput(value) {
+  if (!value) {
+    return '';
+  }
+
+  if (String(value).includes('T')) {
+    const date = new Date(value);
+    if (!Number.isNaN(date.getTime())) {
+      return `${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`;
+    }
+  }
+
+  const [hoursString, minutesString] = String(value).split(':');
+  if (hoursString === undefined || minutesString === undefined) {
+    return '';
+  }
+
+  const hours = Number(hoursString);
+  const minutes = Number(minutesString);
+  if (Number.isNaN(hours) || Number.isNaN(minutes)) {
+    return '';
+  }
+
+  return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`;
 }
 
 function getItemBadgeLabel(name) {

@@ -1,11 +1,20 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Navigate, useLocation, useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
+import AsyncState from '../components/shared/AsyncState.jsx';
 import { fetchTwilioVerifyHealth } from '../api/healthApi.js';
 import { confirmOrderVerification, resendOrderVerification, startOrderVerification } from '../api/ordersApi.js';
 import { updateCustomerPhone } from '../api/authApi.js';
 import { ENV } from '../config/env.js';
 import { useAuth } from '../hooks/useAuth.jsx';
-import { setVerifiedCustomerPhone } from '../services/authStorage.js';
+import {
+  clearCustomerOrderDraft,
+  clearCustomerOrderVerification,
+  getCustomerOrderDraft,
+  getCustomerOrderVerification,
+  setVerifiedCustomerPhone,
+  storeCustomerOrderDraft,
+  storeCustomerOrderVerification,
+} from '../services/authStorage.js';
 import { getCustomerDisplayName } from '../utils/customerIdentity.js';
 
 const DEFAULT_OTP_LENGTH = ENV.OTP_LENGTH;
@@ -14,21 +23,35 @@ export default function VerificationPage() {
   const navigate = useNavigate();
   const location = useLocation();
   const { user, loading: authLoading } = useAuth();
-  const orderDraft = location.state?.orderDraft || null;
+  const [orderDraft, setOrderDraft] = useState(() => location.state?.orderDraft || getCustomerOrderDraft() || null);
   const fallbackCustomerName = location.state?.customerName || '';
   const fallbackCustomerPhone = location.state?.customerPhone || '';
   const customerName = getCustomerDisplayName(user) || fallbackCustomerName;
   const [otpLength, setOtpLength] = useState(null);
-  const [verification, setVerification] = useState(null);
+  const [verification, setVerification] = useState(() => getCustomerOrderVerification() || null);
   const [code, setCode] = useState([]);
   const [submitting, setSubmitting] = useState(false);
   const [starting, setStarting] = useState(false);
   const [error, setError] = useState('');
+  const [startError, setStartError] = useState('');
+  const [retryKey, setRetryKey] = useState(0);
   const [now, setNow] = useState(Date.now());
   const inputsRef = useRef([]);
-  const initialVerificationLoaded = useRef(false);
   const resolvedOtpLength = otpLength;
   const phone = getVerificationPhone(orderDraft, user, verification);
+
+  useEffect(() => {
+    if (!location.state?.orderDraft) {
+      return;
+    }
+
+    setOrderDraft(location.state.orderDraft);
+    storeCustomerOrderDraft(location.state.orderDraft);
+    clearCustomerOrderVerification();
+    setVerification(null);
+    setStartError('');
+    setCode([]);
+  }, [location.state?.orderDraft]);
 
   useEffect(() => {
     let active = true;
@@ -71,19 +94,26 @@ export default function VerificationPage() {
   }, []);
 
   useEffect(() => {
-    if (!orderDraft || authLoading || !resolvedOtpLength || initialVerificationLoaded.current) {
+    if (!verification) {
+      clearCustomerOrderVerification();
+      return;
+    }
+
+    storeCustomerOrderVerification(verification);
+  }, [verification]);
+
+  useEffect(() => {
+    if (!orderDraft || authLoading || !resolvedOtpLength || verification || startError) {
       return;
     }
 
     let active = true;
-    initialVerificationLoaded.current = true;
 
     async function requestVerification() {
       const payload = buildVerificationStartPayload(orderDraft, customerName, fallbackCustomerPhone);
       if (!payload.customer.phone) {
         if (active) {
-          setError('A phone number is required to send the verification code.');
-          setStarting(false);
+          setStartError('A phone number is required to send the verification code.');
         }
         return;
       }
@@ -100,7 +130,7 @@ export default function VerificationPage() {
         inputsRef.current[0]?.focus();
       } catch (err) {
         if (active) {
-          setError(err.message || 'Unable to send verification code right now.');
+          setStartError(err.message || 'Unable to send verification code right now.');
           setVerification(null);
         }
       } finally {
@@ -115,7 +145,7 @@ export default function VerificationPage() {
     return () => {
       active = false;
     };
-  }, [orderDraft, authLoading, resolvedOtpLength, user, customerName]);
+  }, [orderDraft, authLoading, resolvedOtpLength, verification, retryKey, customerName, fallbackCustomerPhone, startError]);
 
   const codeValue = useMemo(() => code.join(''), [code]);
   const isCodeComplete = code.every((digit) => /\d/.test(digit));
@@ -126,8 +156,48 @@ export default function VerificationPage() {
   const expiryCountdown = verificationExpiresAt ? formatCountdown(verificationExpiresAt.getTime() - now) : '';
   const resendButtonLabel = canResend ? 'Resend Code' : `Resend in ${resendCountdown}`;
 
+  const handleRetryDraft = () => {
+    setOrderDraft(getCustomerOrderDraft());
+    setVerification(getCustomerOrderVerification() || null);
+    setStartError('');
+  };
+
+  const handleRetryStart = () => {
+    clearCustomerOrderVerification();
+    setVerification(null);
+    setStartError('');
+    setRetryKey((current) => current + 1);
+  };
+
+  const handleBackToCheckout = () => {
+    if (orderDraft?.restaurantId || orderDraft?.restaurant?.id) {
+      navigate('/checkout', {
+        replace: true,
+        state: {
+          orderDraft,
+          customerName: orderDraft?.customerName || customerName || undefined,
+          customerPhone: orderDraft?.customer?.phone || fallbackCustomerPhone || undefined,
+        },
+      });
+      return;
+    }
+
+    navigate('/home', { replace: true });
+  };
+
   if (!orderDraft) {
-    return <Navigate to="/" replace />;
+    return (
+      <main className="page-section">
+        <AsyncState
+          title="Checkout draft unavailable"
+          message="We could not restore your order. Retry to load the saved draft or return to restaurants."
+          primaryActionLabel="Retry"
+          onPrimaryAction={handleRetryDraft}
+          secondaryActionLabel="Back to restaurants"
+          onSecondaryAction={() => navigate('/home')}
+        />
+      </main>
+    );
   }
 
   if (!resolvedOtpLength) {
@@ -138,6 +208,21 @@ export default function VerificationPage() {
             <p className="muted">Loading verification settings...</p>
           </div>
         </section>
+      </main>
+    );
+  }
+
+  if (startError && !verification) {
+    return (
+      <main className="page-section">
+        <AsyncState
+          title="Verification unavailable"
+          message={startError}
+          primaryActionLabel="Retry"
+          onPrimaryAction={handleRetryStart}
+          secondaryActionLabel={orderDraft?.restaurantId || orderDraft?.restaurant?.id ? 'Back to checkout' : 'Back to restaurants'}
+          onSecondaryAction={handleBackToCheckout}
+        />
       </main>
     );
   }
@@ -245,6 +330,8 @@ export default function VerificationPage() {
         total: orderDraft.total,
       });
       const responseOrder = response?.order || {};
+      clearCustomerOrderDraft();
+      clearCustomerOrderVerification();
       persistVerifiedPhone(orderDraft?.customer?.phone, user);
       navigate('/order-confirmation', {
         replace: true,
@@ -273,14 +360,18 @@ export default function VerificationPage() {
         <form className="verification-card" onSubmit={handleVerify}>
           <div className="verification-icon" aria-hidden="true">
             <LockIcon />
-          </div>
-          <h1>Verification Code</h1>
-          <p className="verification-lede">Please enter the {resolvedOtpLength}-digit code sent to</p>
-          <p className="verification-phone">{phone}</p>
-          {verificationExpiresAt ? (
-            <div className="verification-meta">
-              <p>
-                Expires at <strong>{formatVerificationDateTime(verificationExpiresAt)}</strong>
+        </div>
+        <h1>Verification Code</h1>
+        <p className="verification-lede">Please enter the {resolvedOtpLength}-digit code sent to</p>
+        <p className="verification-phone">{phone}</p>
+        <button type="button" className="menu-back-link verification-back-link" onClick={handleBackToCheckout}>
+          <span aria-hidden="true">←</span>
+          <span>Back to checkout</span>
+        </button>
+        {verificationExpiresAt ? (
+          <div className="verification-meta">
+            <p>
+              Expires at <strong>{formatVerificationDateTime(verificationExpiresAt)}</strong>
               </p>
               {expiryCountdown ? <p className="muted">Expires in {expiryCountdown}</p> : null}
             </div>

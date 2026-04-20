@@ -8,12 +8,42 @@ const AUTH_NOTICE_KEY = 'go2pik.authNotice';
 const KITCHEN_AUTH_NOTICE_KEY = 'go2pik.kitchenAuthNotice';
 const CUSTOMER_GUEST_ACCESS_KEY = 'go2pik.customerGuestAccess';
 const VERIFIED_CUSTOMER_PHONE_KEY = 'go2pik.verifiedCustomerPhone';
+const CUSTOMER_ORDER_DRAFT_KEY = 'go2pik.customerOrderDraft';
+const CUSTOMER_ORDER_VERIFICATION_KEY = 'go2pik.customerOrderVerification';
 
 function safeStorage() {
   if (typeof window === 'undefined') {
     return null;
   }
   return window.localStorage;
+}
+
+function readJson(storage, key) {
+  const raw = storage?.getItem(key);
+  if (!raw) {
+    return null;
+  }
+
+  try {
+    return JSON.parse(raw);
+  } catch (error) {
+    console.warn(`Failed to parse cached ${key}`, error);
+    storage?.removeItem(key);
+    return null;
+  }
+}
+
+function writeJson(storage, key, value) {
+  if (!storage) {
+    return;
+  }
+
+  if (value == null) {
+    storage.removeItem(key);
+    return;
+  }
+
+  storage.setItem(key, JSON.stringify(value));
 }
 
 export function getAuthToken() {
@@ -83,6 +113,36 @@ export function setCustomerGuestAccess(enabled) {
 export function clearCustomerGuestAccess() {
   const storage = safeStorage();
   storage?.removeItem(CUSTOMER_GUEST_ACCESS_KEY);
+}
+
+export function getCustomerOrderDraft() {
+  const storage = safeStorage();
+  return readJson(storage, CUSTOMER_ORDER_DRAFT_KEY);
+}
+
+export function storeCustomerOrderDraft(draft) {
+  const storage = safeStorage();
+  writeJson(storage, CUSTOMER_ORDER_DRAFT_KEY, draft);
+}
+
+export function clearCustomerOrderDraft() {
+  const storage = safeStorage();
+  storage?.removeItem(CUSTOMER_ORDER_DRAFT_KEY);
+}
+
+export function getCustomerOrderVerification() {
+  const storage = safeStorage();
+  return readJson(storage, CUSTOMER_ORDER_VERIFICATION_KEY);
+}
+
+export function storeCustomerOrderVerification(verification) {
+  const storage = safeStorage();
+  writeJson(storage, CUSTOMER_ORDER_VERIFICATION_KEY, verification);
+}
+
+export function clearCustomerOrderVerification() {
+  const storage = safeStorage();
+  storage?.removeItem(CUSTOMER_ORDER_VERIFICATION_KEY);
 }
 
 export function getVerifiedCustomerPhone() {
