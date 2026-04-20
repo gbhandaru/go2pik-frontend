@@ -247,7 +247,20 @@ export default function RestaurantMenuPage() {
     if (selectedPickupMode === PICKUP_MODES.SCHEDULED && !scheduledPickupTime) {
       return;
     }
-    setCustomerPhoneInput(getCustomerPhone(user) || '');
+    const draft = buildCustomerOrderDraft({
+      cart,
+      cartItemById,
+      customerName,
+      customerPhone: getCustomerPhone(user) || initialCustomerPhone,
+      restaurant,
+      scheduledPickupTime,
+      selectedPickupMode,
+      total,
+      pickupSummary,
+      user,
+    });
+    storeCustomerOrderDraft(draft);
+    setCustomerPhoneInput(getCustomerPhone(user) || initialCustomerPhone);
     setShowPhoneModal(true);
   };
 
@@ -258,37 +271,18 @@ export default function RestaurantMenuPage() {
       return;
     }
     const customerPhone = normalizedCustomerPhone;
-
-    const orderItems = cart.map(({ id, name, price, quantity }) => ({
-      id,
-      name,
-      price,
-      quantity,
-      lineTotal: price * quantity,
-      specialInstructions: cartItemById[id]?.specialInstructions || '',
-    }));
-    const pickupTime = selectedPickupMode === PICKUP_MODES.SCHEDULED ? buildPickupTimestamp(scheduledPickupTime) : undefined;
-
-    const payload = {
-      restaurantId: restaurant.id,
+    const payload = buildCustomerOrderDraft({
+      cart,
+      cartItemById,
+      customerName,
+      customerPhone,
       restaurant,
-      items: orderItems,
-      subtotal: total,
+      scheduledPickupTime,
+      selectedPickupMode,
       total,
-      pickupRequest: {
-        type: selectedPickupMode,
-        scheduledTime: pickupTime,
-        summary: pickupSummary,
-      },
-      customer: {
-        name: customerName || getCustomerDisplayName(user) || '',
-        phone: customerPhone,
-        email: user?.email || '',
-        pickupTime,
-        notes: pickupSummary || '',
-      },
-      customerName: customerName || undefined,
-    };
+      pickupSummary,
+      user,
+    });
 
     storeCustomerOrderDraft(payload);
     clearCustomerOrderVerification();
@@ -426,6 +420,50 @@ export default function RestaurantMenuPage() {
       ) : null}
     </main>
   );
+}
+
+function buildCustomerOrderDraft({
+  cart,
+  cartItemById,
+  customerName,
+  customerPhone,
+  restaurant,
+  scheduledPickupTime,
+  selectedPickupMode,
+  total,
+  pickupSummary,
+  user,
+}) {
+  const orderItems = cart.map(({ id, name, price, quantity }) => ({
+    id,
+    name,
+    price,
+    quantity,
+    lineTotal: price * quantity,
+    specialInstructions: cartItemById[id]?.specialInstructions || '',
+  }));
+  const pickupTime = selectedPickupMode === PICKUP_MODES.SCHEDULED ? buildPickupTimestamp(scheduledPickupTime) : undefined;
+
+  return {
+    restaurantId: restaurant.id,
+    restaurant,
+    items: orderItems,
+    subtotal: total,
+    total,
+    pickupRequest: {
+      type: selectedPickupMode,
+      scheduledTime: pickupTime,
+      summary: pickupSummary,
+    },
+    customer: {
+      name: customerName || getCustomerDisplayName(user) || '',
+      phone: customerPhone,
+      email: user?.email || '',
+      pickupTime,
+      notes: pickupSummary || '',
+    },
+    customerName: customerName || undefined,
+  };
 }
 
 function renderRestaurantAddress(restaurant) {
