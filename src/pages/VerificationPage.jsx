@@ -196,9 +196,17 @@ export default function VerificationPage() {
     return (
       <main className="page-section verification-page">
         <section className="verification-shell">
-          <div className="verification-card">
-            <p className="muted">Loading verification settings...</p>
-          </div>
+          <AsyncState title="Loading verification" message="Please wait while we prepare your code entry." loading />
+        </section>
+      </main>
+    );
+  }
+
+  if (starting && !verification && !startError) {
+    return (
+      <main className="page-section verification-page">
+        <section className="verification-shell">
+          <AsyncState title="Sending verification code" message="We are setting up your one-time code." loading />
         </section>
       </main>
     );
