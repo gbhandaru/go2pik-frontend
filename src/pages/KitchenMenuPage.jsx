@@ -135,6 +135,10 @@ function getCategoryItemCount(items = []) {
   return `${items.length} Item${items.length === 1 ? '' : 's'}`;
 }
 
+function getKitchenCategorySectionId(categoryId) {
+  return `kitchen-category-${String(categoryId).trim()}`;
+}
+
 function escapeCsvValue(value) {
   if (value == null) return '';
   const stringValue = String(value);
@@ -538,6 +542,10 @@ function CategoryEditor({
               key={category.id}
               type="button"
               className={`kitchen-menu-category-chip${String(activeCategoryId) === String(category.id) ? ' active' : ''}`}
+              onPointerDown={(event) => {
+                event.preventDefault();
+                onCategoryJump?.(category.id);
+              }}
               onClick={() => onCategoryJump?.(category.id)}
               aria-pressed={String(activeCategoryId) === String(category.id) ? 'true' : 'false'}
             >
@@ -796,6 +804,21 @@ export default function KitchenMenuPage() {
     }
   }, [categoryEditorOpen]);
 
+  const categoryOptions = useMemo(() => normalizeCategories(categories), [categories]);
+  const filteredMenuItems = useMemo(
+    () => filterMenuItems(menuItems, searchQuery, menuFilter),
+    [menuItems, searchQuery, menuFilter],
+  );
+  const groupedItems = useMemo(
+    () => groupMenuItems(filteredMenuItems, categoryOptions),
+    [filteredMenuItems, categoryOptions],
+  );
+  const selectedItems = useMemo(
+    () => menuItems.filter((item) => selectedItemIds.includes(item.id)),
+    [menuItems, selectedItemIds],
+  );
+  const bulkCategoryOptions = useMemo(() => categoryOptions, [categoryOptions]);
+
   useEffect(() => {
     if (!groupedItems.length || typeof window === 'undefined' || !('IntersectionObserver' in window)) {
       return undefined;
@@ -840,25 +863,6 @@ export default function KitchenMenuPage() {
 
     return () => observer.disconnect();
   }, [groupedItems]);
-
-  const categoryOptions = useMemo(() => normalizeCategories(categories), [categories]);
-  const filteredMenuItems = useMemo(
-    () => filterMenuItems(menuItems, searchQuery, menuFilter),
-    [menuItems, searchQuery, menuFilter],
-  );
-  const groupedItems = useMemo(
-    () => groupMenuItems(filteredMenuItems, categoryOptions),
-    [filteredMenuItems, categoryOptions],
-  );
-  const categoryLine = useMemo(
-    () => (categoryOptions.length ? categoryOptions.map((category) => category.name).join(' | ') : 'No categories yet'),
-    [categoryOptions],
-  );
-  const selectedItems = useMemo(
-    () => menuItems.filter((item) => selectedItemIds.includes(item.id)),
-    [menuItems, selectedItemIds],
-  );
-  const bulkCategoryOptions = useMemo(() => categoryOptions, [categoryOptions]);
 
   const handleMainTabChange = (tab) => {
     if (tab === 'orders') {
@@ -1022,11 +1026,15 @@ export default function KitchenMenuPage() {
 
   const handleCategoryJump = (categoryId) => {
     setActiveCategoryId(String(categoryId));
-    const target = groupSectionRefs.current.get(String(categoryId));
+    const target =
+      document.getElementById(getKitchenCategorySectionId(categoryId)) ||
+      groupSectionRefs.current.get(String(categoryId));
     if (!target) {
       return;
     }
-    target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    const targetTop = target.getBoundingClientRect().top + window.scrollY;
+    const offsetTop = Math.max(0, targetTop - 110);
+    window.scrollTo({ top: offsetTop, behavior: 'smooth' });
     target.focus({ preventScroll: true });
   };
 
@@ -1383,7 +1391,27 @@ export default function KitchenMenuPage() {
             <div>
               <p className="eyebrow">Menu</p>
               <h2>{restaurant?.name || 'Kitchen Menu'}</h2>
-              <p className="muted">{categoryLine}</p>
+              <div className="kitchen-menu-category-strip kitchen-menu-category-strip--menu">
+                {categoryOptions.length ? (
+                  categoryOptions.map((category) => (
+                    <button
+                      key={category.id}
+                      type="button"
+                      className={`kitchen-menu-category-chip${String(activeCategoryId) === String(category.id) ? ' active' : ''}`}
+                      onPointerDown={(event) => {
+                        event.preventDefault();
+                        handleCategoryJump(category.id);
+                      }}
+                      onClick={() => handleCategoryJump(category.id)}
+                      aria-pressed={String(activeCategoryId) === String(category.id) ? 'true' : 'false'}
+                    >
+                      {category.name}
+                    </button>
+                  ))
+                ) : (
+                  <p className="muted kitchen-menu-category-collapsed">No categories yet</p>
+                )}
+              </div>
             </div>
             <div className="kitchen-menu-section__meta">
               <span>Items: {menuItems.length}</span>
@@ -1397,6 +1425,7 @@ export default function KitchenMenuPage() {
                 <section
                   key={group.key}
                   className="kitchen-menu-group"
+                  id={group.category?.id ? getKitchenCategorySectionId(group.category.id) : undefined}
                   data-category-id={group.category?.id ? String(group.category.id) : undefined}
                   ref={(node) => {
                     if (!group.category?.id) {
