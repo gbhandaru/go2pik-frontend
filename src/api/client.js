@@ -112,6 +112,7 @@ export async function apiRequest(path, options = {}) {
       method: options.method || 'GET',
       headers,
       body,
+      cache: 'no-store',
     });
   } catch (error) {
     throw normalizeAppError(error, 'Unable to reach the server. Please try again.');
