@@ -154,7 +154,6 @@ export default function VerificationPage() {
   const canResend = !resendAvailableAt || now >= resendAvailableAt.getTime();
   const resendCountdown = canResend ? '' : formatCountdown(resendAvailableAt.getTime() - now);
   const expiryCountdown = verificationExpiresAt ? formatCountdown(verificationExpiresAt.getTime() - now) : '';
-  const resendButtonLabel = canResend ? 'Resend Code' : `Resend in ${resendCountdown}`;
 
   const handleRetryDraft = () => {
     setOrderDraft(getCustomerOrderDraft());
@@ -169,16 +168,9 @@ export default function VerificationPage() {
     setRetryKey((current) => current + 1);
   };
 
-  const handleBackToCheckout = () => {
+  const handleBackToMenu = () => {
     if (orderDraft?.restaurantId || orderDraft?.restaurant?.id) {
-      navigate('/checkout', {
-        replace: true,
-        state: {
-          orderDraft,
-          customerName: orderDraft?.customerName || customerName || undefined,
-          customerPhone: orderDraft?.customer?.phone || fallbackCustomerPhone || undefined,
-        },
-      });
+      navigate(`/restaurants/${orderDraft.restaurantId || orderDraft.restaurant?.id}/menu`, { replace: true });
       return;
     }
 
@@ -189,7 +181,7 @@ export default function VerificationPage() {
     return (
       <main className="page-section">
         <AsyncState
-          title="Checkout draft unavailable"
+          title="Order draft unavailable"
           message="We could not restore your order. Retry to load the saved draft or return to restaurants."
           primaryActionLabel="Retry"
           onPrimaryAction={handleRetryDraft}
@@ -220,8 +212,8 @@ export default function VerificationPage() {
           message={startError}
           primaryActionLabel="Retry"
           onPrimaryAction={handleRetryStart}
-          secondaryActionLabel={orderDraft?.restaurantId || orderDraft?.restaurant?.id ? 'Back to checkout' : 'Back to restaurants'}
-          onSecondaryAction={handleBackToCheckout}
+          secondaryActionLabel={orderDraft?.restaurantId || orderDraft?.restaurant?.id ? 'Back to menu' : 'Back to restaurants'}
+          onSecondaryAction={handleBackToMenu}
         />
       </main>
     );
@@ -286,7 +278,7 @@ export default function VerificationPage() {
     }
 
     if (!verification?.id) {
-      setError('Verification session is missing. Please restart checkout.');
+      setError('Verification session is missing. Please restart from the menu.');
       return;
     }
 
@@ -358,20 +350,19 @@ export default function VerificationPage() {
     <main className="page-section verification-page">
       <section className="verification-shell">
         <form className="verification-card" onSubmit={handleVerify}>
+          <button type="button" className="verification-card__close" onClick={handleBackToMenu} aria-label="Change number">
+            ×
+          </button>
           <div className="verification-icon" aria-hidden="true">
             <LockIcon />
-        </div>
-        <h1>Verification Code</h1>
-        <p className="verification-lede">Please enter the {resolvedOtpLength}-digit code sent to</p>
-        <p className="verification-phone">{phone}</p>
-        <button type="button" className="menu-back-link verification-back-link" onClick={handleBackToCheckout}>
-          <span aria-hidden="true">←</span>
-          <span>Back to checkout</span>
-        </button>
-        {verificationExpiresAt ? (
-          <div className="verification-meta">
-            <p>
-              Expires at <strong>{formatVerificationDateTime(verificationExpiresAt)}</strong>
+          </div>
+          <h1>Enter the code</h1>
+          <p className="verification-lede">We&apos;ve sent a {resolvedOtpLength}-digit code to</p>
+          <p className="verification-phone">{phone}</p>
+          {verificationExpiresAt ? (
+            <div className="verification-meta">
+              <p>
+                Expires at <strong>{formatVerificationDateTime(verificationExpiresAt)}</strong>
               </p>
               {expiryCountdown ? <p className="muted">Expires in {expiryCountdown}</p> : null}
             </div>
@@ -397,21 +388,28 @@ export default function VerificationPage() {
             ))}
           </div>
 
-          <p className="verification-resend-copy">Didn&apos;t receive a code?</p>
+          <button className="verification-submit" type="submit" disabled={submitting || starting || !isCodeComplete}>
+            {submitting ? 'Verifying…' : starting ? 'Sending code…' : 'Confirm Order'}
+          </button>
+
+          <p className="verification-resend-copy">
+            Didn&apos;t get it? {canResend ? 'Resend code now' : `Resend code in ${resendCountdown}`}
+          </p>
           <button
             type="button"
             className="verification-resend"
             onClick={handleResend}
             disabled={!canResend || starting}
           >
-            {starting ? 'Sending...' : resendButtonLabel}
+            {starting ? 'Sending...' : 'Resend code'}
+          </button>
+
+          <button type="button" className="verification-change-number" onClick={handleBackToMenu}>
+            <span aria-hidden="true">←</span>
+            <span>Change number</span>
           </button>
 
           {error ? <p className="error-text verification-error">{error}</p> : null}
-
-          <button className="verification-submit" type="submit" disabled={submitting || starting || !isCodeComplete}>
-            {submitting ? 'Verifying…' : starting ? 'Sending code…' : 'Confirm Order'}
-          </button>
         </form>
       </section>
     </main>

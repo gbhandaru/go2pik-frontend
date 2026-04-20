@@ -1,4 +1,4 @@
-import { Navigate, Route, Routes } from 'react-router-dom';
+import { Navigate, Route, Routes, useLocation } from 'react-router-dom';
 import LandingPage from '../pages/LandingPage.jsx';
 import LoginPage from '../pages/LoginPage.jsx';
 import PasswordUpdatePage from '../pages/PasswordUpdatePage.jsx';
@@ -8,7 +8,6 @@ import RestaurantMenuPage from '../pages/RestaurantMenuPage.jsx';
 import OrdersPage from '../pages/OrdersPage.jsx';
 import OrderConfirmationPage from '../pages/OrderConfirmationPage.jsx';
 import VerificationPage from '../pages/VerificationPage.jsx';
-import CheckoutPage from '../pages/CheckoutPage.jsx';
 import NotFoundPage from '../pages/NotFoundPage.jsx';
 import ProtectedRoute from './ProtectedRoute.jsx';
 import KitchenLoginPage from '../pages/KitchenLoginPage.jsx';
@@ -30,7 +29,7 @@ export default function AppRoutes() {
         <Route element={<ProtectedRoute allowGuest />}>
           <Route path="/home" element={<HomePage />} />
           <Route path="/restaurants/:restaurantId/menu" element={<RestaurantMenuPage />} />
-          <Route path="/checkout" element={<CheckoutPage />} />
+          <Route path="/checkout" element={<CheckoutRedirect />} />
           <Route path="/verification" element={<VerificationPage />} />
           <Route path="/order-confirmation" element={<OrderConfirmationPage />} />
         </Route>
@@ -48,4 +47,9 @@ export default function AppRoutes() {
       <Route path="*" element={<NotFoundPage />} />
     </Routes>
   );
+}
+
+function CheckoutRedirect() {
+  const location = useLocation();
+  return <Navigate to="/verification" replace state={location.state} />;
 }
