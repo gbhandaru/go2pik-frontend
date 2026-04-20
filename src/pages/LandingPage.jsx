@@ -1,7 +1,8 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import heroImage from '../assets/Go2Pik_Logo.png';
 import { fetchRestaurants } from '../api/restaurantsApi.js';
+import AsyncState from '../components/shared/AsyncState.jsx';
 import { useFetch } from '../hooks/useFetch.js';
 
 const heroPerks = [
@@ -37,8 +38,15 @@ const customerBenefits = [
 
 export default function LandingPage() {
   const navigate = useNavigate();
-  const { data: restaurants = [], loading } = useFetch(fetchRestaurants, []);
+  const [retryKey, setRetryKey] = useState(0);
+  const { data: restaurants = [], loading, error, errorInfo } = useFetch(
+    () => fetchRestaurants({ allowFallback: false }),
+    [retryKey],
+  );
   const availableNow = useMemo(() => (restaurants || []).slice(0, 3), [restaurants]);
+  const availabilityError = errorInfo?.kind === 'not_found'
+    ? 'Restaurants are not available yet.'
+    : 'Restaurants are temporarily unavailable. Please try again.';
 
   function handleStartOrdering() {
     navigate('/login');
@@ -50,6 +58,10 @@ export default function LandingPage() {
 
   function handleBrowse() {
     navigate('/home');
+  }
+
+  function handleRetryRestaurants() {
+    setRetryKey((current) => current + 1);
   }
 
   return (
@@ -140,9 +152,20 @@ export default function LandingPage() {
           </div>
         </section>
 
-        {availableNow.length > 0 && (
-          <section className="hero-section available-section">
-            <p className="eyebrow">Available now</p>
+        <section className="hero-section available-section">
+          <p className="eyebrow">Available now</p>
+          {loading ? (
+            <div className="available-grid">
+              <article className="muted loading-message">Loading restaurants...</article>
+            </div>
+          ) : error ? (
+            <AsyncState
+              title="Restaurants unavailable"
+              message={availabilityError}
+              primaryActionLabel="Retry"
+              onPrimaryAction={handleRetryRestaurants}
+            />
+          ) : availableNow.length > 0 ? (
             <div className="available-grid">
               {availableNow.map((rest) => (
                 <article key={rest.id}>
@@ -151,12 +174,16 @@ export default function LandingPage() {
                   <p className="muted">{rest.location || rest.cuisine}</p>
                 </article>
               ))}
-              {loading && (
-                <article className="muted loading-message">Loading restaurants...</article>
-              )}
             </div>
-          </section>
-        )}
+          ) : (
+            <AsyncState
+              title="No restaurants available"
+              message="We’re not seeing any restaurants right now. Please check back in a moment."
+              primaryActionLabel="Retry"
+              onPrimaryAction={handleRetryRestaurants}
+            />
+          )}
+        </section>
 
         <section id="why-customers" className="hero-section">
           <p className="eyebrow">Why customers love Go2Pik</p>

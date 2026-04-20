@@ -1,11 +1,14 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Navigate, useNavigate, useParams } from 'react-router-dom';
 import { fetchRestaurantMenu } from '../api/restaurantsApi.js';
+import { fetchCustomerOrders } from '../api/customersApi.js';
+import AsyncState from '../components/shared/AsyncState.jsx';
 import { useFetch } from '../hooks/useFetch.js';
 import { formatCurrency } from '../utils/formatCurrency.js';
 import { getRestaurantAddressLines } from '../utils/formatRestaurantAddress.js';
 import { useAuth } from '../hooks/useAuth.jsx';
-import { getCustomerPhone } from '../utils/customerIdentity.js';
+import { clearCustomerOrderVerification, getCustomerOrderDraft, storeCustomerOrderDraft } from '../services/authStorage.js';
+import { getCustomerId, getCustomerPhone } from '../utils/customerIdentity.js';
 
 const PICKUP_MODES = {
   ASAP: 'ASAP',
@@ -19,6 +22,7 @@ export default function RestaurantMenuPage() {
   const navigate = useNavigate();
   const { user, canAccessCustomerFlow } = useAuth();
   const customerName = useMemo(() => getCustomerDisplayName(user), [user]);
+  const customerId = useMemo(() => getCustomerId(user), [user]);
   const initialCustomerPhone = useMemo(() => getCustomerPhone(user) || '', [user]);
   const [cart, setCart] = useState([]);
   const [selectedPickupMode, setSelectedPickupMode] = useState(PICKUP_MODES.ASAP);
@@ -26,17 +30,42 @@ export default function RestaurantMenuPage() {
   const [orderError, setOrderError] = useState('');
   const [customerPhoneInput, setCustomerPhoneInput] = useState(initialCustomerPhone);
   const [showPhoneModal, setShowPhoneModal] = useState(false);
+  const [retryKey, setRetryKey] = useState(0);
   const phoneInputRef = useRef(null);
-  const { data, loading, error } = useFetch(() => fetchRestaurantMenu(restaurantId), [restaurantId]);
+  const { data, loading, error, errorInfo } = useFetch(
+    () => fetchRestaurantMenu(restaurantId, { allowFallback: false }),
+    [restaurantId, retryKey],
+  );
+  const {
+    data: customerOrdersData,
+  } = useFetch(
+    () =>
+      customerId
+        ? fetchCustomerOrders(customerId, { allowFallback: false })
+        : Promise.resolve({ customer: null, orders: [] }),
+    [customerId, retryKey],
+  );
   const asapReadyTime = useMemo(() => getTimeFromNow(PICKUP_WINDOW_MINUTES), []);
   const earliestAvailableTime = useMemo(() => getTimeFromNow(EARLIEST_PICKUP_MINUTES), []);
   const canBrowseMenu = canAccessCustomerFlow;
 
   useEffect(() => {
+    const storedDraft = getCustomerOrderDraft();
+    const storedRestaurantId = storedDraft?.restaurantId || storedDraft?.restaurant?.id;
+    const matchesRestaurant = storedRestaurantId && String(storedRestaurantId) === String(restaurantId);
+
+    if (matchesRestaurant) {
+      setCart(Array.isArray(storedDraft.items) ? storedDraft.items.map((item) => ({ ...item })) : []);
+      setSelectedPickupMode(storedDraft?.pickupRequest?.type === PICKUP_MODES.SCHEDULED ? PICKUP_MODES.SCHEDULED : PICKUP_MODES.ASAP);
+      setScheduledPickupTime(toScheduledTimeInput(storedDraft?.pickupRequest?.scheduledTime));
+      setCustomerPhoneInput(storedDraft?.customer?.phone || storedDraft?.customerPhone || initialCustomerPhone);
+      return;
+    }
+
     setCart([]);
     setSelectedPickupMode(PICKUP_MODES.ASAP);
     setScheduledPickupTime('');
-  }, [restaurantId]);
+  }, [restaurantId, initialCustomerPhone]);
 
   useEffect(() => {
     setCustomerPhoneInput((prev) => prev || initialCustomerPhone);
@@ -78,25 +107,19 @@ export default function RestaurantMenuPage() {
   const menu = data?.menu || [];
   const categories = data?.categories || data?.menuCategories || data?.menu_categories || [];
   const restaurant = data?.restaurant;
+  const hasMenuItems = menu.length > 0;
 
   const lastOrder = useMemo(() => {
-    const sourceItems = data?.lastOrder?.items?.length
-      ? data.lastOrder.items
-      : menu.slice(0, 2).map((item) => ({
-          id: item.id,
-          name: item.name,
-          price: item.price,
-          quantity: 1,
-        }));
+    const sourceItems = data?.lastOrder?.items?.length ? data.lastOrder.items : [];
     if (!sourceItems.length) {
-      return null;
+      return getLastOrderFromHistory(customerOrdersData?.orders, restaurantId);
     }
     return {
-      id: data?.lastOrder?.id || 'mock-last-order',
+      id: data?.lastOrder?.id || null,
       items: sourceItems,
       summary: sourceItems.map((item) => `${item.quantity}× ${item.name}`).join(', '),
     };
-  }, [data?.lastOrder, menu]);
+  }, [data?.lastOrder, customerOrdersData?.orders, restaurantId]);
 
   const addToCart = (menuItem, options = {}) => {
     setCart((prev) => {
@@ -200,6 +223,16 @@ export default function RestaurantMenuPage() {
   const missingScheduledTime = selectedPickupMode === PICKUP_MODES.SCHEDULED && !scheduledPickupTime;
   const asapReadyLabel = getAsapReadyLabel(asapReadyTime);
   const earliestAvailableLabel = getEarliestAvailableLabel(earliestAvailableTime);
+  const menuErrorMessage =
+    errorInfo?.offline
+      ? 'You appear to be offline. Check your connection and try again.'
+      : errorInfo?.kind === 'not_found'
+      ? 'This restaurant menu is not available right now.'
+      : 'We are having trouble loading this menu. Please try again.';
+
+  const handleRetryMenu = () => {
+    setRetryKey((current) => current + 1);
+  };
 
   const handlePlaceOrder = async () => {
     setOrderError('');
@@ -252,23 +285,17 @@ export default function RestaurantMenuPage() {
       customerName: customerName || undefined,
     };
 
+    storeCustomerOrderDraft(payload);
+    clearCustomerOrderVerification();
     setShowPhoneModal(false);
     navigate('/checkout', {
       state: {
         orderDraft: payload,
         customerName: customerName || undefined,
-      customerPhone,
+        customerPhone,
       },
     });
   };
-
-  if (loading) {
-    return (
-      <main className="page-section">
-        <div className="page-empty-state">Loading menu...</div>
-      </main>
-    );
-  }
 
   if (!canBrowseMenu) {
     return (
@@ -280,10 +307,25 @@ export default function RestaurantMenuPage() {
     );
   }
 
-  if (error || !data?.restaurant) {
+  if (loading) {
     return (
       <main className="page-section">
-        <div className="page-empty-state">Unable to load this restaurant right now.</div>
+        <AsyncState title="Loading menu" message="Please wait while we load this restaurant." loading />
+      </main>
+    );
+  }
+
+  if (error || !restaurant) {
+    return (
+      <main className="page-section">
+        <AsyncState
+          title="Menu unavailable"
+          message={menuErrorMessage}
+          primaryActionLabel="Retry"
+          onPrimaryAction={handleRetryMenu}
+          secondaryActionLabel="Back to restaurants"
+          onSecondaryAction={() => navigate('/home')}
+        />
       </main>
     );
   }
@@ -320,15 +362,26 @@ export default function RestaurantMenuPage() {
             onReorderItem={reorderSingleItem}
           />
 
-          <MenuList
-            menu={menu}
-            categories={categories}
-            quantityById={quantityById}
-            cartItemById={cartItemById}
-            onAdd={addToCart}
-            onUpdate={updateQuantity}
-            onUpdateInstructions={updateInstructions}
-          />
+          {hasMenuItems ? (
+            <MenuList
+              menu={menu}
+              categories={categories}
+              quantityById={quantityById}
+              cartItemById={cartItemById}
+              onAdd={addToCart}
+              onUpdate={updateQuantity}
+              onUpdateInstructions={updateInstructions}
+            />
+          ) : (
+            <AsyncState
+              title="No menu items available"
+              message="This restaurant has not published any items yet."
+              primaryActionLabel="Retry"
+              onPrimaryAction={handleRetryMenu}
+              secondaryActionLabel="Back to restaurants"
+              onSecondaryAction={() => navigate('/home')}
+            />
+          )}
         </div>
 
         <CartSummary
@@ -486,12 +539,17 @@ function ReorderCard({ items = [], hasOrder, onReorder, onReorderItem }) {
             ))}
           </ul>
         ) : (
-          <p className="muted">We will show your recent order here.</p>
+          <p className="muted">No recent order found. Reorder will be enabled after you place a previous order here.</p>
         )}
       </div>
-      <button type="button" className="reorder-card__button" onClick={onReorder} disabled={!hasOrder}>
-        Reorder
-      </button>
+      <div className="reorder-card__footer">
+        <p className="muted reorder-card__helper">
+          {hasOrder ? 'Tap an item or use Reorder to add your last order again.' : 'No recent order found.'}
+        </p>
+        <button type="button" className="reorder-card__button" onClick={onReorder} disabled={!hasOrder}>
+          Reorder
+        </button>
+      </div>
     </section>
   );
 }
@@ -552,7 +610,7 @@ function MenuList({ menu, categories, quantityById, cartItemById, onAdd, onUpdat
   }, [activeCategory, displayedGroups]);
 
   if (!menu.length) {
-    return <p className="muted">Menu unavailable right now.</p>;
+    return null;
   }
 
   return (
@@ -1058,7 +1116,7 @@ function CartSummary({
       {orderError && <p className="error-text">{orderError}</p>}
 
       <button className="primary-btn cart-preview-cta" type="button" disabled={disabled || submitting} onClick={onPlaceOrder}>
-        {submitting ? 'Placing order…' : 'Place order'}
+        {submitting ? 'Continuing…' : 'Continue to checkout'}
       </button>
     </aside>
   );
@@ -1105,7 +1163,7 @@ function PhoneModal({
           onClick={onSendOtp}
           disabled={!canSendCode}
         >
-          Send Code
+          Continue to checkout
         </button>
         <p className="phone-modal__helper">Used for pickup &amp; order updates only</p>
       </section>
@@ -1181,6 +1239,107 @@ function getAsapReadyLabel(value) {
 
 function getEarliestAvailableLabel(value) {
   return value ? `Earliest available: ${formatTime(value)}` : '';
+}
+
+function getLastOrderFromHistory(orders = [], restaurantId) {
+  if (!restaurantId || !Array.isArray(orders) || !orders.length) {
+    return null;
+  }
+
+  const latestOrder = [...orders]
+    .filter((order) => matchesRestaurantId(order, restaurantId))
+    .sort((a, b) => getOrderTimeValue(b) - getOrderTimeValue(a))[0];
+
+  if (!latestOrder) {
+    return null;
+  }
+
+  const items = normalizeOrderItems(latestOrder);
+  if (!items.length) {
+    return null;
+  }
+
+  return {
+    id: latestOrder.id || latestOrder.orderNumber || null,
+    items,
+    summary: items.map((item) => `${item.quantity}× ${item.name}`).join(', '),
+  };
+}
+
+function matchesRestaurantId(order, restaurantId) {
+  const orderRestaurantId =
+    order?.restaurantId ||
+    order?.restaurant?.id ||
+    order?.restaurant_id ||
+    order?.restaurant?.restaurantId ||
+    order?.restaurant?.restaurant_id ||
+    '';
+
+  return String(orderRestaurantId).trim() === String(restaurantId).trim();
+}
+
+function normalizeOrderItems(order) {
+  const rawItems =
+    order?.items ||
+    order?.orderItems ||
+    order?.order_items ||
+    order?.lineItems ||
+    order?.line_items ||
+    [];
+
+  if (!Array.isArray(rawItems)) {
+    return [];
+  }
+
+  return rawItems
+    .map((item) => ({
+      ...item,
+      id: item?.id || item?.menuItemId || item?.menu_item_id || item?.sku || item?.name,
+      name: item?.name || item?.title || item?.label || 'Item',
+      price: Number(item?.price ?? item?.unitPrice ?? item?.unit_price ?? 0),
+      quantity: Number(item?.quantity || 1),
+    }))
+    .filter((item) => item.id && item.name);
+}
+
+function getOrderTimeValue(order) {
+  const raw =
+    order?.created_at ||
+    order?.createdAt ||
+    order?.placedAt ||
+    order?.orderedAt ||
+    order?.submittedAt ||
+    order?.updatedAt ||
+    order?.updated_at ||
+    0;
+  const date = new Date(raw);
+  return Number.isNaN(date.getTime()) ? 0 : date.getTime();
+}
+
+function toScheduledTimeInput(value) {
+  if (!value) {
+    return '';
+  }
+
+  if (String(value).includes('T')) {
+    const date = new Date(value);
+    if (!Number.isNaN(date.getTime())) {
+      return `${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`;
+    }
+  }
+
+  const [hoursString, minutesString] = String(value).split(':');
+  if (hoursString === undefined || minutesString === undefined) {
+    return '';
+  }
+
+  const hours = Number(hoursString);
+  const minutes = Number(minutesString);
+  if (Number.isNaN(hours) || Number.isNaN(minutes)) {
+    return '';
+  }
+
+  return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`;
 }
 
 function getItemBadgeLabel(name) {
