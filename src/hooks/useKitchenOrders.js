@@ -28,6 +28,24 @@ function normalizeOrdersResponse(response) {
   return [];
 }
 
+function dedupeOrders(orders) {
+  const seen = new Set();
+  const result = [];
+
+  for (const order of orders) {
+    const key = order?.id ?? order?.orderNumber ?? order?.displayId;
+    if (key != null && seen.has(String(key))) {
+      continue;
+    }
+    if (key != null) {
+      seen.add(String(key));
+    }
+    result.push(order);
+  }
+
+  return result;
+}
+
 export function useKitchenOrders(status = 'new', refreshIntervalMs = 60000) {
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -37,7 +55,14 @@ export function useKitchenOrders(status = 'new', refreshIntervalMs = 60000) {
     setLoading(true);
     try {
       const response = await fetchOrdersByStatus(status);
-      setOrders(normalizeOrdersResponse(response));
+      let normalizedOrders = normalizeOrdersResponse(response);
+
+      if (status === 'completed' && normalizedOrders.length === 0) {
+        const fallbackResponse = await fetchOrdersByStatus('complete');
+        normalizedOrders = normalizeOrdersResponse(fallbackResponse);
+      }
+
+      setOrders(dedupeOrders(normalizedOrders));
       setError(null);
       setLastUpdated(new Date());
     } catch (err) {
