@@ -13,6 +13,7 @@ import {
   storeAuthTokens,
   storeKitchenAuthTokens,
 } from '../services/authStorage.js';
+import { createAppError, normalizeAppError } from '../utils/appError.js';
 
 function getActiveToken() {
   const pathname = typeof window !== 'undefined' ? window.location.pathname : '';
@@ -105,11 +106,16 @@ export async function apiRequest(path, options = {}) {
 
   const url = `${ENV.API_BASE_URL}${path}`;
 
-  const response = await fetch(url, {
-    method: options.method || 'GET',
-    headers,
-    body,
-  });
+  let response;
+  try {
+    response = await fetch(url, {
+      method: options.method || 'GET',
+      headers,
+      body,
+    });
+  } catch (error) {
+    throw normalizeAppError(error, 'Unable to reach the server. Please try again.');
+  }
 
   let data = null;
 
@@ -141,9 +147,22 @@ export async function apiRequest(path, options = {}) {
         window.dispatchEvent(new Event('go2pik:auth-expired'));
       }
     }
-    const error = new Error(message);
-    error.status = response.status;
-    throw error;
+    throw createAppError(message, {
+      status: response.status,
+      code: data?.code || data?.errorCode || null,
+      kind:
+        response.status === 401 || response.status === 403
+          ? 'auth'
+          : response.status === 404
+            ? 'not_found'
+            : response.status === 422 || response.status === 400
+              ? 'validation'
+              : response.status >= 500
+                ? 'server_error'
+                : 'http_error',
+      retryable: response.status >= 500,
+      details: data?.details || null,
+    });
   }
 
   return data;

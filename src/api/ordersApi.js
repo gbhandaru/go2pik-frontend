@@ -133,11 +133,17 @@ async function withFallback(path, options, fallback) {
   }
 }
 
-export function fetchRestaurants() {
+export function fetchRestaurants(options = {}) {
+  if (options.allowFallback === false) {
+    return apiRequest('/restaurants');
+  }
   return withFallback('/restaurants', undefined, mockRestaurants);
 }
 
-export function fetchRestaurantMenu(id) {
+export function fetchRestaurantMenu(id, options = {}) {
+  if (options.allowFallback === false) {
+    return apiRequest(`/restaurants/${id}/menu`);
+  }
   return withFallback(`/restaurants/${id}/menu`, undefined, () => {
     const restaurant = mockRestaurants.find((r) => r.id === id);
     if (!restaurant) {

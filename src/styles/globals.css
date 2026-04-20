@@ -4382,6 +4382,470 @@ hr {
   }
 }
 
+@media (min-width: 901px) and (max-width: 1180px) {
+  .kitchen-page {
+    gap: 1.1rem;
+  }
+
+  .kitchen-dashboard__topbar {
+    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-areas:
+      'brand actions'
+      'updated actions';
+    align-items: start;
+    gap: 0.85rem 1rem;
+    padding: 1rem 1.1rem;
+  }
+
+  .kitchen-dashboard__brand {
+    grid-area: brand;
+  }
+
+  .kitchen-dashboard__updated {
+    grid-area: updated;
+    justify-self: start;
+    text-align: left;
+    white-space: normal;
+    padding: 0;
+  }
+
+  .kitchen-dashboard__actions {
+    grid-area: actions;
+    align-items: center;
+    flex-direction: row;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+  }
+
+  .kitchen-icon-btn {
+    width: 2.7rem;
+    height: 2.7rem;
+  }
+
+  .kitchen-toolbar {
+    padding: 0.8rem 0.9rem;
+  }
+
+  .kitchen-toolbar__controls {
+    justify-content: flex-start;
+  }
+
+  .kitchen-tabs {
+    display: flex;
+    overflow-x: auto;
+    gap: 0.45rem;
+    padding: 0.55rem;
+    border-radius: 1.1rem;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: thin;
+  }
+
+  .kitchen-tab {
+    flex: 0 0 auto;
+    min-width: 9.25rem;
+    padding: 0.8rem 1rem;
+    font-size: 0.96rem;
+  }
+
+  .kitchen-tab__count {
+    min-width: 1.8rem;
+    height: 1.8rem;
+    font-size: 0.92rem;
+  }
+
+  .kitchen-orders-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .kitchen-orders-grid--compact {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .kitchen-order-card {
+    padding: 1.05rem 1rem;
+  }
+
+  .kitchen-order-card__actions {
+    gap: 0.5rem;
+  }
+}
+
+@media (min-width: 901px) and (max-width: 1180px) and (orientation: landscape) {
+  .kitchen-menu-page {
+    gap: 0.9rem;
+  }
+
+  .kitchen-dashboard__topbar {
+    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-areas:
+      'brand actions'
+      'updated actions';
+    align-items: start;
+    gap: 0.75rem 0.9rem;
+    padding: 0.95rem 1.05rem;
+  }
+
+  .kitchen-dashboard__brand {
+    gap: 0.1rem;
+  }
+
+  .kitchen-dashboard__eyebrow {
+    font-size: 0.7rem;
+    letter-spacing: 0.12em;
+  }
+
+  .kitchen-dashboard__brand h1 {
+    font-size: 1.25rem;
+  }
+
+  .kitchen-dashboard__updated {
+    justify-self: start;
+    text-align: left;
+    white-space: normal;
+    padding: 0;
+    font-size: 0.84rem;
+  }
+
+  .kitchen-dashboard__actions {
+    gap: 0.45rem;
+    align-items: center;
+  }
+
+  .kitchen-menu-toolbar {
+    padding: 0.75rem 0.85rem;
+  }
+
+  .kitchen-menu-toolbar--compact {
+    gap: 0.6rem;
+  }
+
+  .kitchen-menu-toolbar__actions {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .kitchen-menu-toolbar__note {
+    font-size: 0.88rem;
+  }
+
+  .kitchen-menu-search-row {
+    grid-template-columns: minmax(220px, 1fr) auto;
+  }
+
+  .kitchen-menu-bulk-actions {
+    grid-template-columns: 1fr 1fr 1fr auto;
+  }
+
+  .kitchen-menu-panel {
+    padding: 0.9rem;
+  }
+
+  .kitchen-menu-panel__header,
+  .kitchen-menu-section__header {
+    gap: 0.75rem;
+  }
+
+  .kitchen-menu-section__meta {
+    gap: 0.15rem;
+  }
+
+  .kitchen-menu-category-strip--menu {
+    flex-wrap: wrap;
+    gap: 0.4rem;
+  }
+
+  .kitchen-menu-category-list {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .kitchen-menu-list {
+    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  }
+
+  .kitchen-menu-item {
+    padding: 0.8rem 0.85rem;
+    gap: 0.55rem;
+  }
+
+  .kitchen-menu-item__actions {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.35rem;
+  }
+
+  .kitchen-menu-group__add {
+    min-width: 96px;
+  }
+
+  .kitchen-orders-grid,
+  .kitchen-orders-grid--compact {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .kitchen-icon-btn {
+    width: 2.3rem;
+    height: 2.3rem;
+  }
+
+  .kitchen-icon-btn svg {
+    width: 1rem;
+    height: 1rem;
+  }
+
+  .kitchen-order-card {
+    padding: 0.95rem 0.9rem;
+    gap: 0.55rem;
+  }
+
+  .kitchen-order-card__meta {
+    gap: 0.35rem;
+  }
+
+  .kitchen-order-card__order-number {
+    font-size: 1rem;
+  }
+
+  .kitchen-order-card__badges {
+    gap: 0.35rem;
+  }
+
+  .kitchen-order-card__badge {
+    font-size: 0.66rem;
+    padding: 0.24rem 0.52rem;
+  }
+
+  .kitchen-order-card__badge--age {
+    font-size: 0.8rem;
+    padding: 0.32rem 0.66rem;
+  }
+
+  .kitchen-order-card__pickup {
+    gap: 0.25rem 0.45rem;
+  }
+
+  .kitchen-order-card__pickup-label {
+    font-size: 0.72rem;
+  }
+
+  .kitchen-order-card__pickup strong {
+    font-size: 0.94rem;
+  }
+
+  .kitchen-order-card__items {
+    padding: 0.3rem 0 0.45rem;
+  }
+
+  .kitchen-order-card__items ul {
+    gap: 0.3rem;
+  }
+
+  .kitchen-order-card__items li {
+    gap: 0.45rem;
+    font-size: 0.94rem;
+  }
+
+  .kitchen-order-card__item-note {
+    font-size: 0.76rem;
+    padding: 0.3rem 0.45rem;
+  }
+
+  .kitchen-order-card__footer {
+    gap: 0.65rem;
+    margin-top: 0.5rem;
+  }
+
+  .kitchen-order-card__totals {
+    gap: 0.5rem;
+  }
+
+  .kitchen-order-card__totals p {
+    font-size: 0.74rem;
+  }
+
+  .kitchen-order-card__totals strong {
+    font-size: 0.94rem;
+  }
+
+  .kitchen-order-card__actions {
+    gap: 0.45rem;
+  }
+
+  .kitchen-order-card__actions .primary-btn {
+    padding: 0.72rem 0.8rem;
+    font-size: 0.92rem;
+  }
+
+  .kitchen-action-btn--accept,
+  .kitchen-action-btn--reject {
+    min-height: 2.8rem;
+  }
+}
+
+@media (min-width: 768px) and (max-width: 900px) and (orientation: portrait) {
+  .kitchen-page {
+    gap: 1rem;
+  }
+
+  .kitchen-menu-page {
+    gap: 0.85rem;
+  }
+
+  .kitchen-dashboard {
+    max-width: 100%;
+  }
+
+  .kitchen-dashboard__topbar {
+    grid-template-columns: 1fr;
+    grid-template-areas:
+      'brand'
+      'updated'
+      'actions';
+    align-items: start;
+    justify-items: start;
+    gap: 0.7rem;
+    padding: 0.95rem 1rem;
+  }
+
+  .kitchen-dashboard__updated {
+    justify-self: start;
+    text-align: left;
+    white-space: normal;
+    padding: 0;
+  }
+
+  .kitchen-dashboard__actions {
+    width: 100%;
+    flex-direction: row;
+    flex-wrap: wrap;
+    justify-content: flex-start;
+  }
+
+  .kitchen-toolbar {
+    padding: 0.75rem 0.85rem;
+  }
+
+  .kitchen-toolbar__controls {
+    justify-content: flex-start;
+  }
+
+  .kitchen-menu-toolbar__note {
+    font-size: 0.88rem;
+  }
+
+  .kitchen-main-tabs {
+    padding: 0.8rem 0.85rem;
+  }
+
+  .kitchen-tabs {
+    display: flex;
+    overflow-x: auto;
+    gap: 0.4rem;
+    padding: 0.5rem;
+    border-radius: 1rem;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: thin;
+  }
+
+  .kitchen-tab {
+    flex: 0 0 auto;
+    min-width: 8.5rem;
+    padding: 0.75rem 0.95rem;
+    font-size: 0.94rem;
+  }
+
+  .kitchen-tab__count {
+    min-width: 1.75rem;
+    height: 1.75rem;
+    font-size: 0.9rem;
+  }
+
+  .kitchen-orders-grid,
+  .kitchen-orders-grid--compact {
+    grid-template-columns: 1fr;
+  }
+
+  .kitchen-order-card {
+    padding: 1rem 0.95rem;
+  }
+
+  .kitchen-order-card__actions,
+  .kitchen-order-card__actions--multi {
+    grid-template-columns: 1fr;
+  }
+
+  .kitchen-bulk-actions,
+  .kitchen-menu-toolbar__actions,
+  .kitchen-menu-form,
+  .kitchen-menu-actions {
+    grid-template-columns: 1fr;
+  }
+
+  .kitchen-menu-search-row {
+    grid-template-columns: 1fr;
+    align-items: stretch;
+  }
+
+  .kitchen-menu-filter-row {
+    justify-content: flex-start;
+  }
+
+  .kitchen-selection-actions {
+    justify-content: flex-start;
+  }
+
+  .kitchen-menu-panel {
+    padding: 0.9rem;
+  }
+
+  .kitchen-menu-panel__header,
+  .kitchen-menu-section__header,
+  .kitchen-menu-group__header {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .kitchen-menu-panel__header {
+    gap: 0.65rem;
+  }
+
+  .kitchen-menu-section__meta {
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-items: flex-start;
+    gap: 0.25rem 0.8rem;
+  }
+
+  .kitchen-menu-category-strip,
+  .kitchen-menu-category-strip--menu {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: thin;
+    padding-bottom: 0.15rem;
+  }
+
+  .kitchen-menu-category-strip__label,
+  .kitchen-menu-category-chip {
+    flex: 0 0 auto;
+  }
+
+  .kitchen-menu-category-list {
+    grid-template-columns: 1fr;
+  }
+
+  .kitchen-menu-category-row {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .kitchen-menu-group__add {
+    width: 100%;
+    min-width: 0;
+  }
+
+  .kitchen-menu-item__actions {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
 @media (max-width: 720px) {
   .page-section {
     padding: 1.5rem;

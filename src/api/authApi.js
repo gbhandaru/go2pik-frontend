@@ -1,11 +1,12 @@
 import { apiRequest } from './client.js';
 import { clearAuthTokens, getAuthToken } from '../services/authStorage.js';
+import { normalizeAppError } from '../utils/appError.js';
 
 async function safeRequest(path, options = {}) {
   try {
     return await apiRequest(path, options);
   } catch (error) {
-    throw new Error(error.message || 'Request failed');
+    throw normalizeAppError(error, error?.message || 'Request failed');
   }
 }
 
@@ -58,7 +59,7 @@ export function customerLogout(refreshToken) {
 export async function fetchCustomerProfile() {
   const token = getAuthToken();
   if (!token) {
-    throw new Error('Missing token');
+    throw normalizeAppError({ message: 'Missing token', kind: 'auth' }, 'Missing token');
   }
   try {
     return await safeRequest('/auth/customers/me');

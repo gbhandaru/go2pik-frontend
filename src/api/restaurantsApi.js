@@ -2,6 +2,6 @@ import { fetchRestaurants as fetchAllRestaurants, fetchRestaurantMenu } from './
 
 export { fetchRestaurantMenu };
 
-export function fetchRestaurants() {
-  return fetchAllRestaurants();
+export function fetchRestaurants(options = {}) {
+  return fetchAllRestaurants(options);
 }
