@@ -1984,22 +1984,47 @@ textarea {
   align-items: center;
   justify-content: center;
   padding: 2rem 1rem;
-  background: #f7f1f3;
+  background:
+    radial-gradient(circle at top, rgba(255, 255, 255, 0.55), transparent 40%),
+    linear-gradient(180deg, #f3f3f5 0%, #ececf0 100%);
 }
 
 .verification-shell {
-  width: min(720px, 100%);
+  width: min(860px, 100%);
   display: flex;
   justify-content: center;
+  padding: 1.5rem;
+  border-radius: 2rem;
+  background: linear-gradient(180deg, rgba(37, 41, 52, 0.88) 0%, rgba(73, 78, 89, 0.82) 100%);
+  box-shadow: 0 28px 80px rgba(15, 23, 42, 0.18);
 }
 
 .verification-card {
   width: 100%;
-  max-width: 680px;
+  max-width: 720px;
+  position: relative;
+  border-radius: 1.65rem;
+  padding: 1.95rem 2rem 1.7rem;
+  background: linear-gradient(180deg, #fffefc 0%, #fbf7f6 100%);
+  box-shadow: 0 18px 48px rgba(15, 23, 42, 0.14);
   display: flex;
   flex-direction: column;
   align-items: center;
   text-align: center;
+}
+
+.verification-card__close {
+  position: absolute;
+  top: 1rem;
+  right: 1rem;
+  width: 2rem;
+  height: 2rem;
+  border: none;
+  border-radius: 999px;
+  background: rgba(15, 23, 42, 0.06);
+  color: #5b5b5b;
+  font-size: 1.25rem;
+  line-height: 1;
 }
 
 .phone-modal-backdrop {
@@ -2010,22 +2035,22 @@ textarea {
   align-items: center;
   justify-content: center;
   padding: 1.25rem;
-  background: rgba(247, 241, 243, 0.92);
+  background: rgba(32, 36, 46, 0.66);
   backdrop-filter: blur(10px);
 }
 
 .phone-modal {
   position: relative;
-  width: min(600px, 100%);
+  width: min(620px, 100%);
   display: flex;
   flex-direction: column;
   align-items: center;
   text-align: center;
-  border-radius: 2rem;
-  padding: 2rem 1.8rem 1.8rem;
-  background: linear-gradient(180deg, #fffdfd 0%, #fbf4f6 100%);
-  border: 1px solid rgba(122, 96, 104, 0.14);
-  box-shadow: 0 24px 60px rgba(125, 81, 95, 0.16);
+  border-radius: 1.75rem;
+  padding: 1.95rem 2rem 1.65rem;
+  background: linear-gradient(180deg, #fffefc 0%, #fbf7f6 100%);
+  border: 1px solid rgba(122, 96, 104, 0.12);
+  box-shadow: 0 24px 64px rgba(15, 23, 42, 0.16);
 }
 
 .phone-modal__close {
@@ -2042,53 +2067,81 @@ textarea {
   line-height: 1;
 }
 
+.phone-modal__icon {
+  width: 2.4rem;
+  height: 2.4rem;
+  margin-bottom: 0.35rem;
+  color: #5d8059;
+}
+
+.phone-modal__icon svg {
+  width: 100%;
+  height: 100%;
+  fill: currentColor;
+}
+
 .phone-modal__eyebrow {
   margin: 0;
-  font-size: 0.75rem;
-  letter-spacing: 0.16em;
-  text-transform: uppercase;
-  color: #7d6670;
-  font-weight: 700;
+  font-size: 0.85rem;
+  letter-spacing: 0;
+  text-transform: none;
+  color: #313131;
+  font-weight: 600;
 }
 
 .phone-modal h2 {
-  margin: 0.62rem 0 0;
-  font-size: clamp(1.4rem, 2.8vw, 1.9rem);
-  line-height: 1.12;
-  letter-spacing: -0.035em;
+  margin: 0.4rem 0 0;
+  font-size: clamp(1.35rem, 2.6vw, 1.75rem);
+  line-height: 1.22;
+  letter-spacing: -0.03em;
   color: #313131;
-  font-weight: 500;
-  max-width: 18ch;
+  font-weight: 600;
+  max-width: 22ch;
   text-wrap: balance;
 }
 
 .phone-modal__field {
-  width: min(400px, 100%);
+  width: min(410px, 100%);
   display: grid;
-  gap: 0.35rem;
-  margin-top: 1.1rem;
+  gap: 0.45rem;
+  margin-top: 1.15rem;
   text-align: left;
-  color: #5d5557;
+  color: #313131;
   font-weight: 600;
 }
 
-.phone-modal__field input {
+.phone-modal__input-shell {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
   width: 100%;
-  border: 1px solid rgba(148, 163, 184, 0.5);
-  border-radius: 0.95rem;
-  padding: 0.85rem 0.95rem;
+  border: 1px solid rgba(170, 184, 174, 0.9);
+  border-radius: 0.9rem;
+  padding: 0.2rem 0.95rem 0.2rem 0.85rem;
   background: #fff;
+}
+
+.phone-modal__country {
+  flex: 0 0 auto;
+  font-size: 1rem;
+  line-height: 1;
+}
+
+.phone-modal__input-shell input {
+  flex: 1 1 auto;
+  border: none;
+  padding: 0.75rem 0;
+  background: transparent;
   font-size: 0.98rem;
   color: #1f2937;
 }
 
-.phone-modal__field input:focus {
+.phone-modal__input-shell input:focus {
   outline: none;
-  border-color: rgba(34, 197, 94, 0.75);
-  box-shadow: 0 0 0 4px rgba(34, 197, 94, 0.12);
+  box-shadow: none;
 }
 
-.phone-modal__field input::placeholder {
+.phone-modal__input-shell input::placeholder {
   color: #a1a1aa;
 }
 
@@ -2097,16 +2150,16 @@ textarea {
 }
 
 .phone-modal__submit {
-  margin-top: 1.1rem;
-  min-width: 170px;
+  margin-top: 1.15rem;
+  min-width: 235px;
   border: none;
   border-radius: 999px;
-  padding: 0.88rem 1.35rem;
+  padding: 0.9rem 1.5rem;
   background: linear-gradient(90deg, #1d924a, #38c172);
   color: #fff;
-  font-size: 0.98rem;
+  font-size: 1rem;
   font-weight: 700;
-  box-shadow: 0 22px 40px rgba(34, 197, 94, 0.32);
+  box-shadow: 0 22px 40px rgba(34, 197, 94, 0.3);
 }
 
 .phone-modal__submit:disabled,
@@ -2118,16 +2171,33 @@ textarea {
 }
 
 .phone-modal__helper {
+  margin: 0.7rem 0 0;
+  font-size: 0.88rem;
+  color: #5e5e5e;
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  justify-content: center;
+}
+
+.phone-modal__helper span[aria-hidden="true"] {
+  color: #2f9a57;
+  font-weight: 700;
+}
+
+.phone-modal__legal {
   margin: 0.65rem 0 0;
-  font-size: 0.85rem;
-  color: #7a7a7a;
+  max-width: 31ch;
+  font-size: 0.7rem;
+  line-height: 1.35;
+  color: #8a8a8a;
 }
 
 .verification-icon {
-  width: 4.25rem;
-  height: 4.25rem;
+  width: 2.5rem;
+  height: 2.5rem;
   color: #5d8059;
-  margin-bottom: 0.5rem;
+  margin-bottom: 0.35rem;
 }
 
 .verification-icon svg {
@@ -2138,30 +2208,30 @@ textarea {
 
 .verification-card h1 {
   margin: 0;
-  font-size: clamp(1.8rem, 4vw, 2.35rem);
-  font-weight: 500;
+  font-size: clamp(1.55rem, 3.4vw, 2.05rem);
+  font-weight: 600;
   line-height: 1.1;
   letter-spacing: -0.03em;
   color: #313131;
 }
 
 .verification-lede {
-  margin: 0.8rem 0 0;
-  font-size: clamp(1.02rem, 2vw, 1.2rem);
+  margin: 0.55rem 0 0;
+  font-size: clamp(0.98rem, 1.8vw, 1.08rem);
   line-height: 1.45;
   color: #7a7a7a;
 }
 
 .verification-phone {
-  margin: 0.18rem 0 0;
-  font-size: clamp(1.08rem, 2.2vw, 1.24rem);
+  margin: 0.12rem 0 0;
+  font-size: clamp(1.02rem, 2vw, 1.12rem);
   line-height: 1.35;
   color: #313131;
   font-weight: 700;
 }
 
 .verification-meta {
-  margin-top: 0.9rem;
+  margin-top: 0.8rem;
   display: flex;
   flex-direction: column;
   gap: 0.18rem;
@@ -2182,21 +2252,21 @@ textarea {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 1rem;
-  margin-top: 1.55rem;
+  gap: 0.6rem;
+  margin-top: 1.35rem;
   flex-wrap: wrap;
 }
 
 .verification-code-box {
-  width: 5.1rem;
-  height: 5.1rem;
-  border: 1px solid #dfd7da;
-  border-radius: 0.55rem;
+  width: 3.45rem;
+  height: 3.45rem;
+  border: 1px solid #e1dbde;
+  border-radius: 0.45rem;
   background: #fff;
   box-shadow: 0 8px 22px rgba(15, 23, 42, 0.05);
   text-align: center;
-  font-size: 2rem;
-  font-weight: 500;
+  font-size: 1.35rem;
+  font-weight: 600;
   color: #313131;
   outline: none;
 }
@@ -2208,9 +2278,9 @@ textarea {
 }
 
 .verification-resend-copy {
-  margin: 1.6rem 0 0;
-  font-size: clamp(1rem, 2vw, 1.12rem);
-  color: #7d7d7d;
+  margin: 1.35rem 0 0;
+  font-size: clamp(0.95rem, 1.8vw, 1.02rem);
+  color: #666;
 }
 
 .verification-resend {
@@ -2219,14 +2289,26 @@ textarea {
   background: transparent;
   color: #5d8059;
   text-decoration: underline;
-  font-size: clamp(1.02rem, 2vw, 1.12rem);
-  font-weight: 500;
+  font-size: clamp(0.98rem, 1.9vw, 1.04rem);
+  font-weight: 600;
   padding: 0;
 }
 
-.verification-resend-meta {
-  margin: 0.25rem 0 0;
-  font-size: 0.92rem;
+.verification-change-number {
+  margin-top: 0.45rem;
+  border: none;
+  background: transparent;
+  color: #5d8059;
+  font-size: clamp(0.98rem, 1.9vw, 1.04rem);
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0;
+}
+
+.verification-change-number span[aria-hidden="true"] {
+  font-size: 1rem;
 }
 
 .verification-error {
@@ -2234,16 +2316,16 @@ textarea {
 }
 
 .verification-submit {
-  width: min(480px, 100%);
-  margin-top: 1.6rem;
+  width: min(340px, 100%);
+  margin-top: 1.35rem;
   border: none;
-  border-radius: 0.55rem;
+  border-radius: 999px;
   background: linear-gradient(135deg, #5d8059, #6f9166);
   color: #fff;
-  font-size: clamp(1.12rem, 2vw, 1.28rem);
-  font-weight: 500;
-  padding: 0.95rem 1.5rem;
-  box-shadow: 0 18px 34px rgba(93, 128, 89, 0.25);
+  font-size: clamp(1rem, 1.9vw, 1.1rem);
+  font-weight: 700;
+  padding: 0.9rem 1.5rem;
+  box-shadow: 0 18px 34px rgba(93, 128, 89, 0.24);
 }
 
 .verification-submit:disabled {

@@ -288,7 +288,7 @@ export default function RestaurantMenuPage() {
     storeCustomerOrderDraft(payload);
     clearCustomerOrderVerification();
     setShowPhoneModal(false);
-    navigate('/checkout', {
+    navigate('/verification', {
       state: {
         orderDraft: payload,
         customerName: customerName || undefined,
@@ -1116,7 +1116,7 @@ function CartSummary({
       {orderError && <p className="error-text">{orderError}</p>}
 
       <button className="primary-btn cart-preview-cta" type="button" disabled={disabled || submitting} onClick={onPlaceOrder}>
-        {submitting ? 'Continuing…' : 'Continue to checkout'}
+        {submitting ? 'Continuing…' : 'Continue to verification'}
       </button>
     </aside>
   );
@@ -1143,18 +1143,24 @@ function PhoneModal({
         <button type="button" className="phone-modal__close" onClick={onClose} aria-label="Close phone modal">
           ×
         </button>
-        <p className="phone-modal__eyebrow">Confirm your order</p>
-        <h2 id="phone-modal-title">Enter phone number to receive pickup confirmation</h2>
+        <div className="phone-modal__icon" aria-hidden="true">
+          <LockIcon />
+        </div>
+        <p className="phone-modal__eyebrow">Verify your phone</p>
+        <h2 id="phone-modal-title">We&apos;ll send a 6-digit code to confirm your order and share pickup updates</h2>
         <label className="phone-modal__field">
-          Phone number
-          <input
-            ref={phoneInputRef}
-            type="tel"
-            value={customerPhone}
-            onChange={(event) => onCustomerPhoneChange(event.target.value)}
-            placeholder="+1 555 123 4567"
-            autoComplete="tel"
-          />
+          <span>Phone number</span>
+          <div className="phone-modal__input-shell">
+            <span className="phone-modal__country" aria-hidden="true">🇺🇸</span>
+            <input
+              ref={phoneInputRef}
+              type="tel"
+              value={customerPhone}
+              onChange={(event) => onCustomerPhoneChange(event.target.value)}
+              placeholder="+1 555 123 4567"
+              autoComplete="tel"
+            />
+          </div>
         </label>
         {error ? <p className="error-text phone-modal__error">{error}</p> : null}
         <button
@@ -1163,9 +1169,15 @@ function PhoneModal({
           onClick={onSendOtp}
           disabled={!canSendCode}
         >
-          Continue to checkout
+          Send Code
         </button>
-        <p className="phone-modal__helper">Used for pickup &amp; order updates only</p>
+        <p className="phone-modal__legal">
+          By continuing, you agree to receive a one-time SMS for order verification. Message and data rates may apply.
+        </p>
+        <p className="phone-modal__helper">
+          <span aria-hidden="true">✓</span>
+          <span>Used only for order updates</span>
+        </p>
       </section>
     </div>
   );
