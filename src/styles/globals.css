@@ -3068,6 +3068,9 @@ hr {
   flex-wrap: wrap;
   gap: 0.55rem;
   align-items: center;
+  position: relative;
+  z-index: 2;
+  pointer-events: auto;
 }
 
 .kitchen-menu-category-strip__label {
@@ -3077,6 +3080,8 @@ hr {
 
 .kitchen-menu-category-chip {
   appearance: none;
+  position: relative;
+  z-index: 3;
   display: inline-flex;
   align-items: center;
   justify-content: center;

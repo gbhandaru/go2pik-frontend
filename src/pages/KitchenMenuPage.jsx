@@ -542,6 +542,10 @@ function CategoryEditor({
               key={category.id}
               type="button"
               className={`kitchen-menu-category-chip${String(activeCategoryId) === String(category.id) ? ' active' : ''}`}
+              onPointerDown={(event) => {
+                event.preventDefault();
+                onCategoryJump?.(category.id);
+              }}
               onClick={() => onCategoryJump?.(category.id)}
               aria-pressed={String(activeCategoryId) === String(category.id) ? 'true' : 'false'}
             >
