@@ -28,6 +28,48 @@ function normalizeOrdersResponse(response) {
   return [];
 }
 
+function dedupeOrders(orders) {
+  const seen = new Set();
+  const result = [];
+
+  for (const order of orders) {
+    const key = order?.id ?? order?.orderNumber ?? order?.displayId;
+    if (key != null && seen.has(String(key))) {
+      continue;
+    }
+    if (key != null) {
+      seen.add(String(key));
+    }
+    result.push(order);
+  }
+
+  return result;
+}
+
+function normalizeKitchenStatus(value) {
+  return String(value || '').trim().toLowerCase().replace(/[\s-]+/g, '_');
+}
+
+function isCompletedKitchenOrder(order) {
+  const status = normalizeKitchenStatus(order?.status);
+  return status === 'completed' || status === 'complete' || status === 'done' || status === 'finished';
+}
+
+async function loadCompletedOrdersFallback() {
+  const attempts = ['completed', 'complete', undefined];
+
+  for (const attempt of attempts) {
+    const response = await fetchOrdersByStatus(attempt);
+    const normalized = normalizeOrdersResponse(response);
+    const completedOrders = normalized.filter((order) => isCompletedKitchenOrder(order) || order?.completedAt);
+    if (completedOrders.length > 0) {
+      return completedOrders;
+    }
+  }
+
+  return [];
+}
+
 export function useKitchenOrders(status = 'new', refreshIntervalMs = 60000) {
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -37,7 +79,13 @@ export function useKitchenOrders(status = 'new', refreshIntervalMs = 60000) {
     setLoading(true);
     try {
       const response = await fetchOrdersByStatus(status);
-      setOrders(normalizeOrdersResponse(response));
+      let normalizedOrders = normalizeOrdersResponse(response);
+
+      if (status === 'completed' && normalizedOrders.length === 0) {
+        normalizedOrders = await loadCompletedOrdersFallback();
+      }
+
+      setOrders(dedupeOrders(normalizedOrders));
       setError(null);
       setLastUpdated(new Date());
     } catch (err) {

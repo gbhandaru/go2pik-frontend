@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import KitchenHeader from '../components/kitchen/KitchenHeader.jsx';
 import KitchenOrderCard from '../components/kitchen/KitchenOrderCard.jsx';
 import { restaurantUserLogout } from '../api/authApi.js';
-import { updateOrderStatus } from '../api/ordersApi.js';
+import { resolveKitchenOrderActionId, updateOrderStatus } from '../api/ordersApi.js';
 import { useKitchenOrders } from '../hooks/useKitchenOrders.js';
 import { clearKitchenAuthTokens, getKitchenRefreshToken } from '../services/authStorage.js';
 
@@ -19,11 +19,18 @@ export default function KitchenReadyPage() {
   const [actionError, setActionError] = useState(null);
 
   const handleComplete = async (order) => {
+    const actionOrderId = resolveKitchenOrderActionId(order);
+    if (!actionOrderId) {
+      setActionError('Unable to determine order id');
+      return;
+    }
+
     setActionError(null);
-    setUpdatingId(order.id);
+    setUpdatingId(actionOrderId);
     try {
-      await updateOrderStatus(order.id, 'completed');
+      await updateOrderStatus(actionOrderId, 'completed');
       await refresh();
+      navigate('/kitchen/orders', { replace: true, state: { activeStatus: 'completed' } });
     } catch (err) {
       setActionError(err.message || 'Unable to update order');
     } finally {
@@ -60,7 +67,7 @@ export default function KitchenReadyPage() {
             key={order.id}
             order={order}
             onAction={() => handleComplete(order)}
-            actionLoading={updatingId === order.id}
+            actionLoading={updatingId === resolveKitchenOrderActionId(order)}
           />
         ))}
       </section>

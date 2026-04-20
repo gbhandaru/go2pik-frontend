@@ -1,9 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import KitchenOrderCard from '../components/kitchen/KitchenOrderCard.jsx';
 import KitchenTabs from '../components/kitchen/KitchenTabs.jsx';
 import { restaurantUserLogout } from '../api/authApi.js';
-import { updateOrderStatus } from '../api/ordersApi.js';
+import { resolveKitchenOrderActionId, updateOrderStatus } from '../api/ordersApi.js';
 import { useKitchenOrders } from '../hooks/useKitchenOrders.js';
 import { clearKitchenAuthTokens, getKitchenRefreshToken } from '../services/authStorage.js';
 
@@ -200,8 +200,9 @@ function playBeep(volume = DEFAULT_SOUND_VOLUME) {
 }
 
 export default function KitchenOrdersPage() {
+  const location = useLocation();
   const navigate = useNavigate();
-  const [activeStatus, setActiveStatus] = useState('new');
+  const [activeStatus, setActiveStatus] = useState(() => location.state?.activeStatus || 'new');
   const [refreshInterval, setRefreshInterval] = useState(() =>
     safeParseStoredValue(STORAGE_KEYS.refreshInterval, 60000),
   );
@@ -377,15 +378,24 @@ export default function KitchenOrdersPage() {
 
   const handleStatusChange = async (order, targetStatus, options = {}) => {
     if (!targetStatus) return;
+    const actionOrderId = resolveKitchenOrderActionId(order);
+    if (!actionOrderId) {
+      setActionError('Unable to determine order id');
+      return;
+    }
+
     setActionError(null);
-    setUpdatingId(order.id);
+    setUpdatingId(actionOrderId);
     setUpdatingStatus(targetStatus);
     try {
-      await updateOrderStatus(order.id, targetStatus, options);
+      await updateOrderStatus(actionOrderId, targetStatus, options);
       await Promise.all([refresh(), refreshNew()]);
+      if (targetStatus === 'completed') {
+        setActiveStatus('completed');
+      }
       setFeedback({
         kind: 'success',
-        message: `Order #${order.orderNumber || order.id} moved to ${targetStatus.replace(/_/g, ' ')}`,
+        message: `Order #${order.orderNumber || actionOrderId} moved to ${targetStatus.replace(/_/g, ' ')}`,
       });
     } catch (err) {
       setActionError(err.message || 'Unable to update order status');
@@ -460,6 +470,7 @@ export default function KitchenOrdersPage() {
     ordersContent = (
       <section className={`kitchen-orders-grid${compactMode ? ' kitchen-orders-grid--compact' : ''}`}>
         {visibleOrders.map((order) => {
+          const actionOrderId = resolveKitchenOrderActionId(order);
           const ageMinutes = activeStatus === 'new' ? getOrderAgeMinutes(order) : null;
           return (
             <KitchenOrderCard
@@ -494,8 +505,8 @@ export default function KitchenOrdersPage() {
                       ]
                     : []
               }
-              actionLoading={updatingId === order.id}
-              loadingActionStatus={updatingId === order.id ? updatingStatus : null}
+              actionLoading={updatingId === actionOrderId}
+              loadingActionStatus={updatingId === actionOrderId ? updatingStatus : null}
             />
           );
         })}

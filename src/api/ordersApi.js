@@ -4,6 +4,93 @@ import { getKitchenRestaurantId } from '../services/authStorage.js';
 
 let kitchenOrdersState = mockKitchenOrders.map((order) => ({ ...order }));
 
+function isUsableKitchenOrderId(value) {
+  if (value == null) {
+    return false;
+  }
+
+  if (typeof value === 'number') {
+    return Number.isFinite(value);
+  }
+
+  if (typeof value !== 'string') {
+    return false;
+  }
+
+  return value.trim().length > 0;
+}
+
+function isNumericKitchenOrderId(value) {
+  if (typeof value === 'number') {
+    return Number.isFinite(value);
+  }
+
+  if (typeof value !== 'string') {
+    return false;
+  }
+
+  return /^\d+$/.test(value.trim());
+}
+
+function pickKitchenOrderId(order, keys) {
+  if (!order || typeof order !== 'object') {
+    return null;
+  }
+
+  for (const key of keys) {
+    if (!(key in order)) {
+      continue;
+    }
+
+    const value = order[key];
+    if (isNumericKitchenOrderId(value)) {
+      return value;
+    }
+  }
+
+  for (const key of keys) {
+    if (!(key in order)) {
+      continue;
+    }
+
+    const value = order[key];
+    if (isUsableKitchenOrderId(value)) {
+      return value;
+    }
+  }
+
+  return null;
+}
+
+export function resolveKitchenOrderActionId(order) {
+  const direct = pickKitchenOrderId(order, [
+    'id',
+    'orderId',
+    'order_id',
+    'dbId',
+    'databaseId',
+    'database_id',
+    'backendId',
+    'backend_id',
+    'kitchenOrderId',
+    'kitchen_order_id',
+  ]);
+  if (direct != null) {
+    return direct;
+  }
+
+  const alternate = pickKitchenOrderId(order, [
+    'orderNumber',
+    'order_number',
+    'displayId',
+    'display_id',
+    'reference',
+    'referenceNumber',
+    'reference_number',
+  ]);
+  return alternate;
+}
+
 function getMockKitchenOrders(restaurantId, status) {
   return kitchenOrdersState.filter((order) => {
     const matchesRestaurant = !restaurantId || order.restaurantId === restaurantId;
@@ -13,6 +100,10 @@ function getMockKitchenOrders(restaurantId, status) {
 }
 
 function updateMockKitchenOrderStatus(restaurantId, orderId, status) {
+  if (!restaurantId) {
+    throw new Error('restaurantId is required');
+  }
+
   const index = kitchenOrdersState.findIndex(
     (order) => order.id === orderId && (!restaurantId || order.restaurantId === restaurantId),
   );
@@ -22,6 +113,15 @@ function updateMockKitchenOrderStatus(restaurantId, orderId, status) {
   const updated = { ...kitchenOrdersState[index], status };
   kitchenOrdersState[index] = updated;
   return updated;
+}
+
+function getKitchenRestaurantIdOrThrow() {
+  const restaurantId = getKitchenRestaurantId();
+  if (!restaurantId) {
+    throw new Error('restaurantId is required');
+  }
+
+  return restaurantId;
 }
 
 async function withFallback(path, options, fallback) {
@@ -96,10 +196,7 @@ export function fetchOrders() {
 }
 
 export function fetchOrdersByStatus(status) {
-  const restaurantId = getKitchenRestaurantId() || mockRestaurants[0]?.id;
-  if (!restaurantId) {
-    throw new Error('restaurantId is required');
-  }
+  const restaurantId = getKitchenRestaurantIdOrThrow();
 
   const query = status ? `?status=${encodeURIComponent(status)}` : '';
   return withFallback(
@@ -110,10 +207,7 @@ export function fetchOrdersByStatus(status) {
 }
 
 function getKitchenActionRequest(orderId, status, options = {}) {
-  const restaurantId = getKitchenRestaurantId() || mockRestaurants[0]?.id;
-  if (!restaurantId) {
-    throw new Error('restaurantId is required');
-  }
+  const restaurantId = getKitchenRestaurantIdOrThrow();
 
   const actionPaths = {
     accepted: `/dashboard/orders/${encodeURIComponent(orderId)}/accept`,
@@ -145,7 +239,7 @@ export function updateOrderStatus(orderId, status, options = {}) {
   }).catch((error) => {
     if (error.status === 404) {
       return updateMockKitchenOrderStatus(
-        getKitchenRestaurantId() || mockRestaurants[0]?.id,
+        getKitchenRestaurantIdOrThrow(),
         orderId,
         status,
       );
