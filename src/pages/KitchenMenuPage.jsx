@@ -1032,7 +1032,9 @@ export default function KitchenMenuPage() {
     if (!target) {
       return;
     }
-    target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    const targetTop = target.getBoundingClientRect().top + window.scrollY;
+    const offsetTop = Math.max(0, targetTop - 110);
+    window.scrollTo({ top: offsetTop, behavior: 'smooth' });
     target.focus({ preventScroll: true });
   };
 
