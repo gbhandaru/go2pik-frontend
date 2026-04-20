@@ -510,6 +510,8 @@ function CategoryEditor({
   onChange,
   onSave,
   onEdit,
+  onCategoryJump,
+  activeCategoryId,
   onCancel,
   saving,
   editing,
@@ -532,9 +534,15 @@ function CategoryEditor({
         <span className="kitchen-menu-category-strip__label">Categories:</span>
         {categories.length ? (
           categories.map((category) => (
-            <span key={category.id} className="kitchen-menu-category-chip">
+            <button
+              key={category.id}
+              type="button"
+              className={`kitchen-menu-category-chip${String(activeCategoryId) === String(category.id) ? ' active' : ''}`}
+              onClick={() => onCategoryJump?.(category.id)}
+              aria-pressed={String(activeCategoryId) === String(category.id) ? 'true' : 'false'}
+            >
               {category.name}
-            </span>
+            </button>
           ))
         ) : (
           <span className="muted">No categories yet</span>
@@ -722,6 +730,8 @@ export default function KitchenMenuPage() {
   const feedbackTimerRef = useRef(null);
   const itemEditorRef = useRef(null);
   const categoryEditorRef = useRef(null);
+  const groupSectionRefs = useRef(new Map());
+  const [activeCategoryId, setActiveCategoryId] = useState('');
 
   const loadMenu = useCallback(async () => {
     setLoading(true);
@@ -785,6 +795,51 @@ export default function KitchenMenuPage() {
       categoryEditorRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
     }
   }, [categoryEditorOpen]);
+
+  useEffect(() => {
+    if (!groupedItems.length || typeof window === 'undefined' || !('IntersectionObserver' in window)) {
+      return undefined;
+    }
+
+    const observer = new window.IntersectionObserver(
+      (entries) => {
+        const viewCenter = window.innerHeight / 2;
+        const closestEntry = entries
+          .filter((entry) => entry.isIntersecting)
+          .map((entry) => ({
+            entry,
+            distance: Math.abs(entry.boundingClientRect.top + entry.boundingClientRect.height / 2 - viewCenter),
+          }))
+          .sort((a, b) => a.distance - b.distance)[0]?.entry;
+
+        if (!closestEntry) {
+          return;
+        }
+
+        const nextCategoryId = closestEntry.target.getAttribute('data-category-id') || '';
+        if (nextCategoryId) {
+          setActiveCategoryId((current) => (current === nextCategoryId ? current : nextCategoryId));
+        }
+      },
+      {
+        root: null,
+        rootMargin: '-35% 0px -35% 0px',
+        threshold: 0.15,
+      },
+    );
+
+    groupedItems.forEach((group) => {
+      if (!group.category?.id) {
+        return;
+      }
+      const node = groupSectionRefs.current.get(String(group.category.id));
+      if (node) {
+        observer.observe(node);
+      }
+    });
+
+    return () => observer.disconnect();
+  }, [groupedItems]);
 
   const categoryOptions = useMemo(() => normalizeCategories(categories), [categories]);
   const filteredMenuItems = useMemo(
@@ -963,6 +1018,16 @@ export default function KitchenMenuPage() {
     setEditingCategoryId(category.id);
     setCategoryForm(toCategoryForm(category));
     setCategoryEditorOpen(true);
+  };
+
+  const handleCategoryJump = (categoryId) => {
+    setActiveCategoryId(String(categoryId));
+    const target = groupSectionRefs.current.get(String(categoryId));
+    if (!target) {
+      return;
+    }
+    target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    target.focus({ preventScroll: true });
   };
 
   const handleSaveCategory = async () => {
@@ -1329,7 +1394,23 @@ export default function KitchenMenuPage() {
           <div className="kitchen-menu-groups">
             {groupedItems.length ? (
               groupedItems.map((group) => (
-                <section key={group.key} className="kitchen-menu-group">
+                <section
+                  key={group.key}
+                  className="kitchen-menu-group"
+                  data-category-id={group.category?.id ? String(group.category.id) : undefined}
+                  ref={(node) => {
+                    if (!group.category?.id) {
+                      return;
+                    }
+                    const key = String(group.category.id);
+                    if (node) {
+                      groupSectionRefs.current.set(key, node);
+                    } else {
+                      groupSectionRefs.current.delete(key);
+                    }
+                  }}
+                  tabIndex={-1}
+                >
                   <div className="kitchen-menu-group__header">
                     <div className="kitchen-menu-group__title">
                       <h3>{group.title}</h3>
@@ -1377,6 +1458,8 @@ export default function KitchenMenuPage() {
             onChange={handleCategoryFieldChange}
             onSave={handleSaveCategory}
             onEdit={handleCategoryEdit}
+            onCategoryJump={handleCategoryJump}
+            activeCategoryId={activeCategoryId}
             onCancel={closePanels}
             onToggleOpen={handleToggleCategoryEditor}
             isOpen={categoryEditorOpen}

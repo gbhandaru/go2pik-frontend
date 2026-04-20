@@ -2818,7 +2818,7 @@ hr {
   margin: 0;
   font-size: clamp(1.3rem, 2vw, 1.6rem);
   line-height: 1.1;
-  color: #1f2937;
+  color: #ffffff;
 }
 
 .kitchen-dashboard__updated {
@@ -3059,6 +3059,7 @@ hr {
 }
 
 .kitchen-menu-category-chip {
+  appearance: none;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -3068,6 +3069,24 @@ hr {
   border: 1px solid #e2e8f0;
   color: #334155;
   font-weight: 700;
+  cursor: pointer;
+  transition: background 0.18s ease, border-color 0.18s ease, color 0.18s ease, transform 0.18s ease;
+}
+
+.kitchen-menu-category-chip:hover,
+.kitchen-menu-category-chip:focus-visible {
+  background: #ecfdf5;
+  border-color: #22c55e;
+  color: #166534;
+  transform: translateY(-1px);
+  outline: none;
+}
+
+.kitchen-menu-category-chip.active {
+  background: linear-gradient(135deg, #14532d 0%, #16a34a 100%);
+  border-color: #14532d;
+  color: #ffffff;
+  box-shadow: 0 10px 18px rgba(22, 163, 74, 0.2);
 }
 
 .kitchen-menu-category-list {
