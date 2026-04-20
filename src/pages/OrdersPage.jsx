@@ -16,7 +16,7 @@ export default function OrdersPage() {
   const { data, loading, error, errorInfo } = useFetch(
     () =>
       customerId
-        ? fetchCustomerOrders(customerId, { allowFallback: false })
+        ? fetchCustomerOrders(customerId)
         : Promise.reject(new Error('Customer profile is unavailable.')),
     [customerId, retryKey],
   );

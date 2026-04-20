@@ -1,5 +1,4 @@
 import { apiRequest } from './client.js';
-import { mockOrders } from './mockData.js';
 
 function normalizeCustomerOrdersResponse(response) {
   if (!response || typeof response !== 'object') {
@@ -33,19 +32,5 @@ export function fetchCustomerOrders(customerId, options = {}) {
     return Promise.reject(new Error('customerId is required'));
   }
 
-  const request = apiRequest(`/customers/${encodeURIComponent(customerId)}/orders`)
-    .then(normalizeCustomerOrdersResponse)
-    .catch((error) => {
-      if (options.allowFallback === false) {
-        throw error;
-      }
-
-      console.warn(`[api] Falling back for customer orders:`, error.message);
-      return {
-        customer: null,
-        orders: mockOrders,
-      };
-    });
-
-  return request;
+  return apiRequest(`/customers/${encodeURIComponent(customerId)}/orders`).then(normalizeCustomerOrdersResponse);
 }

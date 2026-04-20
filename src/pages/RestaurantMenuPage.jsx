@@ -33,7 +33,7 @@ export default function RestaurantMenuPage() {
   const [retryKey, setRetryKey] = useState(0);
   const phoneInputRef = useRef(null);
   const { data, loading, error, errorInfo } = useFetch(
-    () => fetchRestaurantMenu(restaurantId, { allowFallback: false }),
+    () => fetchRestaurantMenu(restaurantId),
     [restaurantId, retryKey],
   );
   const {
@@ -41,7 +41,7 @@ export default function RestaurantMenuPage() {
   } = useFetch(
     () =>
       customerId
-        ? fetchCustomerOrders(customerId, { allowFallback: false })
+        ? fetchCustomerOrders(customerId)
         : Promise.resolve({ customer: null, orders: [] }),
     [customerId, retryKey],
   );
