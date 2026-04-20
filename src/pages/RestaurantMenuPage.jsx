@@ -1,13 +1,14 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Navigate, useNavigate, useParams } from 'react-router-dom';
 import { fetchRestaurantMenu } from '../api/restaurantsApi.js';
+import { fetchCustomerOrders } from '../api/customersApi.js';
 import AsyncState from '../components/shared/AsyncState.jsx';
 import { useFetch } from '../hooks/useFetch.js';
 import { formatCurrency } from '../utils/formatCurrency.js';
 import { getRestaurantAddressLines } from '../utils/formatRestaurantAddress.js';
 import { useAuth } from '../hooks/useAuth.jsx';
 import { clearCustomerOrderVerification, getCustomerOrderDraft, storeCustomerOrderDraft } from '../services/authStorage.js';
-import { getCustomerPhone } from '../utils/customerIdentity.js';
+import { getCustomerId, getCustomerPhone } from '../utils/customerIdentity.js';
 
 const PICKUP_MODES = {
   ASAP: 'ASAP',
@@ -21,6 +22,7 @@ export default function RestaurantMenuPage() {
   const navigate = useNavigate();
   const { user, canAccessCustomerFlow } = useAuth();
   const customerName = useMemo(() => getCustomerDisplayName(user), [user]);
+  const customerId = useMemo(() => getCustomerId(user), [user]);
   const initialCustomerPhone = useMemo(() => getCustomerPhone(user) || '', [user]);
   const [cart, setCart] = useState([]);
   const [selectedPickupMode, setSelectedPickupMode] = useState(PICKUP_MODES.ASAP);
@@ -33,6 +35,15 @@ export default function RestaurantMenuPage() {
   const { data, loading, error, errorInfo } = useFetch(
     () => fetchRestaurantMenu(restaurantId, { allowFallback: false }),
     [restaurantId, retryKey],
+  );
+  const {
+    data: customerOrdersData,
+  } = useFetch(
+    () =>
+      customerId
+        ? fetchCustomerOrders(customerId, { allowFallback: false })
+        : Promise.resolve({ customer: null, orders: [] }),
+    [customerId, retryKey],
   );
   const asapReadyTime = useMemo(() => getTimeFromNow(PICKUP_WINDOW_MINUTES), []);
   const earliestAvailableTime = useMemo(() => getTimeFromNow(EARLIEST_PICKUP_MINUTES), []);
@@ -101,14 +112,14 @@ export default function RestaurantMenuPage() {
   const lastOrder = useMemo(() => {
     const sourceItems = data?.lastOrder?.items?.length ? data.lastOrder.items : [];
     if (!sourceItems.length) {
-      return null;
+      return getLastOrderFromHistory(customerOrdersData?.orders, restaurantId);
     }
     return {
       id: data?.lastOrder?.id || null,
       items: sourceItems,
       summary: sourceItems.map((item) => `${item.quantity}× ${item.name}`).join(', '),
     };
-  }, [data?.lastOrder]);
+  }, [data?.lastOrder, customerOrdersData?.orders, restaurantId]);
 
   const addToCart = (menuItem, options = {}) => {
     setCart((prev) => {
@@ -528,12 +539,17 @@ function ReorderCard({ items = [], hasOrder, onReorder, onReorderItem }) {
             ))}
           </ul>
         ) : (
-          <p className="muted">We will show your recent order here.</p>
+          <p className="muted">No recent order found. Reorder will be enabled after you place a previous order here.</p>
         )}
       </div>
-      <button type="button" className="reorder-card__button" onClick={onReorder} disabled={!hasOrder}>
-        Reorder
-      </button>
+      <div className="reorder-card__footer">
+        <p className="muted reorder-card__helper">
+          {hasOrder ? 'Tap an item or use Reorder to add your last order again.' : 'No recent order found.'}
+        </p>
+        <button type="button" className="reorder-card__button" onClick={onReorder} disabled={!hasOrder}>
+          Reorder
+        </button>
+      </div>
     </section>
   );
 }
@@ -1223,6 +1239,81 @@ function getAsapReadyLabel(value) {
 
 function getEarliestAvailableLabel(value) {
   return value ? `Earliest available: ${formatTime(value)}` : '';
+}
+
+function getLastOrderFromHistory(orders = [], restaurantId) {
+  if (!restaurantId || !Array.isArray(orders) || !orders.length) {
+    return null;
+  }
+
+  const latestOrder = [...orders]
+    .filter((order) => matchesRestaurantId(order, restaurantId))
+    .sort((a, b) => getOrderTimeValue(b) - getOrderTimeValue(a))[0];
+
+  if (!latestOrder) {
+    return null;
+  }
+
+  const items = normalizeOrderItems(latestOrder);
+  if (!items.length) {
+    return null;
+  }
+
+  return {
+    id: latestOrder.id || latestOrder.orderNumber || null,
+    items,
+    summary: items.map((item) => `${item.quantity}× ${item.name}`).join(', '),
+  };
+}
+
+function matchesRestaurantId(order, restaurantId) {
+  const orderRestaurantId =
+    order?.restaurantId ||
+    order?.restaurant?.id ||
+    order?.restaurant_id ||
+    order?.restaurant?.restaurantId ||
+    order?.restaurant?.restaurant_id ||
+    '';
+
+  return String(orderRestaurantId).trim() === String(restaurantId).trim();
+}
+
+function normalizeOrderItems(order) {
+  const rawItems =
+    order?.items ||
+    order?.orderItems ||
+    order?.order_items ||
+    order?.lineItems ||
+    order?.line_items ||
+    [];
+
+  if (!Array.isArray(rawItems)) {
+    return [];
+  }
+
+  return rawItems
+    .map((item) => ({
+      ...item,
+      id: item?.id || item?.menuItemId || item?.menu_item_id || item?.sku || item?.name,
+      name: item?.name || item?.title || item?.label || 'Item',
+      price: Number(item?.price ?? item?.unitPrice ?? item?.unit_price ?? 0),
+      quantity: Number(item?.quantity || 1),
+    }))
+    .filter((item) => item.id && item.name);
+}
+
+function getOrderTimeValue(order) {
+  const raw =
+    order?.created_at ||
+    order?.createdAt ||
+    order?.placedAt ||
+    order?.orderedAt ||
+    order?.submittedAt ||
+    order?.updatedAt ||
+    order?.updated_at ||
+    0;
+  const date = new Date(raw);
+  return Number.isNaN(date.getTime()) ? 0 : date.getTime();
 }
 
 function toScheduledTimeInput(value) {
