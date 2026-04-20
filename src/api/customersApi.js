@@ -28,18 +28,24 @@ export function sendWelcomeEmail(customerId) {
   });
 }
 
-export function fetchCustomerOrders(customerId) {
+export function fetchCustomerOrders(customerId, options = {}) {
   if (!customerId) {
     return Promise.reject(new Error('customerId is required'));
   }
 
-  return apiRequest(`/customers/${encodeURIComponent(customerId)}/orders`)
+  const request = apiRequest(`/customers/${encodeURIComponent(customerId)}/orders`)
     .then(normalizeCustomerOrdersResponse)
     .catch((error) => {
+      if (options.allowFallback === false) {
+        throw error;
+      }
+
       console.warn(`[api] Falling back for customer orders:`, error.message);
       return {
         customer: null,
         orders: mockOrders,
       };
     });
+
+  return request;
 }

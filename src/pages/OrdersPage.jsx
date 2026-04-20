@@ -1,6 +1,7 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { fetchCustomerOrders } from '../api/customersApi.js';
+import AsyncState from '../components/shared/AsyncState.jsx';
 import { useAuth } from '../hooks/useAuth.jsx';
 import { useFetch } from '../hooks/useFetch.js';
 import { formatCurrency } from '../utils/formatCurrency.js';
@@ -9,11 +10,15 @@ import { getCustomerDisplayName, getCustomerId } from '../utils/customerIdentity
 export default function OrdersPage() {
   const navigate = useNavigate();
   const { user } = useAuth();
+  const [retryKey, setRetryKey] = useState(0);
   const customerId = useMemo(() => getCustomerId(user), [user]);
   const customerName = useMemo(() => getCustomerDisplayName(user), [user]);
-  const { data, loading, error } = useFetch(
-    () => (customerId ? fetchCustomerOrders(customerId) : Promise.resolve({ customer: null, orders: [] })),
-    [customerId],
+  const { data, loading, error, errorInfo } = useFetch(
+    () =>
+      customerId
+        ? fetchCustomerOrders(customerId, { allowFallback: false })
+        : Promise.reject(new Error('Customer profile is unavailable.')),
+    [customerId, retryKey],
   );
 
   const customer = data?.customer || user || null;
@@ -21,6 +26,10 @@ export default function OrdersPage() {
   const resolvedCustomerName = getCustomerDisplayName(customer) || customerName || 'Customer';
   const resolvedPhone = customer?.phone || customer?.phone_number || user?.phone || user?.phone_number || '';
   const resolvedEmail = customer?.email || user?.email || '';
+  const ordersErrorMessage =
+    errorInfo?.offline
+      ? 'You appear to be offline. Check your connection and try again.'
+      : 'We’re having trouble loading your orders right now. Please try again.';
 
   const handleReorder = (order) => {
     const restaurantId = order?.restaurant?.id;
@@ -30,10 +39,14 @@ export default function OrdersPage() {
     navigate(`/restaurants/${restaurantId}/menu`);
   };
 
+  const handleRetryOrders = () => {
+    setRetryKey((current) => current + 1);
+  };
+
   if (loading) {
     return (
       <main className="page-section customer-orders-page">
-        <div className="page-empty-state">Loading your orders...</div>
+        <AsyncState title="Loading your orders" message="Please wait while we load your order history." loading />
       </main>
     );
   }
@@ -41,7 +54,14 @@ export default function OrdersPage() {
   if (error) {
     return (
       <main className="page-section customer-orders-page">
-        <div className="page-empty-state">{error}</div>
+        <AsyncState
+          title="Orders unavailable"
+          message={ordersErrorMessage}
+          primaryActionLabel="Retry"
+          onPrimaryAction={handleRetryOrders}
+          secondaryActionLabel="Back to restaurants"
+          onSecondaryAction={() => navigate('/')}
+        />
       </main>
     );
   }
