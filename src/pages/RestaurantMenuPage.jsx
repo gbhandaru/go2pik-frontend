@@ -1152,7 +1152,7 @@ function CartSummary({
       {orderError && <p className="error-text">{orderError}</p>}
 
       <button className="primary-btn cart-preview-cta" type="button" disabled={disabled || submitting} onClick={onPlaceOrder}>
-        {submitting ? 'Continuing…' : 'Continue to verification'}
+        {submitting ? 'Placing order…' : 'Place Order'}
       </button>
     </aside>
   );

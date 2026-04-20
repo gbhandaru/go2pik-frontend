@@ -18,6 +18,7 @@ import {
 import { getCustomerDisplayName } from '../utils/customerIdentity.js';
 
 const DEFAULT_OTP_LENGTH = ENV.OTP_LENGTH;
+const VERIFICATION_START_TIMEOUT_MS = 12000;
 
 export default function VerificationPage() {
   const navigate = useNavigate();
@@ -123,7 +124,11 @@ export default function VerificationPage() {
       setStarting(true);
       setError('');
       try {
-        const response = await startOrderVerification(payload);
+        const response = await withTimeout(
+          startOrderVerification(payload),
+          VERIFICATION_START_TIMEOUT_MS,
+          'Verification is taking longer than expected. Please retry from the menu.',
+        );
         if (!active) {
           return;
         }
@@ -473,6 +478,22 @@ function formatCountdown(diffMs) {
 function normalizePositiveInteger(value, fallback) {
   const parsed = Number.parseInt(value, 10);
   return Number.isInteger(parsed) && parsed > 0 ? parsed : fallback;
+}
+
+function withTimeout(promise, timeoutMs, timeoutMessage) {
+  let timeoutId;
+  const timeoutPromise = new Promise((_, reject) => {
+    timeoutId = window.setTimeout(() => {
+      reject(new Error(timeoutMessage));
+    }, timeoutMs);
+  });
+
+  return Promise.race([
+    promise.finally(() => {
+      window.clearTimeout(timeoutId);
+    }),
+    timeoutPromise,
+  ]);
 }
 
 function buildVerificationStartPayload(orderDraft, customerName, customerPhone) {
