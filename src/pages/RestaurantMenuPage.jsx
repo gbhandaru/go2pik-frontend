@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Navigate, useNavigate, useParams } from 'react-router-dom';
 import { fetchRestaurantMenu } from '../api/restaurantsApi.js';
+import AsyncState from '../components/shared/AsyncState.jsx';
 import { useFetch } from '../hooks/useFetch.js';
 import { formatCurrency } from '../utils/formatCurrency.js';
 import { getRestaurantAddressLines } from '../utils/formatRestaurantAddress.js';
@@ -26,8 +27,12 @@ export default function RestaurantMenuPage() {
   const [orderError, setOrderError] = useState('');
   const [customerPhoneInput, setCustomerPhoneInput] = useState(initialCustomerPhone);
   const [showPhoneModal, setShowPhoneModal] = useState(false);
+  const [retryKey, setRetryKey] = useState(0);
   const phoneInputRef = useRef(null);
-  const { data, loading, error } = useFetch(() => fetchRestaurantMenu(restaurantId), [restaurantId]);
+  const { data, loading, error, errorInfo } = useFetch(
+    () => fetchRestaurantMenu(restaurantId, { allowFallback: false }),
+    [restaurantId, retryKey],
+  );
   const asapReadyTime = useMemo(() => getTimeFromNow(PICKUP_WINDOW_MINUTES), []);
   const earliestAvailableTime = useMemo(() => getTimeFromNow(EARLIEST_PICKUP_MINUTES), []);
   const canBrowseMenu = canAccessCustomerFlow;
@@ -78,25 +83,19 @@ export default function RestaurantMenuPage() {
   const menu = data?.menu || [];
   const categories = data?.categories || data?.menuCategories || data?.menu_categories || [];
   const restaurant = data?.restaurant;
+  const hasMenuItems = menu.length > 0;
 
   const lastOrder = useMemo(() => {
-    const sourceItems = data?.lastOrder?.items?.length
-      ? data.lastOrder.items
-      : menu.slice(0, 2).map((item) => ({
-          id: item.id,
-          name: item.name,
-          price: item.price,
-          quantity: 1,
-        }));
+    const sourceItems = data?.lastOrder?.items?.length ? data.lastOrder.items : [];
     if (!sourceItems.length) {
       return null;
     }
     return {
-      id: data?.lastOrder?.id || 'mock-last-order',
+      id: data?.lastOrder?.id || null,
       items: sourceItems,
       summary: sourceItems.map((item) => `${item.quantity}× ${item.name}`).join(', '),
     };
-  }, [data?.lastOrder, menu]);
+  }, [data?.lastOrder]);
 
   const addToCart = (menuItem, options = {}) => {
     setCart((prev) => {
@@ -200,6 +199,16 @@ export default function RestaurantMenuPage() {
   const missingScheduledTime = selectedPickupMode === PICKUP_MODES.SCHEDULED && !scheduledPickupTime;
   const asapReadyLabel = getAsapReadyLabel(asapReadyTime);
   const earliestAvailableLabel = getEarliestAvailableLabel(earliestAvailableTime);
+  const menuErrorMessage =
+    errorInfo?.offline
+      ? 'You appear to be offline. Check your connection and try again.'
+      : errorInfo?.kind === 'not_found'
+      ? 'This restaurant menu is not available right now.'
+      : 'We are having trouble loading this menu. Please try again.';
+
+  const handleRetryMenu = () => {
+    setRetryKey((current) => current + 1);
+  };
 
   const handlePlaceOrder = async () => {
     setOrderError('');
@@ -262,14 +271,6 @@ export default function RestaurantMenuPage() {
     });
   };
 
-  if (loading) {
-    return (
-      <main className="page-section">
-        <div className="page-empty-state">Loading menu...</div>
-      </main>
-    );
-  }
-
   if (!canBrowseMenu) {
     return (
       <Navigate
@@ -280,10 +281,25 @@ export default function RestaurantMenuPage() {
     );
   }
 
-  if (error || !data?.restaurant) {
+  if (loading) {
     return (
       <main className="page-section">
-        <div className="page-empty-state">Unable to load this restaurant right now.</div>
+        <AsyncState title="Loading menu" message="Please wait while we load this restaurant." loading />
+      </main>
+    );
+  }
+
+  if (error || !restaurant) {
+    return (
+      <main className="page-section">
+        <AsyncState
+          title="Menu unavailable"
+          message={menuErrorMessage}
+          primaryActionLabel="Retry"
+          onPrimaryAction={handleRetryMenu}
+          secondaryActionLabel="Back to restaurants"
+          onSecondaryAction={() => navigate('/home')}
+        />
       </main>
     );
   }
@@ -320,15 +336,26 @@ export default function RestaurantMenuPage() {
             onReorderItem={reorderSingleItem}
           />
 
-          <MenuList
-            menu={menu}
-            categories={categories}
-            quantityById={quantityById}
-            cartItemById={cartItemById}
-            onAdd={addToCart}
-            onUpdate={updateQuantity}
-            onUpdateInstructions={updateInstructions}
-          />
+          {hasMenuItems ? (
+            <MenuList
+              menu={menu}
+              categories={categories}
+              quantityById={quantityById}
+              cartItemById={cartItemById}
+              onAdd={addToCart}
+              onUpdate={updateQuantity}
+              onUpdateInstructions={updateInstructions}
+            />
+          ) : (
+            <AsyncState
+              title="No menu items available"
+              message="This restaurant has not published any items yet."
+              primaryActionLabel="Retry"
+              onPrimaryAction={handleRetryMenu}
+              secondaryActionLabel="Back to restaurants"
+              onSecondaryAction={() => navigate('/home')}
+            />
+          )}
         </div>
 
         <CartSummary
@@ -552,7 +579,7 @@ function MenuList({ menu, categories, quantityById, cartItemById, onAdd, onUpdat
   }, [activeCategory, displayedGroups]);
 
   if (!menu.length) {
-    return <p className="muted">Menu unavailable right now.</p>;
+    return null;
   }
 
   return (
