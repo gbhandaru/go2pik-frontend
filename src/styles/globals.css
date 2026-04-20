@@ -978,12 +978,143 @@ textarea {
   box-shadow: 0 10px 20px rgba(95, 125, 88, 0.16);
 }
 
+.pickup-tab.is-disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
 .pickup-details {
   font-size: 0.92rem;
   color: #1f2937;
   display: flex;
   flex-direction: column;
   gap: 0.1rem;
+}
+
+.pickup-availability {
+  display: grid;
+  grid-template-columns: minmax(0, 1.2fr) minmax(180px, 0.8fr);
+  gap: 0.75rem;
+  padding: 0.8rem 0.85rem;
+  border-radius: 1rem;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+}
+
+.pickup-availability__status,
+.pickup-availability__hours {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+
+.pickup-availability__status p,
+.pickup-availability__hours p {
+  margin: 0;
+}
+
+.pickup-status-badge {
+  align-self: flex-start;
+  display: inline-flex;
+  align-items: center;
+  border-radius: 999px;
+  padding: 0.26rem 0.7rem;
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+}
+
+.pickup-status-badge.is-open {
+  background: rgba(22, 163, 74, 0.14);
+  color: #15803d;
+}
+
+.pickup-status-badge.is-closed {
+  background: rgba(239, 68, 68, 0.12);
+  color: #b91c1c;
+}
+
+.pickup-availability__message {
+  color: #374151;
+  font-weight: 500;
+}
+
+.pickup-availability__hours strong {
+  color: #111827;
+}
+
+.pickup-slot-groups {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.pickup-slot-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  padding: 0.75rem;
+  border-radius: 1rem;
+  background: #fff;
+  border: 1px solid #e2e8f0;
+}
+
+.pickup-slot-group__header {
+  display: flex;
+  flex-direction: column;
+  gap: 0.18rem;
+}
+
+.pickup-slot-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(110px, 1fr));
+  gap: 0.5rem;
+}
+
+.pickup-slot {
+  border: 1px solid #cbd5e1;
+  background: #f8fafc;
+  color: #334155;
+  border-radius: 0.85rem;
+  padding: 0.65rem 0.7rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.18rem;
+  align-items: flex-start;
+  font-weight: 600;
+  cursor: pointer;
+  transition: transform 0.18s ease, border-color 0.18s ease, background 0.18s ease,
+    box-shadow 0.18s ease;
+}
+
+.pickup-slot small {
+  font-size: 0.72rem;
+  font-weight: 500;
+  color: #64748b;
+}
+
+.pickup-slot:hover,
+.pickup-slot:focus-visible {
+  transform: translateY(-1px);
+  outline: none;
+  border-color: #5f7d58;
+  box-shadow: 0 10px 20px rgba(95, 125, 88, 0.1);
+}
+
+.pickup-slot.active {
+  background: linear-gradient(135deg, #5f7d58 0%, #7a9a70 100%);
+  border-color: #5f7d58;
+  color: #fff;
+  box-shadow: 0 12px 24px rgba(95, 125, 88, 0.18);
+}
+
+.pickup-slot.active small {
+  color: rgba(255, 255, 255, 0.85);
+}
+
+.pickup-slot-empty,
+.pickup-slot-selection {
+  padding: 0.2rem 0;
 }
 
 .scheduled-picker {
@@ -4762,6 +4893,50 @@ hr {
 }
 
 @media (min-width: 768px) and (max-width: 900px) and (orientation: portrait) {
+  .pickup-card {
+    padding: 0.8rem 0.9rem;
+    gap: 0.55rem;
+  }
+
+  .pickup-availability {
+    grid-template-columns: 1fr;
+    gap: 0.55rem;
+    padding: 0.7rem 0.75rem;
+  }
+
+  .pickup-availability__hours {
+    gap: 0.2rem;
+  }
+
+  .pickup-slot-group {
+    padding: 0.68rem;
+  }
+
+  .pickup-slot-groups {
+    gap: 0.6rem;
+  }
+
+  .pickup-slot-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .pickup-slot {
+    min-height: 3.35rem;
+    padding: 0.58rem 0.65rem;
+  }
+
+  .pickup-slot small {
+    font-size: 0.7rem;
+  }
+
+  .pickup-slot-selection {
+    font-size: 0.9rem;
+  }
+
+  .scheduled-picker {
+    gap: 0.5rem;
+  }
+
   .kitchen-page {
     gap: 1rem;
   }

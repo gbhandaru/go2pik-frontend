@@ -16,6 +16,8 @@ const PICKUP_MODES = {
 };
 const PICKUP_WINDOW_MINUTES = 20;
 const EARLIEST_PICKUP_MINUTES = 15;
+const PICKUP_SLOT_STEP_MINUTES = 15;
+const PICKUP_SLOT_LOOKAHEAD_DAYS = 7;
 
 export default function RestaurantMenuPage() {
   const { restaurantId } = useParams();
@@ -57,7 +59,7 @@ export default function RestaurantMenuPage() {
     if (matchesRestaurant) {
       setCart(Array.isArray(storedDraft.items) ? storedDraft.items.map((item) => ({ ...item })) : []);
       setSelectedPickupMode(storedDraft?.pickupRequest?.type === PICKUP_MODES.SCHEDULED ? PICKUP_MODES.SCHEDULED : PICKUP_MODES.ASAP);
-      setScheduledPickupTime(toScheduledTimeInput(storedDraft?.pickupRequest?.scheduledTime));
+      setScheduledPickupTime(storedDraft?.pickupRequest?.scheduledTime || '');
       setCustomerPhoneInput(storedDraft?.customer?.phone || storedDraft?.customerPhone || initialCustomerPhone);
       return;
     }
@@ -107,6 +109,14 @@ export default function RestaurantMenuPage() {
   const menu = data?.menu || [];
   const categories = data?.categories || data?.menuCategories || data?.menu_categories || [];
   const restaurant = data?.restaurant;
+  const pickupAvailability = useMemo(
+    () => resolvePickupAvailability(data, restaurant),
+    [data, restaurant],
+  );
+  const pickupSlotGroups = useMemo(
+    () => buildPickupSlotGroups(pickupAvailability),
+    [pickupAvailability],
+  );
   const hasMenuItems = menu.length > 0;
 
   const lastOrder = useMemo(() => {
@@ -120,6 +130,43 @@ export default function RestaurantMenuPage() {
       summary: sourceItems.map((item) => `${item.quantity}× ${item.name}`).join(', '),
     };
   }, [data?.lastOrder, customerOrdersData?.orders, restaurantId]);
+
+  useEffect(() => {
+    if (selectedPickupMode !== PICKUP_MODES.SCHEDULED) {
+      return;
+    }
+
+    const nextSelected = normalizeScheduledPickupSelection(scheduledPickupTime, pickupAvailability);
+    const firstAvailableSlot = pickupSlotGroups[0]?.slots?.[0]?.value || '';
+
+    if (nextSelected && nextSelected !== scheduledPickupTime) {
+      setScheduledPickupTime(nextSelected);
+      return;
+    }
+
+    if (!scheduledPickupTime && firstAvailableSlot) {
+      setScheduledPickupTime(firstAvailableSlot);
+      return;
+    }
+
+    if (scheduledPickupTime && !isPickupSelectionInGroups(scheduledPickupTime, pickupSlotGroups)) {
+      setScheduledPickupTime(firstAvailableSlot || '');
+    }
+  }, [pickupAvailability, pickupSlotGroups, scheduledPickupTime, selectedPickupMode]);
+
+  useEffect(() => {
+    if (pickupAvailability.asapAllowed !== false || selectedPickupMode !== PICKUP_MODES.ASAP) {
+      return;
+    }
+
+    setSelectedPickupMode(PICKUP_MODES.SCHEDULED);
+    if (!scheduledPickupTime) {
+      const firstAvailableSlot = pickupSlotGroups[0]?.slots?.[0]?.value || '';
+      if (firstAvailableSlot) {
+        setScheduledPickupTime(firstAvailableSlot);
+      }
+    }
+  }, [pickupAvailability.asapAllowed, pickupSlotGroups, scheduledPickupTime, selectedPickupMode]);
 
   const addToCart = (menuItem, options = {}) => {
     const identity = resolveMenuItemIdentity(menuItem);
@@ -221,12 +268,25 @@ export default function RestaurantMenuPage() {
     setSelectedPickupMode(mode);
     if (mode === PICKUP_MODES.ASAP) {
       setScheduledPickupTime('');
+      return;
+    }
+
+    if (!scheduledPickupTime) {
+      const firstAvailableSlot = pickupSlotGroups[0]?.slots?.[0]?.value || '';
+      if (firstAvailableSlot) {
+        setScheduledPickupTime(firstAvailableSlot);
+      }
     }
   };
 
-  const pickupSummary = getPickupSummary(selectedPickupMode, scheduledPickupTime, asapReadyTime);
+  const pickupSummary = getPickupSummary(
+    selectedPickupMode,
+    scheduledPickupTime,
+    asapReadyTime,
+    pickupAvailability,
+  );
   const missingScheduledTime = selectedPickupMode === PICKUP_MODES.SCHEDULED && !scheduledPickupTime;
-  const asapReadyLabel = getAsapReadyLabel(asapReadyTime);
+  const asapReadyLabel = getAsapReadyLabel(asapReadyTime, pickupAvailability);
   const earliestAvailableLabel = getEarliestAvailableLabel(earliestAvailableTime);
   const menuErrorMessage =
     errorInfo?.offline
@@ -245,6 +305,7 @@ export default function RestaurantMenuPage() {
       return;
     }
     if (selectedPickupMode === PICKUP_MODES.SCHEDULED && !scheduledPickupTime) {
+      setOrderError('Choose a pickup time from the available hours.');
       return;
     }
     const draft = buildCustomerOrderDraft({
@@ -346,13 +407,15 @@ export default function RestaurantMenuPage() {
           </div>
 
           <PickupTimeCard
+            pickupAvailability={pickupAvailability}
             selectedMode={selectedPickupMode}
             scheduledPickupTime={scheduledPickupTime}
             onModeChange={handlePickupModeChange}
-            onTimeChange={setScheduledPickupTime}
+            onSelectPickupTime={setScheduledPickupTime}
             showTimeError={missingScheduledTime}
             asapReadyLabel={asapReadyLabel}
             earliestAvailableLabel={earliestAvailableLabel}
+            scheduledPickupGroups={pickupSlotGroups}
           />
 
           <ReorderCard
@@ -389,8 +452,6 @@ export default function RestaurantMenuPage() {
           total={total}
           totalItems={totalItems}
           pickupSummary={pickupSummary}
-          pickupMode={selectedPickupMode}
-          scheduledPickupTime={scheduledPickupTime}
           paymentMessage="No online payment required"
           disabled={!cart.length || missingScheduledTime}
           orderError={orderError}
@@ -442,7 +503,10 @@ function buildCustomerOrderDraft({
     lineTotal: price * quantity,
     specialInstructions: cartItemById[id]?.specialInstructions || '',
   }));
-  const pickupTime = selectedPickupMode === PICKUP_MODES.SCHEDULED ? buildPickupTimestamp(scheduledPickupTime) : undefined;
+  const pickupTime =
+    selectedPickupMode === PICKUP_MODES.SCHEDULED
+      ? buildPickupTimestamp(scheduledPickupTime)
+      : undefined;
 
   return {
     restaurantId: restaurant.id,
@@ -466,6 +530,329 @@ function buildCustomerOrderDraft({
   };
 }
 
+function resolvePickupAvailability(data, restaurant) {
+  const source =
+    data?.pickupAvailability ||
+    restaurant?.pickupAvailability ||
+    restaurant?.openHours ||
+    restaurant?.open_hours ||
+    null;
+
+  const timezone = source?.timezone || restaurant?.timezone || defaultTimeZone();
+  const weeklySchedule = normalizePickupWeeklySchedule(
+    source?.weeklySchedule || source?.weekly_schedule || [],
+  );
+  const today = normalizePickupDay(source?.today || {}, weeklySchedule, timezone);
+
+  return {
+    timezone,
+    asapAllowed: normalizeBoolean(source?.asapAllowed ?? restaurant?.asapAllowed, true),
+    isOpenNow: normalizeBoolean(source?.isOpenNow ?? restaurant?.isOpenNow, false),
+    statusMessage: source?.statusMessage || restaurant?.statusMessage || '',
+    today,
+    weeklySchedule,
+  };
+}
+
+function normalizePickupWeeklySchedule(schedule = []) {
+  if (!Array.isArray(schedule)) {
+    return [];
+  }
+
+  return schedule
+    .map((entry) => ({
+      day: String(entry?.day || entry?.weekday || entry?.name || '').trim(),
+      windows: normalizePickupWindows(entry?.windows || entry?.openHours || []).length
+        ? normalizePickupWindows(entry?.windows || entry?.openHours || [])
+        : createPickupWindow(entry?.openTime || entry?.open_time, entry?.closeTime || entry?.close_time),
+    }))
+    .filter((entry) => entry.day);
+}
+
+function normalizePickupDay(day = {}, weeklySchedule = [], timezone = '') {
+  const windowsSource = normalizePickupWindows(day.windows || day.openHours || []);
+  const windows = windowsSource.length
+    ? windowsSource
+    : createPickupWindow(day.openTime || day.open_time, day.closeTime || day.close_time);
+  const fallbackWeekday = day.date ? formatWeekdayFromDate(day.date, timezone) : '';
+  const weekday = String(day.weekday || day.day || fallbackWeekday || '').trim();
+  const date = day.date ? String(day.date) : '';
+  const scheduleEntry = weekday ? resolveWeeklyScheduleEntry(weeklySchedule, weekday) : null;
+  const scheduleWindowsSource = normalizePickupWindows(scheduleEntry?.windows || scheduleEntry?.openHours || []);
+  const mergedWindows = windows.length
+    ? windows
+    : scheduleWindowsSource.length
+      ? scheduleWindowsSource
+      : createPickupWindow(scheduleEntry?.openTime || scheduleEntry?.open_time, scheduleEntry?.closeTime || scheduleEntry?.close_time);
+
+  return {
+    date,
+    weekday,
+    openTime: day.openTime || day.open_time || mergedWindows[0]?.open || '',
+    closeTime: day.closeTime || day.close_time || mergedWindows[mergedWindows.length - 1]?.close || '',
+    windows: mergedWindows,
+  };
+}
+
+function normalizePickupWindows(windows = []) {
+  if (!Array.isArray(windows)) {
+    return [];
+  }
+
+  return windows
+    .map((window) => ({
+      open: String(window?.open || window?.start || window?.from || '').trim(),
+      close: String(window?.close || window?.end || window?.to || '').trim(),
+    }))
+    .filter((window) => window.open && window.close);
+}
+
+function createPickupWindow(open, close) {
+  const normalizedOpen = String(open || '').trim();
+  const normalizedClose = String(close || '').trim();
+  if (!normalizedOpen || !normalizedClose) {
+    return [];
+  }
+
+  return [{ open: normalizedOpen, close: normalizedClose }];
+}
+
+function resolveWeeklyScheduleEntry(weeklySchedule = [], weekday) {
+  const target = normalizeWeekday(weekday);
+  if (!target) {
+    return null;
+  }
+
+  return weeklySchedule.find((entry) => normalizeWeekday(entry.day) === target) || null;
+}
+
+function normalizeWeekday(value) {
+  return String(value || '')
+    .trim()
+    .toLowerCase()
+    .replace(/\s+/g, '');
+}
+
+function buildPickupSlotGroups(availability) {
+  if (!availability) {
+    return [];
+  }
+
+  const groups = [];
+  for (let offset = 0; offset < PICKUP_SLOT_LOOKAHEAD_DAYS; offset += 1) {
+    const candidateDate = new Date(Date.now() + offset * 86400000);
+    const dayParts = getDatePartsInTimeZone(candidateDate, availability.timezone);
+    const scheduleEntry = offset === 0 ? availability.today : resolveWeeklyScheduleEntry(availability.weeklySchedule, dayParts.weekday);
+    const windows = normalizePickupWindows(scheduleEntry?.windows);
+    if (!windows.length) {
+      continue;
+    }
+
+    const slots = windows.flatMap((window) => buildPickupSlotsForWindow(dayParts, window, availability.timezone));
+    if (!slots.length) {
+      continue;
+    }
+
+    groups.push({
+      key: `${dayParts.year}-${dayParts.month}-${dayParts.day}`,
+      label: formatPickupDayLabel(candidateDate, availability.timezone, offset),
+      hoursLabel: formatPickupWindows(windows, availability.timezone),
+      slots,
+    });
+  }
+
+  return groups;
+}
+
+function buildPickupSlotsForWindow(dayParts, window, timezone) {
+  const openMinutes = parseTimeToMinutes(window.open);
+  const closeMinutes = parseTimeToMinutes(window.close);
+  if (!Number.isFinite(openMinutes) || !Number.isFinite(closeMinutes) || closeMinutes <= openMinutes) {
+    return [];
+  }
+
+  const slots = [];
+  const start = Math.ceil(openMinutes / PICKUP_SLOT_STEP_MINUTES) * PICKUP_SLOT_STEP_MINUTES;
+  const end = Math.floor(closeMinutes / PICKUP_SLOT_STEP_MINUTES) * PICKUP_SLOT_STEP_MINUTES;
+
+  for (let minutes = start; minutes <= end; minutes += PICKUP_SLOT_STEP_MINUTES) {
+    const slotDate = buildDateInTimeZone(dayParts, minutes, timezone);
+    slots.push({
+      value: slotDate.toISOString(),
+      label: formatPickupTimeLabel(slotDate, timezone),
+      windowLabel: `${formatTimeRange(window.open, window.close, timezone)}`,
+    });
+  }
+
+  return slots;
+}
+
+function isPickupSelectionInGroups(value, groups = []) {
+  return groups.some((group) => group.slots.some((slot) => slot.value === value));
+}
+
+function normalizeScheduledPickupSelection(value, availability) {
+  const input = String(value || '').trim();
+  if (!input) {
+    return '';
+  }
+
+  if (input.includes('T')) {
+    const date = new Date(input);
+    return Number.isNaN(date.getTime()) ? '' : date.toISOString();
+  }
+
+  const parsed = parseTimeToMinutes(input);
+  if (!Number.isFinite(parsed)) {
+    return '';
+  }
+
+  const sourceDay = availability?.today?.date || '';
+  const sourceParts = sourceDay
+    ? getDatePartsInTimeZone(new Date(sourceDay), availability.timezone)
+    : getDatePartsInTimeZone(new Date(), availability?.timezone || defaultTimeZone());
+  return buildDateInTimeZone(sourceParts, parsed, availability?.timezone || defaultTimeZone()).toISOString();
+}
+
+function buildDateInTimeZone(dayParts, minutes, timezone) {
+  const hours = Math.floor(minutes / 60);
+  const mins = minutes % 60;
+  const target = {
+    year: dayParts.year,
+    month: dayParts.month,
+    day: dayParts.day,
+    hour: hours,
+    minute: mins,
+  };
+
+  let guess = Date.UTC(target.year, target.month - 1, target.day, target.hour, target.minute);
+  for (let iteration = 0; iteration < 4; iteration += 1) {
+    const current = getDatePartsInTimeZone(new Date(guess), timezone);
+    if (
+      current.year === target.year &&
+      current.month === target.month &&
+      current.day === target.day &&
+      current.hour === target.hour &&
+      current.minute === target.minute
+    ) {
+      return new Date(guess);
+    }
+
+    const targetAsUtc = Date.UTC(target.year, target.month - 1, target.day, target.hour, target.minute);
+    const currentAsUtc = Date.UTC(current.year, current.month - 1, current.day, current.hour, current.minute);
+    guess += targetAsUtc - currentAsUtc;
+  }
+
+  return new Date(guess);
+}
+
+function getDatePartsInTimeZone(date, timezone) {
+  const formatter = new Intl.DateTimeFormat('en-US', {
+    timeZone: timezone || defaultTimeZone(),
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+    weekday: 'long',
+  });
+
+  const parts = formatter.formatToParts(date);
+  const getPart = (type) => Number(parts.find((part) => part.type === type)?.value || 0);
+  return {
+    year: getPart('year'),
+    month: getPart('month'),
+    day: getPart('day'),
+    hour: getPart('hour'),
+    minute: getPart('minute'),
+    weekday: parts.find((part) => part.type === 'weekday')?.value || '',
+  };
+}
+
+function formatPickupDayLabel(date, timezone, offset) {
+  if (offset === 0) {
+    return 'Today';
+  }
+  if (offset === 1) {
+    return 'Tomorrow';
+  }
+
+  return date.toLocaleDateString([], {
+    weekday: 'short',
+    month: 'short',
+    day: 'numeric',
+    timeZone: timezone || defaultTimeZone(),
+  });
+}
+
+function formatPickupTimeLabel(date, timezone) {
+  return date.toLocaleTimeString([], {
+    hour: 'numeric',
+    minute: '2-digit',
+    timeZone: timezone || defaultTimeZone(),
+  });
+}
+
+function formatWeekdayFromDate(value, timezone) {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return '';
+  }
+
+  return date.toLocaleDateString([], {
+    weekday: 'long',
+    timeZone: timezone || defaultTimeZone(),
+  });
+}
+
+function formatPickupWindows(windows = [], timezone) {
+  const normalized = normalizePickupWindows(windows);
+  if (!normalized.length) {
+    return '';
+  }
+
+  return normalized
+    .map((window) => `${formatTimeRange(window.open, window.close, timezone)}`)
+    .join(' • ');
+}
+
+function formatTimeRange(open, close, timezone) {
+  const openDate = buildTimeForFormatting(open, timezone);
+  const closeDate = buildTimeForFormatting(close, timezone);
+  return `${formatPickupTimeLabel(openDate, timezone)} - ${formatPickupTimeLabel(closeDate, timezone)}`;
+}
+
+function buildTimeForFormatting(time, timezone) {
+  const minutes = parseTimeToMinutes(time);
+  const baseParts = getDatePartsInTimeZone(new Date(), timezone || defaultTimeZone());
+  return buildDateInTimeZone(baseParts, minutes, timezone || defaultTimeZone());
+}
+
+function parseTimeToMinutes(timeValue) {
+  const input = String(timeValue || '').trim();
+  if (!input) {
+    return NaN;
+  }
+
+  const match = input.match(/^(\d{1,2}):(\d{2})$/);
+  if (!match) {
+    return NaN;
+  }
+
+  const hours = Number(match[1]);
+  const minutes = Number(match[2]);
+  if (!Number.isFinite(hours) || !Number.isFinite(minutes)) {
+    return NaN;
+  }
+
+  return hours * 60 + minutes;
+}
+
+function defaultTimeZone() {
+  return Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC';
+}
+
 function renderRestaurantAddress(restaurant) {
   const { line1, secondary } = getRestaurantAddressLines(restaurant);
   return (
@@ -480,37 +867,69 @@ function renderRestaurantAddress(restaurant) {
 
 // Segmented pickup card keeps pickup choice visible for quick adjustments.
 function PickupTimeCard({
+  pickupAvailability,
   selectedMode,
   scheduledPickupTime,
   onModeChange,
-  onTimeChange,
+  onSelectPickupTime,
   showTimeError,
   asapReadyLabel,
   earliestAvailableLabel,
+  scheduledPickupGroups,
 }) {
   const isScheduled = selectedMode === PICKUP_MODES.SCHEDULED;
   const scheduledTimeHelperId = 'scheduled-time-helper';
   const helperMessage = showTimeError
     ? 'Select a pickup time to continue'
     : earliestAvailableLabel || 'Earliest available: Soon';
+  const isOpenNow = Boolean(pickupAvailability?.isOpenNow);
+  const asapAllowed = pickupAvailability?.asapAllowed !== false;
+  const timezone = pickupAvailability?.timezone || '';
+  const todayWindows = pickupAvailability?.today?.windows || [];
+  const statusMessage =
+    pickupAvailability?.statusMessage ||
+    (isOpenNow
+      ? 'The restaurant is open right now.'
+      : 'Currently the restaurant is closed, but you can still place an order for later pickup.');
+  const todayHoursLabel = formatPickupWindows(todayWindows, timezone) || 'Pickup hours not available yet';
 
   return (
     <section className="pickup-card" aria-labelledby="pickup-card-title">
       <div className="card-heading">
         <p className="eyebrow">Pickup time</p>
+        <h3>Choose how you want to pick up your order</h3>
+      </div>
+      <div className={`pickup-availability${isOpenNow ? ' pickup-availability--open' : ' pickup-availability--closed'}`}>
+        <div className="pickup-availability__status">
+          <span className={`pickup-status-badge${isOpenNow ? ' is-open' : ' is-closed'}`}>
+            {isOpenNow ? 'Open now' : 'Closed now'}
+          </span>
+          <p className="pickup-availability__message">{statusMessage}</p>
+        </div>
+        <div className="pickup-availability__hours">
+          <strong>Today</strong>
+          <p>{todayHoursLabel}</p>
+          {timezone ? <span className="muted">Timezone: {timezone}</span> : null}
+        </div>
       </div>
       <div className="pickup-tabs" role="tablist" aria-label="Pickup options">
         {[PICKUP_MODES.ASAP, PICKUP_MODES.SCHEDULED].map((mode) => {
           const isActive = selectedMode === mode;
           const label = mode === PICKUP_MODES.ASAP ? 'ASAP' : 'Schedule for Later';
+          const disabled = mode === PICKUP_MODES.ASAP && !asapAllowed;
           return (
             <button
               key={mode}
               type="button"
               role="tab"
               aria-selected={isActive}
-              className={`pickup-tab${isActive ? ' active' : ''}`}
-              onClick={() => onModeChange(mode)}
+              className={`pickup-tab${isActive ? ' active' : ''}${disabled ? ' is-disabled' : ''}`}
+              onClick={() => {
+                if (!disabled) {
+                  onModeChange(mode);
+                }
+              }}
+              disabled={disabled}
             >
               {label}
             </button>
@@ -520,27 +939,65 @@ function PickupTimeCard({
       <div className="pickup-details">
         {isScheduled ? (
           <div className="scheduled-picker">
-            <label htmlFor="scheduled-time">Same-day pickup time</label>
-            <input
-              id="scheduled-time"
-              type="time"
-              value={scheduledPickupTime}
-              onChange={(event) => onTimeChange(event.target.value)}
-              min="07:00"
-              max="22:00"
-              step="900"
-              required
-              aria-invalid={showTimeError ? 'true' : 'false'}
-              aria-describedby={scheduledTimeHelperId}
-            />
-            <p id={scheduledTimeHelperId} className={showTimeError ? 'error-text' : 'muted'}>
-              {helperMessage}
-            </p>
+            <div className="scheduled-picker__header">
+              <strong>Available pickup times</strong>
+              <span className="muted">Only times within open hours are shown.</span>
+            </div>
+            {scheduledPickupGroups.length ? (
+              <div className="pickup-slot-groups">
+                {scheduledPickupGroups.map((group) => (
+                  <section className="pickup-slot-group" key={group.key}>
+                    <div className="pickup-slot-group__header">
+                      <strong>{group.label}</strong>
+                      <span className="muted">{group.hoursLabel}</span>
+                    </div>
+                    <div className="pickup-slot-grid" role="list" aria-label={`${group.label} pickup times`}>
+                      {group.slots.map((slot) => {
+                        const isSelected = scheduledPickupTime === slot.value;
+                        return (
+                          <button
+                            key={slot.value}
+                            type="button"
+                            className={`pickup-slot${isSelected ? ' active' : ''}`}
+                            aria-pressed={isSelected}
+                            onClick={() => onSelectPickupTime(slot.value)}
+                          >
+                            <span>{slot.label}</span>
+                            {slot.windowLabel ? <small>{slot.windowLabel}</small> : null}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </section>
+                ))}
+              </div>
+            ) : (
+              <div className="pickup-slot-empty">
+                <p className="muted">No pickup times are available right now.</p>
+                <p id={scheduledTimeHelperId} className={showTimeError ? 'error-text' : 'muted'}>
+                  {helperMessage}
+                </p>
+              </div>
+            )}
+            {scheduledPickupTime ? (
+              <p className="pickup-slot-selection">
+                Selected: <strong>{formatScheduledPickupSelection(scheduledPickupTime, timezone)}</strong>
+              </p>
+            ) : null}
           </div>
         ) : (
           <div className="asap-preview" aria-live="polite">
             <p className="pickup-window">{asapReadyLabel}</p>
-            {earliestAvailableLabel && <p className="muted pickup-helper">{earliestAvailableLabel}</p>}
+            {!asapAllowed ? (
+              <p className="muted pickup-helper">ASAP pickup is currently unavailable.</p>
+            ) : earliestAvailableLabel ? (
+              <p className="muted pickup-helper">{earliestAvailableLabel}</p>
+            ) : null}
+            {!isOpenNow ? (
+              <p className="muted pickup-helper">
+                Currently the restaurant is closed, but you can still place an order for later pickup.
+              </p>
+            ) : null}
           </div>
         )}
       </div>
@@ -1097,8 +1554,6 @@ function CartSummary({
   total,
   totalItems,
   pickupSummary,
-  pickupMode,
-  scheduledPickupTime,
   paymentMessage,
   submitting,
   orderError,
@@ -1285,7 +1740,8 @@ function buildPickupTimestamp(timeValue) {
   const hours = Number(hourString);
   const minutes = Number(minuteString);
   if (Number.isNaN(hours) || Number.isNaN(minutes)) {
-    return '';
+    const date = new Date(input);
+    return Number.isNaN(date.getTime()) ? '' : date.toISOString();
   }
 
   const date = new Date();
@@ -1293,18 +1749,60 @@ function buildPickupTimestamp(timeValue) {
   return date.toISOString();
 }
 
-function getPickupSummary(mode, scheduledTime, asapReadyTime) {
+function getPickupSummary(mode, scheduledTime, asapReadyTime, pickupAvailability) {
   if (mode === PICKUP_MODES.SCHEDULED) {
-    return scheduledTime ? `Scheduled today at ${formatTime(scheduledTime)}` : 'Schedule pickup time';
+    return scheduledTime
+      ? `Scheduled for ${formatScheduledPickupSelection(scheduledTime, pickupAvailability?.timezone)}`
+      : 'Choose a pickup time';
   }
-  return getAsapReadyLabel(asapReadyTime);
+  return getAsapReadyLabel(asapReadyTime, pickupAvailability);
+}
+
+function formatScheduledPickupSelection(value, timezone) {
+  if (!value) {
+    return '';
+  }
+
+  if (String(value).includes('T')) {
+    const date = new Date(value);
+    if (!Number.isNaN(date.getTime())) {
+      return date.toLocaleString([], {
+        weekday: 'short',
+        month: 'short',
+        day: 'numeric',
+        hour: 'numeric',
+        minute: '2-digit',
+        timeZone: timezone || defaultTimeZone(),
+      });
+    }
+  }
+
+  const minutes = parseTimeToMinutes(value);
+  if (!Number.isFinite(minutes)) {
+    return String(value);
+  }
+
+  const baseParts = getDatePartsInTimeZone(new Date(), timezone || defaultTimeZone());
+  const date = buildDateInTimeZone(baseParts, minutes, timezone || defaultTimeZone());
+  return date.toLocaleString([], {
+    weekday: 'short',
+    month: 'short',
+    day: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
+    timeZone: timezone || defaultTimeZone(),
+  });
 }
 
 function formatTime(value) {
   if (!value) {
     return '';
   }
-  const [hourString, minuteString] = value.split(':');
+  const date = new Date(value);
+  if (!Number.isNaN(date.getTime())) {
+    return date.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+  }
+  const [hourString, minuteString] = String(value).split(':');
   const hours = Number(hourString);
   const period = hours >= 12 ? 'PM' : 'AM';
   const normalizedHours = hours % 12 === 0 ? 12 : hours % 12;
@@ -1319,7 +1817,15 @@ function getTimeFromNow(minutesAhead) {
   return `${hours}:${minutes}`;
 }
 
-function getAsapReadyLabel(value) {
+function getAsapReadyLabel(value, pickupAvailability) {
+  if (pickupAvailability && pickupAvailability.isOpenNow === false && pickupAvailability.asapAllowed) {
+    return 'Currently the restaurant is closed, but you can still place an order for later pickup.';
+  }
+
+  if (pickupAvailability && pickupAvailability.asapAllowed === false) {
+    return 'ASAP pickup is currently unavailable.';
+  }
+
   return value ? `Pickup at ~${formatTime(value)} (15–20 min)` : 'Pickup in ~15–20 min';
 }
 
@@ -1400,32 +1906,6 @@ function getOrderTimeValue(order) {
     0;
   const date = new Date(raw);
   return Number.isNaN(date.getTime()) ? 0 : date.getTime();
-}
-
-function toScheduledTimeInput(value) {
-  if (!value) {
-    return '';
-  }
-
-  if (String(value).includes('T')) {
-    const date = new Date(value);
-    if (!Number.isNaN(date.getTime())) {
-      return `${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`;
-    }
-  }
-
-  const [hoursString, minutesString] = String(value).split(':');
-  if (hoursString === undefined || minutesString === undefined) {
-    return '';
-  }
-
-  const hours = Number(hoursString);
-  const minutes = Number(minutesString);
-  if (Number.isNaN(hours) || Number.isNaN(minutes)) {
-    return '';
-  }
-
-  return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`;
 }
 
 function LockIcon() {
