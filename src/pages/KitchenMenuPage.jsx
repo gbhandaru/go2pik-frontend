@@ -813,10 +813,6 @@ export default function KitchenMenuPage() {
     () => groupMenuItems(filteredMenuItems, categoryOptions),
     [filteredMenuItems, categoryOptions],
   );
-  const categoryLine = useMemo(
-    () => (categoryOptions.length ? categoryOptions.map((category) => category.name).join(' | ') : 'No categories yet'),
-    [categoryOptions],
-  );
   const selectedItems = useMemo(
     () => menuItems.filter((item) => selectedItemIds.includes(item.id)),
     [menuItems, selectedItemIds],
@@ -1395,7 +1391,27 @@ export default function KitchenMenuPage() {
             <div>
               <p className="eyebrow">Menu</p>
               <h2>{restaurant?.name || 'Kitchen Menu'}</h2>
-              <p className="muted">{categoryLine}</p>
+              <div className="kitchen-menu-category-strip kitchen-menu-category-strip--menu">
+                {categoryOptions.length ? (
+                  categoryOptions.map((category) => (
+                    <button
+                      key={category.id}
+                      type="button"
+                      className={`kitchen-menu-category-chip${String(activeCategoryId) === String(category.id) ? ' active' : ''}`}
+                      onPointerDown={(event) => {
+                        event.preventDefault();
+                        handleCategoryJump(category.id);
+                      }}
+                      onClick={() => handleCategoryJump(category.id)}
+                      aria-pressed={String(activeCategoryId) === String(category.id) ? 'true' : 'false'}
+                    >
+                      {category.name}
+                    </button>
+                  ))
+                ) : (
+                  <p className="muted kitchen-menu-category-collapsed">No categories yet</p>
+                )}
+              </div>
             </div>
             <div className="kitchen-menu-section__meta">
               <span>Items: {menuItems.length}</span>
