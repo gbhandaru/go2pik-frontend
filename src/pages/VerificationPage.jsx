@@ -514,11 +514,10 @@ function withTimeout(promise, timeoutMs, timeoutMessage) {
 function buildVerificationStartPayload(orderDraft, customerName, customerPhone) {
   const items = Array.isArray(orderDraft?.items)
     ? orderDraft.items.map((item) => ({
-        id: item.id != null ? item.id : undefined,
-        menuItemId: item.menuItemId != null ? item.menuItemId : item.id,
-        sku: item.sku || item.code || item.menuItemId || item.id || '',
+        sku: item.sku ?? item.code ?? '',
+        name: item.name || item.title || item.label || '',
         quantity: item.quantity || 1,
-        notes: item.specialInstructions || item.notes || '',
+        notes: item.notes || item.specialInstructions || '',
       }))
     : [];
 

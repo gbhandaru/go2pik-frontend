@@ -177,6 +177,7 @@ export default function RestaurantMenuPage() {
             ? {
                 ...item,
                 quantity: item.quantity + 1,
+                sku: resolveMenuItemSku(item) || resolveMenuItemSku(menuItem),
                 specialInstructions: options.specialInstructions ?? item.specialInstructions ?? '',
               }
             : item,
@@ -187,6 +188,7 @@ export default function RestaurantMenuPage() {
         {
           ...menuItem,
           id: identity,
+          sku: resolveMenuItemSku(menuItem),
           quantity: 1,
           specialInstructions: options.specialInstructions ?? '',
         },
@@ -224,9 +226,10 @@ export default function RestaurantMenuPage() {
           nextCart[index] = {
             ...nextCart[index],
             quantity: nextCart[index].quantity + orderItem.quantity,
+            sku: nextCart[index].sku || resolveMenuItemSku(orderItem),
           };
         } else {
-          nextCart.push({ ...orderItem, id: orderItemId });
+          nextCart.push({ ...orderItem, id: orderItemId, sku: resolveMenuItemSku(orderItem) });
         }
       });
       return nextCart;
@@ -246,6 +249,7 @@ export default function RestaurantMenuPage() {
             ? {
                 ...item,
                 quantity: item.quantity + (orderItem.quantity || 1),
+                sku: item.sku || resolveMenuItemSku(orderItem),
                 specialInstructions: item.specialInstructions || orderItem.specialInstructions || '',
               }
             : item,
@@ -256,6 +260,7 @@ export default function RestaurantMenuPage() {
         {
           ...orderItem,
           id: orderItemId,
+          sku: resolveMenuItemSku(orderItem),
           quantity: orderItem.quantity || 1,
           specialInstructions: orderItem.specialInstructions || '',
         },
@@ -302,6 +307,10 @@ export default function RestaurantMenuPage() {
     if (!cart.length || !restaurant) {
       return;
     }
+    if (cart.some((item) => !resolveMenuItemSku(item))) {
+      setOrderError('One or more cart items are missing a menu sku. Please refresh the menu and try again.');
+      return;
+    }
     if (selectedPickupMode === PICKUP_MODES.SCHEDULED && !scheduledPickupTime) {
       setOrderError('Choose a pickup time from the available hours.');
       return;
@@ -327,6 +336,10 @@ export default function RestaurantMenuPage() {
     setOrderError('');
     if (!isCustomerPhoneValid) {
       setOrderError('Please enter a valid US phone number');
+      return;
+    }
+    if (cart.some((item) => !resolveMenuItemSku(item))) {
+      setOrderError('One or more cart items are missing a menu sku. Please refresh the menu and try again.');
       return;
     }
     const customerPhone = normalizedCustomerPhone;
@@ -493,20 +506,13 @@ function buildCustomerOrderDraft({
   pickupSummary,
   user,
 }) {
-  const orderItems = cart.map(({ id, name, price, quantity }) => {
-    const sourceItem = cartItemById[id] || {};
-    return {
-      id,
-      name,
-      sku: sourceItem.sku || sourceItem.code || sourceItem.menuItemId || sourceItem.menu_item_id || '',
-      menuItemId: sourceItem.menuItemId || sourceItem.menu_item_id || sourceItem.id || id,
-      code: sourceItem.code || '',
-      price,
-      quantity,
-      lineTotal: price * quantity,
-      specialInstructions: sourceItem.specialInstructions || '',
-    };
-  });
+  const orderItems = cart.map((item) => ({
+    ...item,
+    sku: resolveMenuItemSku(item),
+    quantity: item.quantity || 1,
+    lineTotal: (item.price || 0) * (item.quantity || 1),
+    specialInstructions: cartItemById[item.id]?.specialInstructions || item.specialInstructions || '',
+  }));
   const pickupTime =
     selectedPickupMode === PICKUP_MODES.SCHEDULED
       ? buildPickupTimestamp(scheduledPickupTime)
@@ -1541,6 +1547,24 @@ function resolveMenuItemIdentity(item = {}, fallbackIndex = 0) {
   return `item-${fallbackIndex}`;
 }
 
+function resolveMenuItemSku(item = {}) {
+  const directKeys = [
+    item.sku,
+    item.code,
+    item.menuItemId,
+    item.menu_item_id,
+    item.menuItemID,
+    item.menu_itemID,
+  ];
+
+  const directMatch = directKeys.find((value) => value !== undefined && value !== null && String(value).trim());
+  if (directMatch === undefined || directMatch === null) {
+    return '';
+  }
+
+  return directMatch;
+}
+
 function sortMenuItems(items = []) {
   return [...items].sort((a, b) => {
     const aOrder = Number.isFinite(a.displayOrder) ? a.displayOrder : Number(a.__menuIndex || 0);
@@ -1924,6 +1948,7 @@ function normalizeOrderItems(order) {
     .map((item) => ({
       ...item,
       id: item?.id || item?.menuItemId || item?.menu_item_id || item?.sku || item?.name,
+      sku: item?.sku ?? item?.code ?? item?.menuItemId ?? item?.menu_item_id ?? '',
       name: item?.name || item?.title || item?.label || 'Item',
       price: Number(item?.price ?? item?.unitPrice ?? item?.unit_price ?? 0),
       quantity: Number(item?.quantity || 1),
