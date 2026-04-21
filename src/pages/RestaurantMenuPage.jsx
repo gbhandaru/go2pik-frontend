@@ -413,6 +413,7 @@ export default function RestaurantMenuPage() {
             onModeChange={handlePickupModeChange}
             onSelectPickupTime={setScheduledPickupTime}
             showTimeError={missingScheduledTime}
+            asapReadyTime={asapReadyTime}
             asapReadyLabel={asapReadyLabel}
             earliestAvailableLabel={earliestAvailableLabel}
             scheduledPickupGroups={pickupSlotGroups}
@@ -873,6 +874,7 @@ function PickupTimeCard({
   onModeChange,
   onSelectPickupTime,
   showTimeError,
+  asapReadyTime,
   asapReadyLabel,
   earliestAvailableLabel,
   scheduledPickupGroups,
