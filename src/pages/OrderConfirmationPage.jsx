@@ -1,4 +1,7 @@
+import { useEffect, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
+import { acceptUpdatedCustomerOrder, cancelCustomerOrder, fetchOrderById } from '../api/ordersApi.js';
+import CustomerPartialOrderModal from '../components/shared/CustomerPartialOrderModal.jsx';
 import { useAuth } from '../hooks/useAuth.jsx';
 import { formatCurrency } from '../utils/formatCurrency.js';
 
@@ -189,11 +192,143 @@ function getBrowseMenuPath(order) {
   return restaurantId ? `/restaurants/${restaurantId}/menu` : '/home';
 }
 
+function isPartialAcceptance(order) {
+  if (!order) {
+    return false;
+  }
+
+  const acceptanceMode = String(order.acceptanceMode || order.acceptance_mode || '').trim().toLowerCase();
+  if (acceptanceMode === 'partial') {
+    return true;
+  }
+
+  return Boolean(
+    normalizeOrderItems(order?.acceptedItems || order?.accepted_items).length ||
+      normalizeOrderItems(order?.unavailableItems || order?.unavailable_items).length,
+  );
+}
+
+function isPendingPartialCustomerAction(order) {
+  if (!isPartialAcceptance(order)) {
+    return false;
+  }
+
+  const action = String(order?.customerAction || order?.customer_action || '').trim().toLowerCase();
+  return !action || action === 'pending';
+}
+
+function getVisibleOrderItems(order) {
+  const acceptedItems = normalizeOrderItems(order?.acceptedItems || order?.accepted_items);
+  if (acceptedItems.length) {
+    return acceptedItems;
+  }
+
+  return normalizeOrderItems(order?.items);
+}
+
+function resolveOrderSubtotal(order, items) {
+  const direct = order?.subtotal ?? order?.updatedSubtotal ?? order?.updated_subtotal;
+  if (typeof direct === 'number' && Number.isFinite(direct)) {
+    return direct;
+  }
+
+  if (typeof direct === 'string' && direct.trim()) {
+    const parsed = Number(direct);
+    if (Number.isFinite(parsed)) {
+      return parsed;
+    }
+  }
+
+  return items.reduce((sum, item) => sum + getLineTotal(item), 0);
+}
+
+function resolveOrderTotal(order, items) {
+  const direct =
+    order?.updatedTotal ??
+    order?.updated_total ??
+    order?.total ??
+    order?.totalAmount ??
+    order?.total_amount;
+
+  if (typeof direct === 'number' && Number.isFinite(direct)) {
+    return direct;
+  }
+
+  if (typeof direct === 'string' && direct.trim()) {
+    const parsed = Number(direct);
+    if (Number.isFinite(parsed)) {
+      return parsed;
+    }
+  }
+
+  return resolveOrderSubtotal(order, items);
+}
+
+function normalizeOrderItems(items) {
+  if (!Array.isArray(items)) {
+    return [];
+  }
+
+  return items.filter(Boolean).map((item, index) => ({
+    ...item,
+    quantity: Number(item.quantity) > 0 ? Number(item.quantity) : 1,
+    __fallbackKey: item.menuItemId || item.id || item.name || `item-${index}`,
+  }));
+}
+
+function getLineTotal(item) {
+  const quantity = Number(item?.quantity) > 0 ? Number(item.quantity) : 1;
+  const price = Number(item?.price ?? item?.unitPrice ?? item?.unit_price ?? 0);
+  return quantity * (Number.isFinite(price) ? price : 0);
+}
+
 export default function OrderConfirmationPage() {
   const navigate = useNavigate();
   const location = useLocation();
   const { user } = useAuth();
-  const order = location.state?.order;
+  const [currentOrder, setCurrentOrder] = useState(() => location.state?.order || null);
+  const [showPartialOrderModal, setShowPartialOrderModal] = useState(() => isPendingPartialCustomerAction(location.state?.order));
+  const [partialOrderSubmitting, setPartialOrderSubmitting] = useState(false);
+  const [partialOrderError, setPartialOrderError] = useState('');
+
+  useEffect(() => {
+    if (location.state?.order) {
+      setCurrentOrder(location.state.order);
+      setShowPartialOrderModal(isPendingPartialCustomerAction(location.state.order));
+    }
+  }, [location.state?.order]);
+
+  useEffect(() => {
+    if (!currentOrder?.id || !isPendingPartialCustomerAction(currentOrder)) {
+      return;
+    }
+
+    let active = true;
+    fetchOrderById(currentOrder.id)
+      .then((response) => {
+        if (!active) {
+          return;
+        }
+        const latestOrder = response?.order || response?.data?.order || response;
+        if (latestOrder && typeof latestOrder === 'object') {
+          setCurrentOrder(latestOrder);
+          setShowPartialOrderModal(isPendingPartialCustomerAction(latestOrder));
+        }
+      })
+      .catch(() => {
+        // Keep the current order snapshot if refresh fails.
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [currentOrder?.id]);
+
+  const order = currentOrder;
+
+  useEffect(() => {
+    setShowPartialOrderModal(isPartialAcceptance(order));
+  }, [order]);
 
   if (!order) {
     return (
@@ -209,7 +344,7 @@ export default function OrderConfirmationPage() {
     );
   }
 
-  const items = order.items || [];
+  const items = getVisibleOrderItems(order);
   const pickupLabel = formatPickupLabel(order);
   const restaurantName = order.restaurant?.name || 'your restaurant';
   const destination = order.restaurant?.location || order.restaurant?.address || '';
@@ -217,11 +352,7 @@ export default function OrderConfirmationPage() {
   const resolvedCustomerName = resolveCustomerName({ user, order });
   const fallbackCustomerName = location.state?.customerName;
   const customerName = fallbackCustomerName || resolvedCustomerName;
-  const subtotal =
-    order.subtotal ??
-    order.total ??
-    items.reduce((sum, item) => sum + (item.price || 0) * (item.quantity || 1), 0);
-  const total = order.total ?? subtotal;
+  const total = resolveOrderTotal(order, items);
   const browseMenuPath = getBrowseMenuPath(order);
 
   const heroSubtitle = customerName
@@ -230,6 +361,44 @@ export default function OrderConfirmationPage() {
 
   const handleBrowseMenu = () => navigate(browseMenuPath);
   const handleBrowseRestaurants = () => navigate('/home');
+  const handleAcceptUpdatedOrder = async () => {
+    if (!order?.id || partialOrderSubmitting) {
+      return;
+    }
+
+    setPartialOrderSubmitting(true);
+    try {
+      const response = await acceptUpdatedCustomerOrder(order.id);
+      const updatedOrder = response?.order || response?.data?.order || response || order;
+      setCurrentOrder(updatedOrder);
+      setShowPartialOrderModal(false);
+      setPartialOrderError('');
+    } catch (error) {
+      setPartialOrderError(error?.message || 'Unable to accept the updated order right now.');
+    } finally {
+      setPartialOrderSubmitting(false);
+    }
+  };
+
+  const handleCancelUpdatedOrder = async () => {
+    if (!order?.id || partialOrderSubmitting) {
+      return;
+    }
+
+    setPartialOrderSubmitting(true);
+    try {
+      const response = await cancelCustomerOrder(order.id, 'Please cancel the order');
+      const updatedOrder = response?.order || response?.data?.order || response || order;
+      setCurrentOrder(updatedOrder);
+      setShowPartialOrderModal(false);
+      setPartialOrderError('');
+      navigate('/orders', { replace: true });
+    } catch (error) {
+      setPartialOrderError(error?.message || 'Unable to cancel the updated order right now.');
+    } finally {
+      setPartialOrderSubmitting(false);
+    }
+  };
 
   return (
     <main className="page-section confirmation-page">
@@ -320,6 +489,15 @@ export default function OrderConfirmationPage() {
           </a>
         </p>
       </section>
+      {showPartialOrderModal && isPendingPartialCustomerAction(order) ? (
+        <CustomerPartialOrderModal
+          order={order}
+          onAcceptUpdatedOrder={handleAcceptUpdatedOrder}
+          onCancelOrder={handleCancelUpdatedOrder}
+          submitting={partialOrderSubmitting}
+          error={partialOrderError}
+        />
+      ) : null}
     </main>
   );
 }

@@ -130,6 +130,65 @@ export function confirmOrderVerification(payload) {
   });
 }
 
+export function acceptUpdatedCustomerOrder(orderId) {
+  if (!orderId) {
+    return Promise.reject(new Error('orderId is required'));
+  }
+
+  return apiRequest(`/orders/${encodeURIComponent(orderId)}/accept-updated`, {
+    method: 'PATCH',
+    body: {},
+  });
+}
+
+export function cancelCustomerOrder(orderId, note) {
+  if (!orderId) {
+    return Promise.reject(new Error('orderId is required'));
+  }
+
+  const body = note ? { note } : {};
+  return apiRequest(`/orders/${encodeURIComponent(orderId)}/cancel`, {
+    method: 'PATCH',
+    body,
+  });
+}
+
+function buildOrderReviewPath(orderNumber, token, action = '') {
+  if (!orderNumber) {
+    throw new Error('orderNumber is required');
+  }
+  if (!token) {
+    throw new Error('token is required');
+  }
+
+  const encodedOrderNumber = encodeURIComponent(orderNumber);
+  const encodedToken = encodeURIComponent(token);
+  const actionSuffix = action ? `/${action}` : '';
+  return `/orders/review/${encodedOrderNumber}${actionSuffix}?token=${encodedToken}`;
+}
+
+export function fetchOrderReview(orderNumber, token) {
+  return apiRequest(buildOrderReviewPath(orderNumber, token), {
+    auth: false,
+  });
+}
+
+export function acceptReviewedOrder(orderNumber, token) {
+  return apiRequest(buildOrderReviewPath(orderNumber, token, 'accept-updated'), {
+    method: 'PATCH',
+    auth: false,
+    body: {},
+  });
+}
+
+export function cancelReviewedOrder(orderNumber, token, note) {
+  return apiRequest(buildOrderReviewPath(orderNumber, token, 'cancel'), {
+    method: 'PATCH',
+    auth: false,
+    body: note ? { note } : {},
+  });
+}
+
 export function fetchOrderById(id) {
   return apiRequest(`/orders/${id}`);
 }
