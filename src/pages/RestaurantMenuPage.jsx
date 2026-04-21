@@ -648,30 +648,26 @@ function buildPickupSlotGroups(availability) {
     return [];
   }
 
-  const groups = [];
-  for (let offset = 0; offset < PICKUP_SLOT_LOOKAHEAD_DAYS; offset += 1) {
-    const candidateDate = new Date(Date.now() + offset * 86400000);
-    const dayParts = getDatePartsInTimeZone(candidateDate, availability.timezone);
-    const scheduleEntry = offset === 0 ? availability.today : resolveWeeklyScheduleEntry(availability.weeklySchedule, dayParts.weekday);
-    const windows = normalizePickupWindows(scheduleEntry?.windows);
-    if (!windows.length) {
-      continue;
-    }
-
-    const slots = windows.flatMap((window) => buildPickupSlotsForWindow(dayParts, window, availability.timezone));
-    if (!slots.length) {
-      continue;
-    }
-
-    groups.push({
-      key: `${dayParts.year}-${dayParts.month}-${dayParts.day}`,
-      label: formatPickupDayLabel(candidateDate, availability.timezone, offset),
-      hoursLabel: formatPickupWindows(windows, availability.timezone),
-      slots,
-    });
+  const candidateDate = new Date();
+  const dayParts = getDatePartsInTimeZone(candidateDate, availability.timezone);
+  const windows = normalizePickupWindows(availability.today?.windows);
+  if (!windows.length) {
+    return [];
   }
 
-  return groups;
+  const slots = windows.flatMap((window) => buildPickupSlotsForWindow(dayParts, window, availability.timezone));
+  if (!slots.length) {
+    return [];
+  }
+
+  return [
+    {
+      key: `${dayParts.year}-${dayParts.month}-${dayParts.day}`,
+      label: 'Today',
+      hoursLabel: formatPickupWindows(windows, availability.timezone),
+      slots,
+    },
+  ];
 }
 
 function buildPickupSlotsForWindow(dayParts, window, timezone) {
@@ -928,7 +924,7 @@ function PickupTimeCard({
       <div className="pickup-summary-lines">
         <p className="pickup-ready-line">{asapReadyLabel}</p>
         <p className="pickup-by-line">
-          Pickup by <strong>{pickupByLabel}</strong>
+          Pickup around <strong>{pickupByLabel}</strong>
         </p>
       </div>
       <div className="pickup-tabs" role="tablist" aria-label="Pickup options">
@@ -962,33 +958,30 @@ function PickupTimeCard({
               <strong>Available pickup times</strong>
               <span className="muted">Only times within open hours are shown.</span>
             </div>
-            {scheduledPickupGroups.length ? (
-              <div className="pickup-slot-groups">
-                {scheduledPickupGroups.map((group) => (
-                  <section className="pickup-slot-group" key={group.key}>
-                    <div className="pickup-slot-group__header">
-                      <strong>{group.label}</strong>
-                      <span className="muted">{group.hoursLabel}</span>
-                    </div>
-                    <div className="pickup-slot-grid" role="list" aria-label={`${group.label} pickup times`}>
-                      {group.slots.map((slot) => {
-                        const isSelected = scheduledPickupTime === slot.value;
-                        return (
-                          <button
-                            key={slot.value}
-                            type="button"
-                            className={`pickup-slot${isSelected ? ' active' : ''}`}
-                            aria-pressed={isSelected}
-                            onClick={() => onSelectPickupTime(slot.value)}
-                          >
-                            <span>{slot.label}</span>
-                            {slot.windowLabel ? <small>{slot.windowLabel}</small> : null}
-                          </button>
-                        );
-                      })}
-                    </div>
-                  </section>
-                ))}
+            {scheduledPickupGroups[0] ? (
+              <div className="pickup-slot-group">
+                <div className="pickup-slot-group__header">
+                  <strong>Recommended</strong>
+                  <span className="muted">{scheduledPickupGroups[0].hoursLabel}</span>
+                </div>
+                <div className="pickup-slot-list" role="list" aria-label="Today pickup times">
+                  {scheduledPickupGroups[0].slots.map((slot, index) => {
+                    const isSelected = scheduledPickupTime === slot.value;
+                    const isRecommended = index === 0;
+                    return (
+                      <button
+                        key={slot.value}
+                        type="button"
+                        className={`pickup-slot${isSelected ? ' active' : ''}${isRecommended ? ' pickup-slot--recommended' : ''}`}
+                        aria-pressed={isSelected}
+                        onClick={() => onSelectPickupTime(slot.value)}
+                      >
+                        {isRecommended ? <span className="pickup-slot__badge">Recommended</span> : null}
+                        <span>{slot.label}</span>
+                      </button>
+                    );
+                  })}
+                </div>
               </div>
             ) : (
               <div className="pickup-slot-empty">
@@ -1807,7 +1800,7 @@ function getPickupStatusLabel(pickupAvailability, todayWindows = [], timezone) {
 function getPickupByLabel(selectedMode, scheduledPickupTime, asapReadyTime, timezone, pickupAvailability, todayWindows = []) {
   if (selectedMode === PICKUP_MODES.SCHEDULED) {
     return scheduledPickupTime
-      ? formatScheduledPickupSelection(scheduledPickupTime, timezone)
+      ? formatPickupClockLabel(scheduledPickupTime, timezone)
       : 'Choose a pickup time';
   }
 
@@ -1821,6 +1814,36 @@ function getPickupByLabel(selectedMode, scheduledPickupTime, asapReadyTime, time
   }
 
   return formatPickupTimeLabel(buildTimeForFormatting(asapReadyTime || getTimeFromNow(PICKUP_WINDOW_MINUTES), timezone), timezone);
+}
+
+function formatPickupClockLabel(value, timezone) {
+  if (!value) {
+    return '';
+  }
+
+  if (String(value).includes('T')) {
+    const date = new Date(value);
+    if (!Number.isNaN(date.getTime())) {
+      return date.toLocaleTimeString([], {
+        hour: 'numeric',
+        minute: '2-digit',
+        timeZone: timezone || defaultTimeZone(),
+      });
+    }
+  }
+
+  const minutes = parseTimeToMinutes(value);
+  if (!Number.isFinite(minutes)) {
+    return String(value);
+  }
+
+  const baseParts = getDatePartsInTimeZone(new Date(), timezone || defaultTimeZone());
+  const date = buildDateInTimeZone(baseParts, minutes, timezone || defaultTimeZone());
+  return date.toLocaleTimeString([], {
+    hour: 'numeric',
+    minute: '2-digit',
+    timeZone: timezone || defaultTimeZone(),
+  });
 }
 
 function formatScheduledPickupSelection(value, timezone) {
@@ -1891,7 +1914,7 @@ function getAsapReadyLabel(value, pickupAvailability) {
     return 'ASAP pickup is currently unavailable.';
   }
 
-  return 'Ready in 15–20 min';
+  return '⚡ ASAP (15–20 min)';
 }
 
 function getLastOrderFromHistory(orders = [], restaurantId) {
