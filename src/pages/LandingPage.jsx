@@ -39,10 +39,7 @@ const customerBenefits = [
 export default function LandingPage() {
   const navigate = useNavigate();
   const [retryKey, setRetryKey] = useState(0);
-  const { data: restaurants = [], loading, error, errorInfo } = useFetch(
-    () => fetchRestaurants({ allowFallback: false }),
-    [retryKey],
-  );
+  const { data: restaurants = [], loading, error, errorInfo } = useFetch(() => fetchRestaurants(), [retryKey]);
   const availableNow = useMemo(() => (restaurants || []).slice(0, 3), [restaurants]);
   const availabilityError = errorInfo?.kind === 'not_found'
     ? 'Restaurants are not available yet.'

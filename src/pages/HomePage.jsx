@@ -1,4 +1,6 @@
+import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import AsyncState from '../components/shared/AsyncState.jsx';
 import { useAuth } from '../hooks/useAuth.jsx';
 import { fetchRestaurants } from '../api/restaurantsApi.js';
 import { useFetch } from '../hooks/useFetch.js';
@@ -7,8 +9,13 @@ import { getRestaurantAddressLines } from '../utils/formatRestaurantAddress.js';
 export default function HomePage() {
   const navigate = useNavigate();
   const { canAccessCustomerFlow } = useAuth();
-  const { data: restaurants, loading, error } = useFetch(fetchRestaurants, []);
+  const [retryKey, setRetryKey] = useState(0);
+  const { data: restaurants, loading, error, errorInfo } = useFetch(() => fetchRestaurants(), [retryKey]);
   const canBrowseMenu = canAccessCustomerFlow;
+  const restaurantListError =
+    errorInfo?.offline
+      ? 'You appear to be offline. Check your connection and try again.'
+      : 'We’re having trouble loading restaurants right now. Please try again.';
 
   const handleViewMenu = (restaurantId, event) => {
     if (canBrowseMenu) {
@@ -34,8 +41,16 @@ export default function HomePage() {
         <p className="home-hero__subhead">Pickup only. No hidden fees.</p>
       </header>
 
-      {loading && <div className="page-empty-state">Loading restaurants...</div>}
-      {error && <div className="page-empty-state">{error}</div>}
+      {loading ? (
+        <AsyncState title="Loading restaurants" message="Please wait while we load nearby spots." loading />
+      ) : error ? (
+        <AsyncState
+          title="Restaurants unavailable"
+          message={restaurantListError}
+          primaryActionLabel="Retry"
+          onPrimaryAction={() => setRetryKey((current) => current + 1)}
+        />
+      ) : null}
 
       {!loading && !error && restaurants?.length > 0 && (
         <section className="card-grid">

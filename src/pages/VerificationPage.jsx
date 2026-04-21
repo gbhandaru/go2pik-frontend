@@ -138,7 +138,11 @@ export default function VerificationPage() {
         inputsRef.current[0]?.focus();
       } catch (err) {
         if (active) {
-          setStartError(err.message || 'Unable to send verification code right now.');
+          setStartError(
+            getPickupValidationMessage(err) ||
+              err.message ||
+              'Unable to send verification code right now.',
+          );
           setVerification(null);
           setPendingVerification(false);
         }
@@ -351,7 +355,7 @@ export default function VerificationPage() {
         },
       });
     } catch (err) {
-      setError(err.message || 'Unable to verify your order right now.');
+      setError(getPickupValidationMessage(err) || err.message || 'Unable to verify your order right now.');
     } finally {
       setSubmitting(false);
     }
@@ -478,6 +482,17 @@ function formatCountdown(diffMs) {
 function normalizePositiveInteger(value, fallback) {
   const parsed = Number.parseInt(value, 10);
   return Number.isInteger(parsed) && parsed > 0 ? parsed : fallback;
+}
+
+function getPickupValidationMessage(error) {
+  const code = String(error?.code || '').trim();
+  if (code === 'pickup_time_out_of_hours') {
+    return 'Pickup time is outside restaurant open hours. Please choose another time.';
+  }
+  if (code === 'pickup_time_required') {
+    return 'Please choose a pickup time to continue.';
+  }
+  return '';
 }
 
 function withTimeout(promise, timeoutMs, timeoutMessage) {

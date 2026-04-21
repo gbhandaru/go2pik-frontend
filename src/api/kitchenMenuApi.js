@@ -1,9 +1,8 @@
 import { apiRequest } from './client.js';
-import { mockRestaurants } from './mockData.js';
 import { getKitchenRestaurantId } from '../services/authStorage.js';
 
 function resolveRestaurantId(explicitRestaurantId) {
-  return explicitRestaurantId || getKitchenRestaurantId() || mockRestaurants[0]?.id || null;
+  return explicitRestaurantId || getKitchenRestaurantId() || null;
 }
 
 function normalizeMenuItems(response) {
@@ -68,46 +67,14 @@ function normalizeExportResponse(response) {
   };
 }
 
-function buildMockMenuResponse(restaurantId) {
-  const restaurant = mockRestaurants.find((item) => String(item.id) === String(restaurantId)) || mockRestaurants[0];
-  const items = restaurant?.menu?.map((item, index) => ({
-    id: item.id,
-    name: item.name,
-    price: item.price,
-    display_order: index + 1,
-    is_available: true,
-  })) || [];
-
-  return {
-    success: true,
-    restaurant,
-    items,
-    categories: [],
-  };
-}
-
-async function safeMenuRequest(path, options = {}, fallback) {
-  try {
-    return await apiRequest(path, options);
-  } catch (error) {
-    if (error.status === 404 && fallback) {
-      return typeof fallback === 'function' ? fallback() : fallback;
-    }
-
-    throw error;
-  }
-}
-
 export async function fetchKitchenMenuItems(restaurantId) {
   const resolvedRestaurantId = resolveRestaurantId(restaurantId);
   if (!resolvedRestaurantId) {
     throw new Error('restaurantId is required');
   }
 
-  const response = await safeMenuRequest(
+  const response = await apiRequest(
     `/dashboard/restaurants/${encodeURIComponent(resolvedRestaurantId)}/menu`,
-    undefined,
-    () => buildMockMenuResponse(resolvedRestaurantId),
   );
 
   return {
@@ -122,10 +89,8 @@ export async function fetchKitchenMenuCategories(restaurantId) {
     throw new Error('restaurantId is required');
   }
 
-  const response = await safeMenuRequest(
+  const response = await apiRequest(
     `/dashboard/restaurants/${encodeURIComponent(resolvedRestaurantId)}/menu/categories`,
-    undefined,
-    () => ({ success: true, categories: [] }),
   );
 
   return normalizeCategories(response);
