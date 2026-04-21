@@ -493,14 +493,20 @@ function buildCustomerOrderDraft({
   pickupSummary,
   user,
 }) {
-  const orderItems = cart.map(({ id, name, price, quantity }) => ({
-    id,
-    name,
-    price,
-    quantity,
-    lineTotal: price * quantity,
-    specialInstructions: cartItemById[id]?.specialInstructions || '',
-  }));
+  const orderItems = cart.map(({ id, name, price, quantity }) => {
+    const sourceItem = cartItemById[id] || {};
+    return {
+      id,
+      name,
+      sku: sourceItem.sku || sourceItem.code || sourceItem.menuItemId || sourceItem.menu_item_id || '',
+      menuItemId: sourceItem.menuItemId || sourceItem.menu_item_id || sourceItem.id || id,
+      code: sourceItem.code || '',
+      price,
+      quantity,
+      lineTotal: price * quantity,
+      specialInstructions: sourceItem.specialInstructions || '',
+    };
+  });
   const pickupTime =
     selectedPickupMode === PICKUP_MODES.SCHEDULED
       ? buildPickupTimestamp(scheduledPickupTime)

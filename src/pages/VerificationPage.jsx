@@ -516,7 +516,7 @@ function buildVerificationStartPayload(orderDraft, customerName, customerPhone) 
     ? orderDraft.items.map((item) => ({
         id: item.id != null ? item.id : undefined,
         menuItemId: item.menuItemId != null ? item.menuItemId : item.id,
-        sku: item.sku || item.name || '',
+        sku: item.sku || item.code || item.menuItemId || item.id || '',
         quantity: item.quantity || 1,
         notes: item.specialInstructions || item.notes || '',
       }))
