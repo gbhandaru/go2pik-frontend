@@ -6,6 +6,7 @@ import { restaurantUserLogout } from '../api/authApi.js';
 import { resolveKitchenOrderActionId, updateOrderStatus } from '../api/ordersApi.js';
 import { useKitchenOrders } from '../hooks/useKitchenOrders.js';
 import { clearKitchenAuthTokens, getKitchenRefreshToken } from '../services/authStorage.js';
+import { formatCurrency } from '../utils/formatCurrency.js';
 
 const STATUS_FLOW = {
   new: 'accepted',
@@ -16,6 +17,7 @@ const STATUS_FLOW = {
 
 const NEW_TAB_ACTIONS = [
   { label: 'Accept', status: 'accepted', variant: 'emphasis' },
+  { label: 'Partially Accept', status: 'partially_accepted', variant: 'warning' },
   { label: 'Reject', status: 'rejected', variant: 'danger' },
 ];
 
@@ -199,6 +201,206 @@ function playBeep(volume = DEFAULT_SOUND_VOLUME) {
   };
 }
 
+function createPartialAcceptDraft(order) {
+  const items = normalizePartialAcceptItems(order);
+  return {
+    order,
+    items,
+    selectedItemIds: items.map((item) => String(item.id)),
+    note: '',
+  };
+}
+
+function normalizePartialAcceptItems(order) {
+  const rawItems = order?.items || [];
+
+  if (!Array.isArray(rawItems)) {
+    return [];
+  }
+
+  return rawItems
+    .map((item) => ({
+      id: item?.id,
+      name: item?.name || item?.title || item?.label || 'Item',
+      quantity: Number(item?.quantity || 1),
+      price: Number(item?.price ?? item?.unitPrice ?? item?.unit_price ?? 0),
+      notes: getItemInstructions(item),
+    }))
+    .filter((item) => item.id != null && item.name);
+}
+
+function orderHasStrictItemIds(order) {
+  const rawItems = Array.isArray(order?.items) ? order.items : [];
+  return rawItems.length > 0 && rawItems.every((item) => item?.id != null);
+}
+
+function PartialAcceptModal({
+  order,
+  items,
+  selectedItemIds,
+  note,
+  onClose,
+  onToggleItem,
+  onNoteChange,
+  onSubmit,
+  submitting = false,
+}) {
+  if (!order) return null;
+
+  const orderNumber = order.orderNumber || order.displayId || order.id;
+  const customerName = order.customerName || order.customer?.name || 'Guest';
+  const placedAtLabel = formatOrderPlacedAt(order);
+  const selectedItems = items.filter((item) => selectedItemIds.includes(String(item.id)));
+  const unavailableItems = items.filter((item) => !selectedItemIds.includes(String(item.id)));
+  const selectedSubtotal = selectedItems.reduce((sum, item) => sum + item.price * item.quantity, 0);
+  const remainingCount = selectedItems.reduce((sum, item) => sum + item.quantity, 0);
+  const unavailableCount = unavailableItems.reduce((sum, item) => sum + item.quantity, 0);
+  const buttonDisabled = selectedItems.length === 0 || submitting;
+  const noteText = note || '';
+
+  return (
+    <div
+      className="kitchen-partial-modal-backdrop"
+      role="presentation"
+      onClick={onClose}
+    >
+      <section
+        className="kitchen-partial-modal"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="partial-accept-title"
+        onClick={(event) => event.stopPropagation()}
+      >
+        <button type="button" className="kitchen-partial-modal__close" onClick={onClose} aria-label="Close partial accept modal">
+          ×
+        </button>
+
+        <header className="kitchen-partial-modal__header">
+          <p className="kitchen-partial-modal__eyebrow">Kitchen Dashboard</p>
+          <h2 id="partial-accept-title">Partially Accept Order</h2>
+        </header>
+
+        <div className="kitchen-partial-modal__summary">
+          <div>
+            <p className="muted">Order #{orderNumber}</p>
+            <strong>{customerName}</strong>
+          </div>
+          <div className="kitchen-partial-modal__summary-grid">
+            <div>
+              <span className="muted">Placed at:</span>
+              <strong>{placedAtLabel}</strong>
+            </div>
+            <div>
+              <span className="muted">Order total:</span>
+              <strong>{formatCurrency(order.total ?? order.totalDisplay ?? selectedSubtotal)}</strong>
+            </div>
+          </div>
+        </div>
+
+        <section className="kitchen-partial-modal__items">
+          <div className="kitchen-partial-modal__section-title">
+            <strong>Order Items</strong>
+            <span className="muted">Checked items stay on the order.</span>
+          </div>
+          <div className="kitchen-partial-modal__items-header">
+            <span />
+            <span className="muted">Price</span>
+          </div>
+          <div className="kitchen-partial-modal__items-list">
+            {items.map((item) => {
+              const checked = selectedItemIds.includes(String(item.id));
+              return (
+                <label key={item.id} className="kitchen-partial-modal__item">
+                  <input
+                    type="checkbox"
+                    checked={checked}
+                    onChange={() => onToggleItem(String(item.id))}
+                  />
+                  <div className="kitchen-partial-modal__item-copy">
+                    <span className="kitchen-partial-modal__item-name">
+                      {item.name} <span className="muted">Qty. {item.quantity}</span>
+                    </span>
+                    {item.notes ? <span className="kitchen-partial-modal__item-note">{item.notes}</span> : null}
+                  </div>
+                  <strong>{formatCurrency(item.price * item.quantity)}</strong>
+                </label>
+              );
+            })}
+          </div>
+
+          <div className="kitchen-partial-modal__warning">
+            Checked items will be marked unavailable and removed from this order.
+          </div>
+        </section>
+
+        <section className="kitchen-partial-modal__reason">
+          <div className="kitchen-partial-modal__section-title">
+            <strong>Reason for Partial Acceptance</strong>
+          </div>
+          <textarea
+            rows="3"
+            value={noteText}
+            onChange={(event) => onNoteChange(event.target.value)}
+            placeholder="We are out of paneer and samosas. The remaining items are available for pickup."
+          />
+          <p className="kitchen-partial-modal__customer-note">
+            Customer will be asked to review the updated order.
+          </p>
+        </section>
+
+        <section className="kitchen-partial-modal__totals">
+          <div>
+            <span className="muted">Unavailable:</span>
+            <strong>{unavailableCount} items</strong>
+          </div>
+          <div>
+            <span className="muted">Remaining:</span>
+            <strong>{remainingCount} items</strong>
+          </div>
+          <div className="kitchen-partial-modal__totals-grand">
+            <span className="muted">Updated total:</span>
+            <strong>{formatCurrency(selectedSubtotal)}</strong>
+          </div>
+        </section>
+
+        <footer className="kitchen-partial-modal__actions">
+          <button type="button" className="primary-btn secondary" onClick={onClose} disabled={submitting}>
+            Cancel
+          </button>
+          <button
+            type="button"
+            className="primary-btn emphasis"
+            onClick={onSubmit}
+            disabled={buttonDisabled}
+          >
+            {submitting ? 'Partially Accepting…' : 'Partially Accept'}
+          </button>
+        </footer>
+      </section>
+    </div>
+  );
+}
+
+function formatOrderPlacedAt(order) {
+  const raw =
+    order?.createdAt ||
+    order?.placedAt ||
+    order?.created_at ||
+    order?.submittedAt ||
+    order?.submitted_at ||
+    null;
+  if (!raw) {
+    return '—';
+  }
+
+  const date = new Date(raw);
+  if (Number.isNaN(date.getTime())) {
+    return '—';
+  }
+
+  return date.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+}
+
 export default function KitchenOrdersPage() {
   const location = useLocation();
   const navigate = useNavigate();
@@ -233,6 +435,7 @@ export default function KitchenOrdersPage() {
   );
   const [actionError, setActionError] = useState(null);
   const [feedback, setFeedback] = useState(null);
+  const [partialAcceptOrder, setPartialAcceptOrder] = useState(null);
   const beepTimerRef = useRef(null);
   const previousNewCountRef = useRef(0);
   const feedbackTimerRef = useRef(null);
@@ -381,7 +584,7 @@ export default function KitchenOrdersPage() {
     const actionOrderId = resolveKitchenOrderActionId(order);
     if (!actionOrderId) {
       setActionError('Unable to determine order id');
-      return;
+      return false;
     }
 
     setActionError(null);
@@ -397,8 +600,10 @@ export default function KitchenOrdersPage() {
         kind: 'success',
         message: `Order #${order.orderNumber || actionOrderId} moved to ${targetStatus.replace(/_/g, ' ')}`,
       });
+      return true;
     } catch (err) {
       setActionError(err.message || 'Unable to update order status');
+      return false;
     } finally {
       setUpdatingId(null);
       setUpdatingStatus(null);
@@ -409,6 +614,72 @@ export default function KitchenOrdersPage() {
     const rejectReason =
       window.prompt('Reason for rejection', 'Item unavailable') || 'Rejected from kitchen dashboard';
     await handleStatusChange(order, 'rejected', { rejectReason });
+  };
+
+  const handleOpenPartialAccept = (order) => {
+    setActionError(null);
+    if (!orderHasStrictItemIds(order)) {
+      setActionError(
+        `Unable to partially accept Order #${order.orderNumber || order.displayId || order.id} because one or more order item ids are missing from the backend response. Please refresh or accept/reject the order instead.`,
+      );
+      return;
+    }
+    setPartialAcceptOrder(createPartialAcceptDraft(order));
+  };
+
+  const handleClosePartialAccept = () => {
+    setPartialAcceptOrder(null);
+  };
+
+  const handleTogglePartialAcceptItem = (itemId) => {
+    setPartialAcceptOrder((current) => {
+      if (!current) return current;
+
+      const nextSelected = new Set(current.selectedItemIds);
+      if (nextSelected.has(itemId)) {
+        nextSelected.delete(itemId);
+      } else {
+        nextSelected.add(itemId);
+      }
+
+      return {
+        ...current,
+        selectedItemIds: Array.from(nextSelected),
+      };
+    });
+  };
+
+  const handlePartialAcceptNoteChange = (value) => {
+    setPartialAcceptOrder((current) => {
+      if (!current) return current;
+      return {
+        ...current,
+        note: value,
+      };
+    });
+  };
+
+  const handleSubmitPartialAccept = async () => {
+    if (!partialAcceptOrder) return;
+
+    const selectedItems = partialAcceptOrder.items.filter((item) =>
+      partialAcceptOrder.selectedItemIds.includes(String(item.id)),
+    );
+    if (!selectedItems.length) return;
+
+    const rejectedItems = partialAcceptOrder.items.filter(
+      (item) => !partialAcceptOrder.selectedItemIds.includes(String(item.id)),
+    );
+
+    const success = await handleStatusChange(partialAcceptOrder.order, 'partially_accepted', {
+      accepted_item_ids: selectedItems.map((item) => item.id),
+      unavailable_item_ids: rejectedItems.map((item) => item.id),
+      note: partialAcceptOrder.note.trim() || undefined,
+    });
+    if (success) {
+      setPartialAcceptOrder(null);
+      setActiveStatus('accepted');
+    }
   };
 
   const handleToggleCompact = () => {
@@ -485,6 +756,8 @@ export default function KitchenOrdersPage() {
                       onClick:
                         action.status === 'rejected'
                           ? () => handleRejectOrder(order)
+                          : action.status === 'partially_accepted'
+                            ? () => handleOpenPartialAccept(order)
                           : () => handleStatusChange(order, action.status),
                     }))
                   : STATUS_FLOW[order.status]
@@ -555,6 +828,19 @@ export default function KitchenOrdersPage() {
 
       {actionError && <p style={{ color: '#dc2626', fontWeight: 600 }}>{actionError}</p>}
       {feedback && <div className={`kitchen-feedback kitchen-feedback--${feedback.kind}`}>{feedback.message}</div>}
+      {partialAcceptOrder ? (
+        <PartialAcceptModal
+          order={partialAcceptOrder.order}
+          items={partialAcceptOrder.items}
+          selectedItemIds={partialAcceptOrder.selectedItemIds}
+          note={partialAcceptOrder.note}
+          onClose={handleClosePartialAccept}
+          onToggleItem={handleTogglePartialAcceptItem}
+          onNoteChange={handlePartialAcceptNoteChange}
+          onSubmit={handleSubmitPartialAccept}
+          submitting={updatingId === resolveKitchenOrderActionId(partialAcceptOrder.order)}
+        />
+      ) : null}
 
       <section className="card kitchen-toolbar kitchen-main-tabs">
         <KitchenTabs tabs={MAIN_TABS} activeTab="orders" onTabChange={handleMainTabChange} />

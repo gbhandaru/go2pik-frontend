@@ -18,6 +18,10 @@ function actionClassName(variant) {
     return 'primary-btn kitchen-action-btn--reject';
   }
 
+  if (variant === 'warning') {
+    return 'primary-btn kitchen-action-btn--partial';
+  }
+
   if (variant === 'quiet') {
     return 'primary-btn ghost';
   }

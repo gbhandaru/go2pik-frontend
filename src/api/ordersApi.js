@@ -149,6 +149,7 @@ function getKitchenActionRequest(orderId, status, options = {}) {
 
   const actionPaths = {
     accepted: `/dashboard/orders/${encodeURIComponent(orderId)}/accept`,
+    partially_accepted: `/dashboard/orders/${encodeURIComponent(orderId)}/partial-accept`,
     preparing: `/dashboard/orders/${encodeURIComponent(orderId)}/preparing`,
     ready_for_pickup: `/dashboard/orders/${encodeURIComponent(orderId)}/ready`,
     completed: `/dashboard/orders/${encodeURIComponent(orderId)}/complete`,
