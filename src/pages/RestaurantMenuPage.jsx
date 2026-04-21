@@ -48,7 +48,6 @@ export default function RestaurantMenuPage() {
     [customerId, retryKey],
   );
   const asapReadyTime = useMemo(() => getTimeFromNow(PICKUP_WINDOW_MINUTES), []);
-  const earliestAvailableTime = useMemo(() => getTimeFromNow(EARLIEST_PICKUP_MINUTES), []);
   const canBrowseMenu = canAccessCustomerFlow;
 
   useEffect(() => {
@@ -287,7 +286,6 @@ export default function RestaurantMenuPage() {
   );
   const missingScheduledTime = selectedPickupMode === PICKUP_MODES.SCHEDULED && !scheduledPickupTime;
   const asapReadyLabel = getAsapReadyLabel(asapReadyTime, pickupAvailability);
-  const earliestAvailableLabel = getEarliestAvailableLabel(earliestAvailableTime);
   const menuErrorMessage =
     errorInfo?.offline
       ? 'You appear to be offline. Check your connection and try again.'
@@ -415,7 +413,6 @@ export default function RestaurantMenuPage() {
             showTimeError={missingScheduledTime}
             asapReadyTime={asapReadyTime}
             asapReadyLabel={asapReadyLabel}
-            earliestAvailableLabel={earliestAvailableLabel}
             scheduledPickupGroups={pickupSlotGroups}
           />
 
@@ -876,14 +873,10 @@ function PickupTimeCard({
   showTimeError,
   asapReadyTime,
   asapReadyLabel,
-  earliestAvailableLabel,
   scheduledPickupGroups,
 }) {
   const isScheduled = selectedMode === PICKUP_MODES.SCHEDULED;
   const scheduledTimeHelperId = 'scheduled-time-helper';
-  const helperMessage = showTimeError
-    ? 'Select a pickup time to continue'
-    : earliestAvailableLabel || 'Earliest available: Soon';
   const isOpenNow = Boolean(pickupAvailability?.isOpenNow);
   const asapAllowed = pickupAvailability?.asapAllowed !== false;
   const timezone = pickupAvailability?.timezone || '';
@@ -989,7 +982,7 @@ function PickupTimeCard({
               <div className="pickup-slot-empty">
                 <p className="muted">No pickup times are available right now.</p>
                 <p id={scheduledTimeHelperId} className={showTimeError ? 'error-text' : 'muted'}>
-                  {helperMessage}
+                  Select a pickup time to continue
                 </p>
               </div>
             )}
@@ -1004,21 +997,7 @@ function PickupTimeCard({
               </p>
             ) : null}
           </div>
-        ) : (
-          <div className="asap-preview" aria-live="polite">
-            <p className="pickup-window">{asapReadyLabel}</p>
-            {!asapAllowed ? (
-              <p className="muted pickup-helper">ASAP pickup is currently unavailable.</p>
-            ) : earliestAvailableLabel ? (
-              <p className="muted pickup-helper">{earliestAvailableLabel}</p>
-            ) : null}
-            {!isOpenNow ? (
-              <p className="muted pickup-helper">
-                Currently the restaurant is closed, but you can still place an order for later pickup.
-              </p>
-            ) : null}
-          </div>
-        )}
+        ) : null}
       </div>
     </section>
   );
@@ -1883,10 +1862,6 @@ function getAsapReadyLabel(value, pickupAvailability) {
   }
 
   return 'Ready in 15–20 min';
-}
-
-function getEarliestAvailableLabel(value) {
-  return value ? `Earliest available: ${formatTime(value)}` : '';
 }
 
 function getLastOrderFromHistory(orders = [], restaurantId) {
