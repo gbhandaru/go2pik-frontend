@@ -7,6 +7,7 @@ import HomePage from '../pages/HomePage.jsx';
 import RestaurantMenuPage from '../pages/RestaurantMenuPage.jsx';
 import OrdersPage from '../pages/OrdersPage.jsx';
 import OrderConfirmationPage from '../pages/OrderConfirmationPage.jsx';
+import OrderReviewPage from '../pages/OrderReviewPage.jsx';
 import VerificationPage from '../pages/VerificationPage.jsx';
 import NotFoundPage from '../pages/NotFoundPage.jsx';
 import ProtectedRoute from './ProtectedRoute.jsx';
@@ -26,6 +27,7 @@ export default function AppRoutes() {
         <Route path="/login" element={<LoginPage />} />
         <Route path="/signup" element={<SignupPage />} />
         <Route path="/password-update" element={<PasswordUpdatePage />} />
+        <Route path="/order/:orderNumber" element={<OrderReviewPage />} />
         <Route element={<ProtectedRoute allowGuest />}>
           <Route path="/home" element={<HomePage />} />
           <Route path="/restaurants/:restaurantId/menu" element={<RestaurantMenuPage />} />

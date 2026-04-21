@@ -1,6 +1,8 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { acceptUpdatedCustomerOrder, cancelCustomerOrder, fetchOrderById } from '../api/ordersApi.js';
 import { fetchCustomerOrders } from '../api/customersApi.js';
+import CustomerPartialOrderModal from '../components/shared/CustomerPartialOrderModal.jsx';
 import AsyncState from '../components/shared/AsyncState.jsx';
 import { useAuth } from '../hooks/useAuth.jsx';
 import { useFetch } from '../hooks/useFetch.js';
@@ -11,6 +13,11 @@ export default function OrdersPage() {
   const navigate = useNavigate();
   const { user } = useAuth();
   const [retryKey, setRetryKey] = useState(0);
+  const [dismissedPartialOrderIds, setDismissedPartialOrderIds] = useState(() => new Set());
+  const [activePartialOrderId, setActivePartialOrderId] = useState('');
+  const [activePartialOrder, setActivePartialOrder] = useState(null);
+  const [partialOrderSubmitting, setPartialOrderSubmitting] = useState(false);
+  const [partialOrderError, setPartialOrderError] = useState('');
   const customerId = useMemo(() => getCustomerId(user), [user]);
   const customerName = useMemo(() => getCustomerDisplayName(user), [user]);
   const { data, loading, error, errorInfo } = useFetch(
@@ -23,6 +30,7 @@ export default function OrdersPage() {
 
   const customer = data?.customer || user || null;
   const orders = useMemo(() => sortOrdersByDate(data?.orders || []), [data?.orders]);
+  const partialOrders = useMemo(() => orders.filter(isPendingPartialAcceptance), [orders]);
   const resolvedCustomerName = getCustomerDisplayName(customer) || customerName || 'Customer';
   const resolvedPhone = customer?.phone || customer?.phone_number || user?.phone || user?.phone_number || '';
   const resolvedEmail = customer?.email || user?.email || '';
@@ -30,6 +38,55 @@ export default function OrdersPage() {
     errorInfo?.offline
       ? 'You appear to be offline. Check your connection and try again.'
       : 'We’re having trouble loading your orders right now. Please try again.';
+
+  useEffect(() => {
+    const nextPartialOrder = partialOrders.find((order) => !dismissedPartialOrderIds.has(getOrderIdentity(order)));
+    if (!nextPartialOrder) {
+      if (activePartialOrderId && !partialOrders.some((order) => getOrderIdentity(order) === activePartialOrderId)) {
+        setActivePartialOrderId('');
+      }
+      return;
+    }
+
+    const nextPartialOrderId = getOrderIdentity(nextPartialOrder);
+    setActivePartialOrderId((current) => (current === nextPartialOrderId ? current : nextPartialOrderId));
+  }, [activePartialOrderId, dismissedPartialOrderIds, partialOrders]);
+
+  useEffect(() => {
+    if (!activePartialOrderId) {
+      setActivePartialOrder(null);
+      return;
+    }
+
+    const fallbackOrder = partialOrders.find((order) => getOrderIdentity(order) === activePartialOrderId) || null;
+    if (!fallbackOrder) {
+      setActivePartialOrder(null);
+      return;
+    }
+
+    let active = true;
+    setActivePartialOrder(fallbackOrder);
+
+    fetchOrderById(fallbackOrder.id)
+      .then((response) => {
+        if (!active) {
+          return;
+        }
+        const latestOrder = response?.order || response?.data?.order || response;
+        if (latestOrder && typeof latestOrder === 'object') {
+          setActivePartialOrder(latestOrder);
+        }
+      })
+      .catch(() => {
+        if (active) {
+          setActivePartialOrder(fallbackOrder);
+        }
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [activePartialOrderId, partialOrders]);
 
   const handleReorder = (order) => {
     const restaurantId = order?.restaurant?.id;
@@ -41,6 +98,60 @@ export default function OrdersPage() {
 
   const handleRetryOrders = () => {
     setRetryKey((current) => current + 1);
+  };
+
+  const handleAcceptUpdatedOrder = async () => {
+    if (!activePartialOrderId || partialOrderSubmitting) {
+      return;
+    }
+
+    setPartialOrderSubmitting(true);
+    try {
+      const response = await acceptUpdatedCustomerOrder(activePartialOrderId);
+      const updatedOrder = response?.order || response?.data?.order || response || null;
+      if (updatedOrder && updatedOrder.id != null) {
+        setActivePartialOrder(updatedOrder);
+      }
+      setDismissedPartialOrderIds((current) => {
+        const next = new Set(current);
+        next.add(activePartialOrderId);
+        return next;
+      });
+      setPartialOrderError('');
+      setActivePartialOrderId('');
+      setRetryKey((current) => current + 1);
+    } catch (error) {
+      setPartialOrderError(error?.message || 'Unable to accept the updated order right now.');
+    } finally {
+      setPartialOrderSubmitting(false);
+    }
+  };
+
+  const handleCancelUpdatedOrder = async () => {
+    if (!activePartialOrderId || partialOrderSubmitting) {
+      return;
+    }
+
+    setPartialOrderSubmitting(true);
+    try {
+      const response = await cancelCustomerOrder(activePartialOrderId, 'Please cancel the order');
+      const updatedOrder = response?.order || response?.data?.order || response || null;
+      if (updatedOrder && updatedOrder.id != null) {
+        setActivePartialOrder(updatedOrder);
+      }
+      setDismissedPartialOrderIds((current) => {
+        const next = new Set(current);
+        next.add(activePartialOrderId);
+        return next;
+      });
+      setPartialOrderError('');
+      setActivePartialOrderId('');
+      setRetryKey((current) => current + 1);
+    } catch (error) {
+      setPartialOrderError(error?.message || 'Unable to cancel the updated order right now.');
+    } finally {
+      setPartialOrderSubmitting(false);
+    }
   };
 
   if (loading) {
@@ -125,7 +236,7 @@ export default function OrdersPage() {
               </div>
             ) : (
               orders.map((order) => {
-                const statusLabel = formatOrderStatusLabel(order.status);
+                const statusLabel = formatOrderStatusLabel(order.status, order);
                 return (
                   <article className="card customer-order-card" key={order.id}>
                     <div className="customer-order-card__main">
@@ -134,14 +245,17 @@ export default function OrdersPage() {
                           <h3>{order.restaurant?.name || 'Unknown restaurant'}</h3>
                           <p>{formatOrderPlacement(order)}</p>
                         </div>
-                        <span className={`customer-order-card__status customer-order-card__status--${getOrderBucket(order)}`}>
-                          {statusLabel}
-                        </span>
+                        <div className="customer-order-card__status-stack">
+                          <span className={`customer-order-card__status customer-order-card__status--${getOrderBucket(order)}`}>
+                            {statusLabel}
+                          </span>
+                          {isPendingPartialAcceptance(order) ? (
+                            <span className="customer-order-card__action-required">Action required</span>
+                          ) : null}
+                        </div>
                       </div>
 
-                      <div className="customer-order-card__items">
-                        {renderOrderItems(order.items)}
-                      </div>
+                      <div className="customer-order-card__items">{renderOrderItems(order)}</div>
 
                       <div className="customer-order-card__meta">
                         <div>
@@ -171,6 +285,15 @@ export default function OrdersPage() {
           </section>
         </section>
       </section>
+      {activePartialOrder ? (
+        <CustomerPartialOrderModal
+          order={activePartialOrder}
+          onAcceptUpdatedOrder={handleAcceptUpdatedOrder}
+          onCancelOrder={handleCancelUpdatedOrder}
+          submitting={partialOrderSubmitting}
+          error={partialOrderError}
+        />
+      ) : null}
     </main>
   );
 }
@@ -189,7 +312,8 @@ function getOrderTimeValue(order) {
   return Number.isNaN(date.getTime()) ? 0 : date.getTime();
 }
 
-function renderOrderItems(items = []) {
+function renderOrderItems(order = {}) {
+  const items = getVisibleOrderItems(order);
   if (!items.length) {
     return <p className="muted customer-order-card__empty-items">No item details available.</p>;
   }
@@ -209,6 +333,9 @@ function renderOrderItems(items = []) {
 }
 
 function getOrderBucket(order) {
+  if (isPartialAcceptance(order)) {
+    return 'partial';
+  }
   const status = String(order?.status || '').trim().toLowerCase();
   if (status === 'cancelled' || status === 'canceled' || status === 'rejected') {
     return 'cancelled';
@@ -239,6 +366,10 @@ function formatOrderPlacement(order) {
 }
 
 function formatOrderTotal(order) {
+  const updatedTotal = resolveUpdatedOrderTotal(order);
+  if (updatedTotal != null) {
+    return formatCurrency(updatedTotal);
+  }
   if (order?.totalDisplay) {
     return order.totalDisplay;
   }
@@ -260,12 +391,81 @@ function formatPaymentLabel(order) {
   return 'Unavailable';
 }
 
-function formatOrderStatusLabel(status) {
+function formatOrderStatusLabel(status, order) {
+  if (isPartialAcceptance(order)) {
+    return 'Partially Accepted';
+  }
   const normalized = String(status || '').trim().toLowerCase();
   if (normalized === 'cancelled' || normalized === 'canceled' || normalized === 'rejected') {
     return 'Cancelled';
   }
   return 'Completed';
+}
+
+function isPendingPartialAcceptance(order) {
+  if (!order) {
+    return false;
+  }
+
+  const acceptanceMode = String(order.acceptanceMode || order.acceptance_mode || '').trim().toLowerCase();
+  if (acceptanceMode !== 'partial') {
+    return false;
+  }
+
+  return isCustomerActionPending(order);
+}
+
+function getVisibleOrderItems(order) {
+  const acceptedItems = normalizeOrderItems(order?.acceptedItems || order?.accepted_items);
+  if (acceptedItems.length) {
+    return acceptedItems;
+  }
+
+  return normalizeOrderItems(order?.items);
+}
+
+function resolveUpdatedOrderTotal(order) {
+  const direct =
+    order?.updatedTotal ??
+    order?.updated_total ??
+    order?.total ??
+    order?.subtotal ??
+    order?.totalAmount ??
+    order?.total_amount;
+
+  if (typeof direct === 'number' && Number.isFinite(direct)) {
+    return direct;
+  }
+
+  if (typeof direct === 'string' && direct.trim()) {
+    const parsed = Number(direct);
+    if (Number.isFinite(parsed)) {
+      return parsed;
+    }
+  }
+
+  return null;
+}
+
+function normalizeOrderItems(items) {
+  if (!Array.isArray(items)) {
+    return [];
+  }
+
+  return items.filter(Boolean).map((item, index) => ({
+    ...item,
+    quantity: Number(item.quantity) > 0 ? Number(item.quantity) : 1,
+    __fallbackKey: item.menuItemId || item.id || item.name || `item-${index}`,
+  }));
+}
+
+function getOrderIdentity(order) {
+  return String(order?.id || order?.orderNumber || order?.referenceNumber || order?.reference || order?.createdAt || '');
+}
+
+function isCustomerActionPending(order) {
+  const action = String(order?.customerAction || order?.customer_action || '').trim().toLowerCase();
+  return !action || action === 'pending';
 }
 
 function capitalizeWords(value) {

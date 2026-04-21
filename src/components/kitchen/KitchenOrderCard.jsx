@@ -46,18 +46,32 @@ export default function KitchenOrderCard({
 
   const orderNumber = order.orderNumber || order.displayId || order.id;
   const customerName = order.customerName || order.customer?.name || 'Guest';
+  const visibleItems = getVisibleOrderItems(order);
   const totalItems =
     typeof order.totalItems === 'number'
       ? order.totalItems
-      : order.items?.reduce((sum, item) => sum + (item.quantity || 1), 0) || 0;
+      : visibleItems.reduce((sum, item) => sum + (item.quantity || 1), 0) || 0;
   const statusLabel = STATUS_LABELS[order.status] || order.status;
   const pickupTime = order.pickupTime || order.pickupAt || order.scheduledPickupTime || null;
-  const totalValue = order.total ?? order.totalDisplay;
+  const totalValue =
+    order.total ??
+    order.totalDisplay ??
+    order.updatedTotal ??
+    order.subtotal ??
+    order.updatedSubtotal ??
+    order.totalAmount ??
+    order.total_amount;
   const hasTotal = totalValue != null;
   const hasMultipleActions = actions.length > 1;
   const waitingMinutes = Number.isFinite(ageMinutes) ? Math.max(0, Math.round(ageMinutes)) : null;
   const isDelayed = waitingMinutes != null && waitingMinutes > 5;
   const waitLabel = waitingMinutes != null ? `Waiting ${waitingMinutes}m` : null;
+  const acceptanceMode = String(order.acceptanceMode || order.acceptance_mode || '').toLowerCase();
+  const customerAction = String(order.customerAction || order.customer_action || '').trim().toLowerCase();
+  const isPartialAcceptance = acceptanceMode === 'partial' && (!customerAction || customerAction === 'pending');
+  const unavailableCount = Array.isArray(order.unavailableItems)
+    ? order.unavailableItems.reduce((sum, item) => sum + (item.quantity || 1), 0)
+    : 0;
 
   return (
     <article
@@ -88,6 +102,11 @@ export default function KitchenOrderCard({
                 {waitLabel}
               </span>
             )}
+            {isPartialAcceptance ? (
+              <span className="kitchen-order-card__badge kitchen-order-card__badge--partial">
+                Partially Accepted
+              </span>
+            ) : null}
           </div>
         </div>
         <div className="kitchen-order-card__pickup">
@@ -101,13 +120,19 @@ export default function KitchenOrderCard({
             <span className="kitchen-order-card__pickup-label">PICKUP FOR:</span>
             <strong>{customerName}</strong>
           </div>
+          {isPartialAcceptance ? (
+            <div className="kitchen-order-card__pickup-line kitchen-order-card__pickup-line--partial">
+              <span className="kitchen-order-card__pickup-label">PARTIAL:</span>
+              <strong>{unavailableCount > 0 ? `${unavailableCount} item${unavailableCount === 1 ? '' : 's'} unavailable` : 'Accepted items updated'}</strong>
+            </div>
+          ) : null}
         </div>
       </div>
 
       <div className="kitchen-order-card__items">
         <ul>
-          {order.items?.length ? (
-            order.items.map((item) => {
+          {visibleItems?.length ? (
+            visibleItems.map((item) => {
               const itemInstructions = getItemInstructions(item);
               return (
                 <li key={`${order.id}-${item.id || item.name}`}>
@@ -193,4 +218,35 @@ function getItemInstructions(item) {
     item.note ||
     ''
   );
+}
+
+function getVisibleOrderItems(order) {
+  const acceptedItems = normalizeOrderItems(order?.acceptedItems);
+  if (acceptedItems.length) {
+    return acceptedItems;
+  }
+
+  const fallbackItems = normalizeOrderItems(order?.items);
+  if (fallbackItems.length) {
+    return fallbackItems;
+  }
+
+  return [];
+}
+
+function normalizeOrderItems(items) {
+  if (!Array.isArray(items)) {
+    return [];
+  }
+
+  return items
+    .map((item, index) => ({
+      ...item,
+      id: item?.id ?? item?.menuItemId ?? item?.menu_item_id ?? item?.sku ?? `item-${index}`,
+      name: item?.name || item?.title || item?.label || 'Item',
+      quantity: Number(item?.quantity || 1),
+      price: Number(item?.price ?? item?.unitPrice ?? item?.unit_price ?? 0),
+      specialInstructions: item?.specialInstructions || item?.special_instructions || item?.instructions || item?.note || '',
+    }))
+    .filter((item) => item.id != null && item.name);
 }
