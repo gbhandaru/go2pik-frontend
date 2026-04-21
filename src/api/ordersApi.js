@@ -164,7 +164,17 @@ function getKitchenActionRequest(orderId, status, options = {}) {
   const body =
     status === 'rejected'
       ? { reject_reason: options.rejectReason || 'Rejected from kitchen dashboard' }
-      : undefined;
+        : status === 'partially_accepted'
+        ? {
+            accepted_item_ids: Array.isArray(options.accepted_item_ids || options.acceptedItemIds)
+              ? options.accepted_item_ids || options.acceptedItemIds
+              : [],
+            unavailable_item_ids: Array.isArray(options.unavailable_item_ids || options.unavailableItemIds)
+              ? options.unavailable_item_ids || options.unavailableItemIds
+              : [],
+            note: options.note || undefined,
+          }
+        : undefined;
 
   return { path, body };
 }

@@ -4392,6 +4392,16 @@ hr {
   text-transform: uppercase;
 }
 
+.kitchen-partial-modal__inline-error {
+  padding: 0.75rem 0.85rem;
+  border-radius: 0.9rem;
+  background: rgba(254, 242, 242, 0.95);
+  border: 1px solid rgba(239, 68, 68, 0.18);
+  color: #991b1b;
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+
 .kitchen-partial-modal__items-list {
   display: flex;
   flex-direction: column;

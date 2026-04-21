@@ -208,6 +208,10 @@ function createPartialAcceptDraft(order) {
     items,
     selectedItemIds: items.map((item) => String(item.id)),
     note: '',
+    error:
+      Array.isArray(order?.items) && order.items.length > 0 && items.length === 0
+        ? 'Unable to partially accept this order because item ids are missing from the backend response.'
+        : '',
   };
 }
 
@@ -239,6 +243,7 @@ function PartialAcceptModal({
   items,
   selectedItemIds,
   note,
+  error,
   onClose,
   onToggleItem,
   onNoteChange,
@@ -255,7 +260,7 @@ function PartialAcceptModal({
   const selectedSubtotal = selectedItems.reduce((sum, item) => sum + item.price * item.quantity, 0);
   const remainingCount = selectedItems.reduce((sum, item) => sum + item.quantity, 0);
   const unavailableCount = unavailableItems.reduce((sum, item) => sum + item.quantity, 0);
-  const buttonDisabled = selectedItems.length === 0 || submitting;
+  const buttonDisabled = selectedItems.length === 0 || submitting || Boolean(error);
   const noteText = note || '';
 
   return (
@@ -302,6 +307,7 @@ function PartialAcceptModal({
             <strong>Order Items</strong>
             <span className="muted">Checked items stay on the order.</span>
           </div>
+          {error ? <div className="kitchen-partial-modal__inline-error">{error}</div> : null}
           <div className="kitchen-partial-modal__items-header">
             <span />
             <span className="muted">Price</span>
@@ -399,6 +405,20 @@ function formatOrderPlacedAt(order) {
   }
 
   return date.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+}
+
+function getItemInstructions(item) {
+  if (!item) {
+    return '';
+  }
+
+  return (
+    item.specialInstructions ||
+    item.special_instructions ||
+    item.instructions ||
+    item.note ||
+    ''
+  );
 }
 
 export default function KitchenOrdersPage() {
@@ -618,12 +638,6 @@ export default function KitchenOrdersPage() {
 
   const handleOpenPartialAccept = (order) => {
     setActionError(null);
-    if (!orderHasStrictItemIds(order)) {
-      setActionError(
-        `Unable to partially accept Order #${order.orderNumber || order.displayId || order.id} because one or more order item ids are missing from the backend response. Please refresh or accept/reject the order instead.`,
-      );
-      return;
-    }
     setPartialAcceptOrder(createPartialAcceptDraft(order));
   };
 
@@ -834,6 +848,7 @@ export default function KitchenOrdersPage() {
           items={partialAcceptOrder.items}
           selectedItemIds={partialAcceptOrder.selectedItemIds}
           note={partialAcceptOrder.note}
+          error={partialAcceptOrder.error}
           onClose={handleClosePartialAccept}
           onToggleItem={handleTogglePartialAcceptItem}
           onNoteChange={handlePartialAcceptNoteChange}
