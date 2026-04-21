@@ -1139,6 +1139,24 @@ textarea {
   gap: 0.45rem;
 }
 
+.pickup-slot-toggle {
+  border: none;
+  background: transparent;
+  color: #5f7d58;
+  font-weight: 700;
+  font-size: 0.9rem;
+  padding: 0.15rem 0;
+  align-self: flex-start;
+  text-decoration: underline;
+  text-underline-offset: 0.15em;
+}
+
+.pickup-slot-toggle:hover,
+.pickup-slot-toggle:focus-visible {
+  color: #4f6849;
+  outline: none;
+}
+
 .pickup-slot {
   border: 1px solid #d8e0ea;
   background: #f8fafc;

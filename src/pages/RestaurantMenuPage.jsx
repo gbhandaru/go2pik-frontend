@@ -883,6 +883,7 @@ function PickupTimeCard({
   asapReadyLabel,
   scheduledPickupGroups,
 }) {
+  const [showMorePickupTimes, setShowMorePickupTimes] = useState(false);
   const isScheduled = selectedMode === PICKUP_MODES.SCHEDULED;
   const scheduledTimeHelperId = 'scheduled-time-helper';
   const isOpenNow = Boolean(pickupAvailability?.isOpenNow);
@@ -898,6 +899,26 @@ function PickupTimeCard({
     pickupAvailability,
     todayWindows,
   );
+  const availablePickupSlots = scheduledPickupGroups[0]?.slots || [];
+  const selectedPickupSlot = availablePickupSlots.find((slot) => slot.value === scheduledPickupTime) || null;
+  const collapsedPickupSlots = selectedPickupSlot
+    ? [
+        selectedPickupSlot,
+        ...availablePickupSlots.filter((slot) => slot.value !== selectedPickupSlot.value),
+      ].slice(0, 2)
+    : availablePickupSlots.slice(0, 2);
+  const displayedPickupSlots = showMorePickupTimes ? availablePickupSlots : collapsedPickupSlots;
+
+  useEffect(() => {
+    if (!isScheduled) {
+      setShowMorePickupTimes(false);
+      return;
+    }
+
+    if (scheduledPickupTime) {
+      setShowMorePickupTimes(false);
+    }
+  }, [isScheduled, scheduledPickupTime]);
 
   return (
     <section className="pickup-card" aria-labelledby="pickup-card-title">
@@ -965,9 +986,9 @@ function PickupTimeCard({
                   <span className="muted">{scheduledPickupGroups[0].hoursLabel}</span>
                 </div>
                 <div className="pickup-slot-list" role="list" aria-label="Today pickup times">
-                  {scheduledPickupGroups[0].slots.map((slot, index) => {
+                  {displayedPickupSlots.map((slot, index) => {
                     const isSelected = scheduledPickupTime === slot.value;
-                    const isRecommended = index === 0;
+                    const isRecommended = !scheduledPickupTime && index === 0;
                     return (
                       <button
                         key={slot.value}
@@ -982,6 +1003,15 @@ function PickupTimeCard({
                     );
                   })}
                 </div>
+                {availablePickupSlots.length > displayedPickupSlots.length ? (
+                  <button
+                    type="button"
+                    className="pickup-slot-toggle"
+                    onClick={() => setShowMorePickupTimes((current) => !current)}
+                  >
+                    {showMorePickupTimes ? 'Show Fewer Times' : 'See More Available Times'}
+                  </button>
+                ) : null}
               </div>
             ) : (
               <div className="pickup-slot-empty">
