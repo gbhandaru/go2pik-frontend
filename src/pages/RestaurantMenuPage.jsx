@@ -886,31 +886,43 @@ function PickupTimeCard({
   const asapAllowed = pickupAvailability?.asapAllowed !== false;
   const timezone = pickupAvailability?.timezone || '';
   const todayWindows = pickupAvailability?.today?.windows || [];
-  const statusMessage =
-    pickupAvailability?.statusMessage ||
-    (isOpenNow
-      ? 'The restaurant is open right now.'
-      : 'Currently the restaurant is closed, but you can still place an order for later pickup.');
-  const todayHoursLabel = formatPickupWindows(todayWindows, timezone) || 'Pickup hours not available yet';
+  const pickupStatusLabel = getPickupStatusLabel(pickupAvailability, todayWindows, timezone);
+  const pickupByLabel = getPickupByLabel(
+    selectedMode,
+    scheduledPickupTime,
+    asapReadyTime,
+    timezone,
+    pickupAvailability,
+    todayWindows,
+  );
 
   return (
     <section className="pickup-card" aria-labelledby="pickup-card-title">
       <div className="card-heading">
-        <p className="eyebrow">Pickup time</p>
+        <p className="eyebrow">PICKUP TIME</p>
         <h3>Choose how you want to pick up your order</h3>
       </div>
-      <div className={`pickup-availability${isOpenNow ? ' pickup-availability--open' : ' pickup-availability--closed'}`}>
-        <div className="pickup-availability__status">
-          <span className={`pickup-status-badge${isOpenNow ? ' is-open' : ' is-closed'}`}>
-            {isOpenNow ? 'Open now' : 'Closed now'}
-          </span>
-          <p className="pickup-availability__message">{statusMessage}</p>
+      <div className="pickup-status-row">
+        <span className={`pickup-status-dot${isOpenNow ? ' is-open' : ' is-closed'}`} aria-hidden="true" />
+        <div className="pickup-status-copy">
+          <p className="pickup-status-line">
+            <strong>{isOpenNow ? 'Open' : 'Closed'}</strong>
+            <span aria-hidden="true">•</span>
+            <span>{isOpenNow ? `Closes at ${pickupStatusLabel}` : `Opens at ${pickupStatusLabel}`}</span>
+          </p>
+          <p className="pickup-status-message">
+            {pickupAvailability?.statusMessage ||
+              (isOpenNow
+                ? 'The restaurant is open right now.'
+                : 'Currently the restaurant is closed, but you can still place an order for later pickup.')}
+          </p>
         </div>
-        <div className="pickup-availability__hours">
-          <strong>Today</strong>
-          <p>{todayHoursLabel}</p>
-          {timezone ? <span className="muted">Timezone: {timezone}</span> : null}
-        </div>
+      </div>
+      <div className="pickup-summary-lines">
+        <p className="pickup-ready-line">{asapReadyLabel}</p>
+        <p className="pickup-by-line">
+          Pickup by <strong>{pickupByLabel}</strong>
+        </p>
       </div>
       <div className="pickup-tabs" role="tablist" aria-label="Pickup options">
         {[PICKUP_MODES.ASAP, PICKUP_MODES.SCHEDULED].map((mode) => {
@@ -982,6 +994,11 @@ function PickupTimeCard({
             {scheduledPickupTime ? (
               <p className="pickup-slot-selection">
                 Selected: <strong>{formatScheduledPickupSelection(scheduledPickupTime, timezone)}</strong>
+              </p>
+            ) : null}
+            {!isOpenNow ? (
+              <p className="pickup-slot-closed-note">
+                Currently the restaurant is closed, but you can still place an order for later pickup.
               </p>
             ) : null}
           </div>
@@ -1758,6 +1775,43 @@ function getPickupSummary(mode, scheduledTime, asapReadyTime, pickupAvailability
   return getAsapReadyLabel(asapReadyTime, pickupAvailability);
 }
 
+function getPickupStatusLabel(pickupAvailability, todayWindows = [], timezone) {
+  const isOpenNow = Boolean(pickupAvailability?.isOpenNow);
+  if (!Array.isArray(todayWindows) || todayWindows.length === 0) {
+    return 'Soon';
+  }
+
+  const nextWindow = todayWindows[0];
+  if (!nextWindow?.open || !nextWindow?.close) {
+    return 'Soon';
+  }
+
+  const closeDate = buildTimeForFormatting(nextWindow.close, timezone);
+  const openDate = buildTimeForFormatting(nextWindow.open, timezone);
+  return isOpenNow
+    ? formatPickupTimeLabel(closeDate, timezone)
+    : formatPickupTimeLabel(openDate, timezone);
+}
+
+function getPickupByLabel(selectedMode, scheduledPickupTime, asapReadyTime, timezone, pickupAvailability, todayWindows = []) {
+  if (selectedMode === PICKUP_MODES.SCHEDULED) {
+    return scheduledPickupTime
+      ? formatScheduledPickupSelection(scheduledPickupTime, timezone)
+      : 'Choose a pickup time';
+  }
+
+  if (pickupAvailability?.asapAllowed === false) {
+    return 'ASAP unavailable';
+  }
+
+  const firstWindow = Array.isArray(todayWindows) && todayWindows.length > 0 ? todayWindows[0] : null;
+  if (pickupAvailability?.isOpenNow === false && firstWindow?.open) {
+    return formatPickupTimeLabel(buildTimeForFormatting(firstWindow.open, timezone), timezone);
+  }
+
+  return formatPickupTimeLabel(buildTimeForFormatting(asapReadyTime || getTimeFromNow(PICKUP_WINDOW_MINUTES), timezone), timezone);
+}
+
 function formatScheduledPickupSelection(value, timezone) {
   if (!value) {
     return '';
@@ -1826,7 +1880,7 @@ function getAsapReadyLabel(value, pickupAvailability) {
     return 'ASAP pickup is currently unavailable.';
   }
 
-  return value ? `Pickup at ~${formatTime(value)} (15–20 min)` : 'Pickup in ~15–20 min';
+  return 'Ready in 15–20 min';
 }
 
 function getEarliestAvailableLabel(value) {
