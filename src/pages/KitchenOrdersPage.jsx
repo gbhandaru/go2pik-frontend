@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import KitchenOrderCard from '../components/kitchen/KitchenOrderCard.jsx';
 import KitchenTabs from '../components/kitchen/KitchenTabs.jsx';
+import { KITCHEN_MAIN_TABS } from '../components/kitchen/kitchenMainTabs.js';
 import { restaurantUserLogout } from '../api/authApi.js';
 import { resolveKitchenOrderActionId, updateOrderStatus } from '../api/ordersApi.js';
 import { useKitchenOrders } from '../hooks/useKitchenOrders.js';
@@ -47,11 +48,6 @@ const BASE_TAB_CONFIG = [
   { value: 'preparing', label: 'Preparing' },
   { value: 'ready_for_pickup', label: 'Ready for Pickup' },
   { value: 'completed', label: 'Completed' },
-];
-
-const MAIN_TABS = [
-  { value: 'orders', label: 'Order' },
-  { value: 'menu', label: 'Menu' },
 ];
 
 const TAB_SUBTITLE = {
@@ -635,6 +631,11 @@ export default function KitchenOrdersPage() {
       return;
     }
 
+    if (tab === 'reports') {
+      navigate('/kitchen/reports');
+      return;
+    }
+
     navigate('/kitchen/orders');
   };
 
@@ -916,7 +917,7 @@ export default function KitchenOrdersPage() {
       ) : null}
 
       <section className="card kitchen-toolbar kitchen-main-tabs">
-        <KitchenTabs tabs={MAIN_TABS} activeTab="orders" onTabChange={handleMainTabChange} />
+        <KitchenTabs tabs={KITCHEN_MAIN_TABS} activeTab="orders" onTabChange={handleMainTabChange} />
       </section>
 
       <section className="card kitchen-toolbar">

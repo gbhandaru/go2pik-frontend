@@ -203,6 +203,32 @@ export function fetchOrdersByStatus(status) {
   return apiRequest(`/dashboard/restaurants/${encodeURIComponent(restaurantId)}/orders${query}`);
 }
 
+function buildReportQuery(params = {}) {
+  const searchParams = new URLSearchParams();
+  if (params.today) {
+    searchParams.set('today', 'true');
+  }
+  if (params.date) {
+    searchParams.set('date', params.date);
+  }
+  if (params.from) {
+    searchParams.set('from', params.from);
+  }
+  if (params.to) {
+    searchParams.set('to', params.to);
+  }
+  const query = searchParams.toString();
+  return query ? `?${query}` : '';
+}
+
+export function fetchKitchenOrdersReport(restaurantId, params = {}) {
+  const resolvedRestaurantId = restaurantId || getKitchenRestaurantIdOrThrow();
+  const query = buildReportQuery(params);
+  return apiRequest(
+    `/dashboard/restaurants/${encodeURIComponent(resolvedRestaurantId)}/reports/orders${query}`,
+  );
+}
+
 function getKitchenActionRequest(orderId, status, options = {}) {
   getKitchenRestaurantIdOrThrow();
 
