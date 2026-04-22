@@ -169,6 +169,25 @@ export default function VerificationPage() {
   const resendCountdown = canResend ? '' : formatCountdown(resendAvailableAt.getTime() - now);
   const expiryCountdown = verificationExpiresAt ? formatCountdown(verificationExpiresAt.getTime() - now) : '';
 
+  useEffect(() => {
+    if (!verification?.id || !isCodeComplete || submitting || starting) {
+      return;
+    }
+
+    if (lastAutoSubmittedCodeRef.current === codeValue) {
+      return;
+    }
+
+    lastAutoSubmittedCodeRef.current = codeValue;
+    void submitVerification();
+  }, [codeValue, isCodeComplete, verification?.id, submitting, starting]);
+
+  useEffect(() => {
+    if (!isCodeComplete) {
+      lastAutoSubmittedCodeRef.current = '';
+    }
+  }, [codeValue, isCodeComplete]);
+
   const handleRetryDraft = () => {
     setOrderDraft(getCustomerOrderDraft());
     setVerification(getCustomerOrderVerification() || null);
@@ -287,25 +306,6 @@ export default function VerificationPage() {
     const focusIndex = Math.min(pasted.length, resolvedOtpLength - 1);
     inputsRef.current[focusIndex]?.focus();
   };
-
-  useEffect(() => {
-    if (!verification?.id || !isCodeComplete || submitting || starting) {
-      return;
-    }
-
-    if (lastAutoSubmittedCodeRef.current === codeValue) {
-      return;
-    }
-
-    lastAutoSubmittedCodeRef.current = codeValue;
-    void submitVerification();
-  }, [codeValue, isCodeComplete, verification?.id, submitting, starting]);
-
-  useEffect(() => {
-    if (!isCodeComplete) {
-      lastAutoSubmittedCodeRef.current = '';
-    }
-  }, [codeValue, isCodeComplete]);
 
   async function submitVerification() {
     if (!verification?.id || submitting || starting) {

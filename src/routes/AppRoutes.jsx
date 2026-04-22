@@ -17,6 +17,7 @@ import KitchenLoginPage from '../pages/KitchenLoginPage.jsx';
 import KitchenCreateUserPage from '../pages/KitchenCreateUserPage.jsx';
 import KitchenOrdersPage from '../pages/KitchenOrdersPage.jsx';
 import KitchenMenuPage from '../pages/KitchenMenuPage.jsx';
+import KitchenReportsPage from '../pages/KitchenReportsPage.jsx';
 import KitchenReadyPage from '../pages/KitchenReadyPage.jsx';
 import KitchenCompletedPage from '../pages/KitchenCompletedPage.jsx';
 import CustomerLayout from '../components/customer/CustomerLayout.jsx';
@@ -47,6 +48,7 @@ export default function AppRoutes() {
       <Route path="/kitchen" element={<Navigate to="/kitchen/orders" replace />} />
       <Route path="/kitchen/orders" element={<KitchenOrdersPage />} />
       <Route path="/kitchen/menu" element={<KitchenMenuPage />} />
+      <Route path="/kitchen/reports" element={<KitchenReportsPage />} />
       <Route path="/kitchen/ready" element={<KitchenReadyPage />} />
       <Route path="/kitchen/completed" element={<KitchenCompletedPage />} />
       <Route path="*" element={<NotFoundPage />} />

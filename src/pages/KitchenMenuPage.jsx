@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import KitchenTabs from '../components/kitchen/KitchenTabs.jsx';
+import { KITCHEN_MAIN_TABS } from '../components/kitchen/kitchenMainTabs.js';
 import {
   createKitchenMenuCategory,
   createKitchenMenuItem,
@@ -16,11 +17,6 @@ import {
 import { restaurantUserLogout } from '../api/authApi.js';
 import { formatCurrency } from '../utils/formatCurrency.js';
 import { clearKitchenAuthTokens, getKitchenRefreshToken, getKitchenRestaurantId } from '../services/authStorage.js';
-
-const MAIN_TABS = [
-  { value: 'orders', label: 'Order' },
-  { value: 'menu', label: 'Menu' },
-];
 
 const MENU_FILTERS = [
   { value: 'all', label: 'All' },
@@ -870,6 +866,11 @@ export default function KitchenMenuPage() {
       return;
     }
 
+    if (tab === 'reports') {
+      navigate('/kitchen/reports');
+      return;
+    }
+
     navigate('/kitchen/menu');
   };
 
@@ -1537,7 +1538,7 @@ export default function KitchenMenuPage() {
       {feedback && <div className={`kitchen-feedback kitchen-feedback--${feedback.kind}`}>{feedback.message}</div>}
 
       <section className="card kitchen-toolbar kitchen-main-tabs">
-        <KitchenTabs tabs={MAIN_TABS} activeTab={activeTab} onTabChange={handleMainTabChange} />
+        <KitchenTabs tabs={KITCHEN_MAIN_TABS} activeTab={activeTab} onTabChange={handleMainTabChange} />
       </section>
 
       {content}

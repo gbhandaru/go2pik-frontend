@@ -3598,6 +3598,445 @@ hr {
   padding: 0.9rem 1rem;
 }
 
+.kitchen-reports-page {
+  gap: 1rem;
+}
+
+.kitchen-report-hero {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.25rem 0.25rem 0.1rem;
+}
+
+.kitchen-report-hero h2 {
+  margin: 0.15rem 0 0.25rem;
+  font-size: clamp(1.5rem, 2.8vw, 2.15rem);
+  line-height: 1.05;
+}
+
+.kitchen-report-range-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.55rem;
+}
+
+.kitchen-report-range-tab {
+  border: 1px solid #d7dbe6;
+  border-radius: 999px;
+  background: #fff;
+  color: #475569;
+  padding: 0.58rem 1rem;
+  font-weight: 700;
+}
+
+.kitchen-report-range-tab.active {
+  background: #0f172a;
+  border-color: #0f172a;
+  color: #fff;
+}
+
+.kitchen-report-metrics {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 1rem;
+}
+
+.kitchen-report-metric {
+  padding: 1.1rem 1.15rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.kitchen-report-metric p,
+.kitchen-report-metric strong {
+  margin: 0;
+}
+
+.kitchen-report-metric p {
+  color: #64748b;
+  font-weight: 700;
+}
+
+.kitchen-report-metric strong {
+  font-size: clamp(1.45rem, 2.6vw, 2.15rem);
+  line-height: 1.05;
+}
+
+.kitchen-report-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.6fr) minmax(280px, 0.95fr);
+  gap: 1rem;
+}
+
+.kitchen-report-chart,
+.kitchen-report-panel,
+.kitchen-report-breakdown,
+.kitchen-report-status,
+.kitchen-report-table-card {
+  padding: 1.2rem;
+}
+
+.kitchen-report-card-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+.kitchen-report-card-header h3 {
+  margin: 0.15rem 0 0;
+  font-size: 1.1rem;
+}
+
+.kitchen-report-series {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(175px, 1fr));
+  gap: 0.85rem;
+}
+
+.kitchen-report-series__point {
+  border-radius: 1rem;
+  border: 1px solid #e2e8f0;
+  background: #f8fafc;
+  padding: 0.9rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.7rem;
+}
+
+.kitchen-report-series__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.kitchen-report-series__header strong {
+  color: #0f172a;
+  font-size: 0.95rem;
+}
+
+.kitchen-report-series__header span {
+  color: #1f2937;
+  font-weight: 700;
+}
+
+.kitchen-report-series__bar-track {
+  height: 180px;
+  border-radius: 1rem;
+  background: linear-gradient(180deg, #eef2f7, #f8fafc);
+  border: 1px solid #dde5ef;
+  display: flex;
+  align-items: flex-end;
+  padding: 0.45rem;
+}
+
+.kitchen-report-series__bar-fill {
+  width: 100%;
+  border-radius: 0.85rem 0.85rem 0.45rem 0.45rem;
+  background: linear-gradient(180deg, #f97316, #f59e0b);
+  display: block;
+  min-height: 0.9rem;
+}
+
+.kitchen-report-series__metrics {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  color: #475569;
+  font-size: 0.84rem;
+}
+
+.kitchen-report-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.7rem;
+}
+
+.kitchen-report-list li,
+.kitchen-report-breakdown__rows > div {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.85rem 0.95rem;
+  border-radius: 0.95rem;
+  background: #f8fafc;
+}
+
+.kitchen-report-list li strong,
+.kitchen-report-breakdown__rows strong {
+  color: #0f172a;
+  font-size: 1rem;
+}
+
+.kitchen-report-breakdown__rows {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.kitchen-report-breakdown__net {
+  background: rgba(34, 197, 94, 0.12);
+}
+
+.kitchen-report-filters {
+  padding: 1rem 1.1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.9rem;
+}
+
+.kitchen-report-filters__top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.9rem;
+  flex-wrap: wrap;
+}
+
+.kitchen-report-filter-tabs {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.kitchen-report-filter-tab,
+.kitchen-report-today-btn {
+  border: 1px solid #d7dbe6;
+  border-radius: 999px;
+  background: #fff;
+  color: #475569;
+  padding: 0.58rem 1rem;
+  font-weight: 700;
+}
+
+.kitchen-report-filter-tab.active,
+.kitchen-report-today-btn.active {
+  background: #0f172a;
+  border-color: #0f172a;
+  color: #fff;
+}
+
+.kitchen-report-date-controls {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 0.75rem;
+}
+
+.kitchen-report-date-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  font-size: 0.92rem;
+  font-weight: 700;
+  color: #334155;
+}
+
+.kitchen-report-date-field input {
+  min-width: 0;
+  border: 1px solid #d7dbe6;
+  border-radius: 0.95rem;
+  padding: 0.78rem 0.9rem;
+  background: #fff;
+  color: #0f172a;
+}
+
+.kitchen-report-date-field input:focus {
+  outline: none;
+  border-color: #f97316;
+  box-shadow: 0 0 0 4px rgba(249, 115, 22, 0.12);
+}
+
+.kitchen-report-filters__summary {
+  margin: 0;
+}
+
+.kitchen-report-error {
+  padding: 1.15rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 1rem;
+}
+
+.kitchen-report-error h3 {
+  margin: 0.15rem 0 0.25rem;
+}
+
+.kitchen-report-loading {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.kitchen-report-loading__row,
+.kitchen-report-skeleton-grid,
+.kitchen-report-skeleton-panel {
+  background: #fff;
+  border-radius: 1.25rem;
+  border: 1px solid #e2e8f0;
+  overflow: hidden;
+}
+
+.kitchen-report-skeleton-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 1rem;
+  padding: 1rem;
+}
+
+.kitchen-report-skeleton-card {
+  height: 96px;
+  border-radius: 1rem;
+  background: linear-gradient(90deg, #eef2f7 0%, #f8fafc 50%, #eef2f7 100%);
+  background-size: 200% 100%;
+  animation: reportShimmer 1.2s linear infinite;
+}
+
+.kitchen-report-loading__row {
+  padding: 1rem;
+}
+
+.kitchen-report-skeleton--hero {
+  height: 86px;
+  border-radius: 1rem;
+  background: linear-gradient(90deg, #eef2f7 0%, #f8fafc 50%, #eef2f7 100%);
+  background-size: 200% 100%;
+  animation: reportShimmer 1.2s linear infinite;
+}
+
+.kitchen-report-skeleton-panel {
+  height: 220px;
+  background: linear-gradient(90deg, #eef2f7 0%, #f8fafc 50%, #eef2f7 100%);
+  background-size: 200% 100%;
+  animation: reportShimmer 1.2s linear infinite;
+}
+
+.kitchen-report-loading__summary,
+.kitchen-report-loading__chart,
+.kitchen-report-loading__table,
+.kitchen-report-loading__breakdown {
+  border-radius: 1.25rem;
+  border: 1px solid #e2e8f0;
+  background: #fff;
+  overflow: hidden;
+}
+
+.kitchen-report-loading__summary {
+  height: 108px;
+}
+
+.kitchen-report-loading__chart {
+  height: 320px;
+}
+
+.kitchen-report-loading__table {
+  height: 220px;
+}
+
+.kitchen-report-loading__breakdown {
+  height: 160px;
+}
+
+.kitchen-report-status,
+.kitchen-report-table-card {
+  padding: 1.2rem;
+}
+
+.kitchen-report-status-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.75rem;
+}
+
+.kitchen-report-status-chip {
+  border-radius: 1rem;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  padding: 0.85rem 0.9rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.kitchen-report-status-chip span {
+  color: #64748b;
+  font-size: 0.88rem;
+  font-weight: 700;
+}
+
+.kitchen-report-status-chip strong {
+  color: #0f172a;
+  font-size: 1.15rem;
+}
+
+.kitchen-report-table-wrap {
+  overflow-x: auto;
+}
+
+.kitchen-report-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.kitchen-report-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.kitchen-report-table thead th {
+  text-align: left;
+  font-size: 0.82rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: #64748b;
+  padding: 0 0 0.8rem;
+}
+
+.kitchen-report-table tbody td {
+  border-top: 1px solid #e2e8f0;
+  padding: 0.9rem 0;
+  color: #0f172a;
+  vertical-align: top;
+}
+
+.kitchen-report-table tbody td strong {
+  font-weight: 700;
+}
+
+.kitchen-report-table__right {
+  text-align: right;
+}
+
+.kitchen-empty-state--compact {
+  min-height: 110px;
+  padding: 1rem;
+}
+
+.kitchen-report-table__right {
+  text-align: right;
+}
+
+.kitchen-empty-state--compact {
+  min-height: 110px;
+  padding: 1rem;
+}
+
+@keyframes reportShimmer {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
+}
+
 .kitchen-menu-page {
   gap: 1rem;
 }
@@ -5881,6 +6320,27 @@ hr {
     padding: 0.8rem 0.85rem;
   }
 
+  .kitchen-report-hero {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .kitchen-report-metrics {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .kitchen-report-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .kitchen-report-status-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .kitchen-report-skeleton-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
   .kitchen-tabs {
     display: flex;
     overflow-x: auto;
@@ -6152,6 +6612,31 @@ hr {
 
   .kitchen-main-tabs {
     padding: 0.75rem;
+  }
+
+  .kitchen-report-metrics {
+    grid-template-columns: 1fr;
+  }
+
+  .kitchen-report-series {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .kitchen-report-series__bar-track {
+    height: 160px;
+  }
+
+  .kitchen-report-filters__top {
+    align-items: flex-start;
+  }
+
+  .kitchen-report-status-grid,
+  .kitchen-report-skeleton-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .kitchen-report-error {
+    flex-direction: column;
   }
 
   .kitchen-menu-item__top {
