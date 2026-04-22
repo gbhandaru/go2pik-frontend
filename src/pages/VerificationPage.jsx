@@ -25,12 +25,12 @@ const VERIFICATION_START_TIMEOUT_MS = 12000;
 export default function VerificationPage() {
   const navigate = useNavigate();
   const location = useLocation();
-  const { user, loading: authLoading } = useAuth();
+  const { user } = useAuth();
   const [orderDraft, setOrderDraft] = useState(() => location.state?.orderDraft || getCustomerOrderDraft() || null);
   const fallbackCustomerName = location.state?.customerName || '';
   const fallbackCustomerPhone = location.state?.customerPhone || '';
   const customerName = getCustomerDisplayName(user) || fallbackCustomerName;
-  const [otpLength, setOtpLength] = useState(null);
+  const [otpLength, setOtpLength] = useState(DEFAULT_OTP_LENGTH);
   const [verification, setVerification] = useState(() => getCustomerOrderVerification() || null);
   const [code, setCode] = useState([]);
   const [submitting, setSubmitting] = useState(false);
@@ -109,7 +109,7 @@ export default function VerificationPage() {
   }, [verification]);
 
   useEffect(() => {
-    if (!orderDraft || authLoading || !resolvedOtpLength || verification || startError) {
+    if (!orderDraft || !resolvedOtpLength || verification || startError) {
       return;
     }
 
@@ -169,7 +169,7 @@ export default function VerificationPage() {
     return () => {
       active = false;
     };
-  }, [orderDraft, authLoading, resolvedOtpLength, verification, retryKey, customerName, fallbackCustomerPhone, startError, user]);
+  }, [orderDraft, resolvedOtpLength, verification, retryKey, customerName, fallbackCustomerPhone, startError, user]);
 
   const codeValue = useMemo(() => code.join(''), [code]);
   const isCodeComplete = code.every((digit) => /\d/.test(digit));
@@ -236,7 +236,7 @@ export default function VerificationPage() {
     );
   }
 
-  if (!resolvedOtpLength || (pendingVerification && !verification && !startError)) {
+  if (!orderDraft || !resolvedOtpLength || (pendingVerification && !verification && !startError)) {
     return (
       <main className="page-section verification-page">
         <section className="verification-shell">
