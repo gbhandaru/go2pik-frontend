@@ -125,7 +125,9 @@ export default function KitchenReportsPage() {
   };
 
   const reportContext = getReportContextLabel(report, rangeMode, customMode, singleDate, rangeFrom, rangeTo);
-  const timezoneLabel = report?.timezone ? `Timezone: ${report.timezone}` : 'Using the restaurant timezone returned by the backend.';
+  const timezoneAbbrev = formatTimezoneAbbrev(report?.timezone);
+  const timezoneLabel = report?.timezone ? `Timezone: ${timezoneAbbrev}` : 'Using the restaurant timezone returned by the backend.';
+  const reportHeading = `Sales Report - ${reportContext}`;
   const totals = report?.totals || {};
   const statusCounts = report?.statusCounts || {};
   const items = Array.isArray(report?.items) ? report.items : [];
@@ -133,6 +135,11 @@ export default function KitchenReportsPage() {
   const commissionRateLabel = formatCommissionRateLabel(report?.commissionRate);
   const pendingOrders = normalizeNumber(report?.pendingOrders);
   const summaryLabel = rangeMode === 'today' ? 'Today Sales' : 'Gross Sales';
+  const avgOrderValue = hasMeaningfulValue(report?.avgOrderDisplay, report?.avgOrder)
+    ? formatMoneyDisplay(report?.avgOrderDisplay, report?.avgOrder)
+    : fallbackAverageOrder(totals.amount, totals.orders);
+  const grossSalesLabel = formatMoneyDisplay(totals.amountDisplay, totals.amount);
+  const topItemsLabel = rangeMode === 'today' ? 'Top Items Today' : 'Top Items';
 
   return (
     <main className="page-section kitchen-page kitchen-dashboard kitchen-reports-page">
@@ -170,7 +177,7 @@ export default function KitchenReportsPage() {
       <section className="kitchen-report-hero">
         <div>
           <p className="eyebrow">Revenue snapshot</p>
-          <h2>{reportContext}</h2>
+          <h2>{reportHeading}</h2>
           <p className="muted">{timezoneLabel}</p>
         </div>
       </section>
@@ -272,7 +279,7 @@ export default function KitchenReportsPage() {
           <section className="kitchen-report-metrics">
             <article className="card kitchen-report-metric">
               <p>{summaryLabel}</p>
-              <strong>{formatMoneyDisplay(totals.amountDisplay, totals.amount)}</strong>
+              <strong>{grossSalesLabel}</strong>
             </article>
             <article className="card kitchen-report-metric">
               <p>Orders</p>
@@ -280,7 +287,7 @@ export default function KitchenReportsPage() {
             </article>
             <article className="card kitchen-report-metric">
               <p>Avg Order</p>
-              <strong>{formatMoneyDisplay(report?.avgOrderDisplay, report?.avgOrder)}</strong>
+              <strong>{avgOrderValue}</strong>
             </article>
             <article className="card kitchen-report-metric">
               <p>Pending</p>
@@ -320,7 +327,7 @@ export default function KitchenReportsPage() {
               </div>
             ) : (
               <div className="kitchen-empty-state kitchen-empty-state--compact">
-                No sales data for the selected range.
+                No Sales yet for this period.
               </div>
             )}
           </section>
@@ -346,7 +353,7 @@ export default function KitchenReportsPage() {
           <section className="card kitchen-report-table-card">
             <div className="kitchen-report-card-header">
               <div>
-                <p className="eyebrow">Top Items</p>
+                <p className="eyebrow">{topItemsLabel}</p>
                 <h3>Best sellers</h3>
               </div>
               <span className="muted">{items.length ? `${items.length} item${items.length === 1 ? '' : 's'}` : 'No items'}</span>
@@ -384,24 +391,24 @@ export default function KitchenReportsPage() {
             <div className="kitchen-report-card-header">
               <div>
                 <p className="eyebrow">Revenue Breakdown</p>
-                <h3>Estimated payout</h3>
+                <h3>Gross Sales, Platform Fee, Net Earnings</h3>
               </div>
               {commissionRateLabel ? <span className="muted">Commission {commissionRateLabel}</span> : null}
             </div>
             <div className="kitchen-report-breakdown__rows">
               <div>
                 <span>Gross Sales</span>
-                <strong>{formatMoneyDisplay(totals.amountDisplay, totals.amount)}</strong>
+                <strong>{grossSalesLabel}</strong>
               </div>
               {hasMeaningfulValue(report?.commissionAmountDisplay, report?.commissionAmount) ? (
                 <div>
-                  <span>Commission</span>
+                  <span>{report?.commissionRate != null ? 'Platform Fee' : 'Commission'}</span>
                   <strong>{formatMoneyDisplay(report?.commissionAmountDisplay, report?.commissionAmount)}</strong>
                 </div>
               ) : null}
               {hasMeaningfulValue(report?.restaurantNetAmountDisplay, report?.restaurantNetAmount) ? (
                 <div className="kitchen-report-breakdown__net">
-                  <span>Restaurant Gets</span>
+                  <span>Net Earnings</span>
                   <strong>{formatMoneyDisplay(report?.restaurantNetAmountDisplay, report?.restaurantNetAmount)}</strong>
                 </div>
               ) : null}
@@ -502,6 +509,16 @@ function formatMoneyDisplay(displayValue, numericValue) {
   return Number.isFinite(parsed) ? formatCurrency(parsed) : '—';
 }
 
+function fallbackAverageOrder(totalAmount, orderCount) {
+  const total = Number(totalAmount);
+  const orders = Number(orderCount);
+  if (!Number.isFinite(total) || !Number.isFinite(orders) || orders <= 0) {
+    return formatCurrency(0);
+  }
+
+  return formatCurrency(total / orders);
+}
+
 function hasMeaningfulValue(displayValue, numericValue) {
   if (typeof displayValue === 'string' && displayValue.trim()) {
     return true;
@@ -537,6 +554,23 @@ function formatTimestamp(date) {
     hour: 'numeric',
     minute: '2-digit',
   });
+}
+
+function formatTimezoneAbbrev(timezone) {
+  if (!timezone) {
+    return '';
+  }
+
+  try {
+    const parts = new Intl.DateTimeFormat([], {
+      timeZone: timezone,
+      timeZoneName: 'short',
+    }).formatToParts(new Date());
+    const tzPart = parts.find((part) => part.type === 'timeZoneName');
+    return tzPart?.value || timezone;
+  } catch {
+    return timezone;
+  }
 }
 
 function normalizeDateInput(value) {
