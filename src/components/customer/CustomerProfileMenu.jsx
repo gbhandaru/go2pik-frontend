@@ -41,19 +41,35 @@ export default function CustomerProfileMenu() {
       {open ? (
         <div className="customer-profile-menu customer-profile-menu--compact" role="menu" aria-label="Customer menu">
           {user && !isGuest ? (
-            <Link className="customer-profile-menu__item" to="/orders" role="menuitem" onClick={() => setOpen(false)}>
-              My Orders
-            </Link>
+            <>
+              <Link className="customer-profile-menu__item" to="/orders" role="menuitem" onClick={() => setOpen(false)}>
+                My Orders
+              </Link>
+              <Link className="customer-profile-menu__item" to="/privacy" role="menuitem" onClick={() => setOpen(false)}>
+                Privacy Policy
+              </Link>
+              <Link className="customer-profile-menu__item" to="/terms" role="menuitem" onClick={() => setOpen(false)}>
+                Terms &amp; Conditions
+              </Link>
+            </>
           ) : (
-            <Link
-              className="customer-profile-menu__item"
-              to="/login"
-              role="menuitem"
-              state={{ from: { pathname: location.pathname } }}
-              onClick={() => setOpen(false)}
-            >
-              Sign in
-            </Link>
+            <>
+              <Link
+                className="customer-profile-menu__item"
+                to="/login"
+                role="menuitem"
+                state={{ from: { pathname: location.pathname } }}
+                onClick={() => setOpen(false)}
+              >
+                Sign in
+              </Link>
+              <Link className="customer-profile-menu__item" to="/privacy" role="menuitem" onClick={() => setOpen(false)}>
+                Privacy Policy
+              </Link>
+              <Link className="customer-profile-menu__item" to="/terms" role="menuitem" onClick={() => setOpen(false)}>
+                Terms &amp; Conditions
+              </Link>
+            </>
           )}
         </div>
       ) : null}
