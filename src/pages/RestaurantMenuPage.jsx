@@ -154,7 +154,7 @@ export default function RestaurantMenuPage() {
   }, [pickupAvailability, pickupSlotGroups, scheduledPickupTime, selectedPickupMode]);
 
   useEffect(() => {
-    if (pickupAvailability.asapAllowed !== false || selectedPickupMode !== PICKUP_MODES.ASAP) {
+    if (pickupAvailability?.asapAllowed !== false || selectedPickupMode !== PICKUP_MODES.ASAP) {
       return;
     }
 
@@ -165,7 +165,7 @@ export default function RestaurantMenuPage() {
         setScheduledPickupTime(firstAvailableSlot);
       }
     }
-  }, [pickupAvailability.asapAllowed, pickupSlotGroups, scheduledPickupTime, selectedPickupMode]);
+  }, [pickupAvailability?.asapAllowed, pickupSlotGroups, scheduledPickupTime, selectedPickupMode]);
 
   const addToCart = (menuItem, options = {}) => {
     const identity = resolveMenuItemIdentity(menuItem);
@@ -908,6 +908,7 @@ function PickupTimeCard({
       ].slice(0, 2)
     : availablePickupSlots.slice(0, 2);
   const displayedPickupSlots = showMorePickupTimes ? availablePickupSlots : collapsedPickupSlots;
+  const showPickupReadyLine = !(pickupAvailability?.isOpenNow === false && pickupAvailability?.asapAllowed);
 
   useEffect(() => {
     if (!isScheduled) {
@@ -943,7 +944,7 @@ function PickupTimeCard({
         </div>
       </div>
       <div className="pickup-summary-lines">
-        <p className="pickup-ready-line">{asapReadyLabel}</p>
+        {showPickupReadyLine ? <p className="pickup-ready-line">{asapReadyLabel}</p> : null}
         <p className="pickup-by-line">
           Pickup around <strong>{pickupByLabel}</strong>
         </p>
@@ -1664,16 +1665,9 @@ function CartSummary({
               </li>
             ))}
           </ul>
-
-          <div className="cart-divider" aria-hidden="true" />
-
           <div className="cart-preview-totals">
-            <div>
-              <span>Subtotal</span>
-              <strong>{formatCurrency(total)}</strong>
-            </div>
             <div className="cart-preview-totals-grand">
-              <span>Total</span>
+              <span>Estimated Total</span>
               <strong>{formatCurrency(grandTotal)}</strong>
             </div>
           </div>
@@ -1931,11 +1925,11 @@ function getTimeFromNow(minutesAhead) {
 }
 
 function getAsapReadyLabel(value, pickupAvailability) {
-  if (pickupAvailability && pickupAvailability.isOpenNow === false && pickupAvailability.asapAllowed) {
+  if (pickupAvailability?.isOpenNow === false && pickupAvailability?.asapAllowed) {
     return 'Currently the restaurant is closed, but you can still place an order for later pickup.';
   }
 
-  if (pickupAvailability && pickupAvailability.asapAllowed === false) {
+  if (pickupAvailability?.asapAllowed === false) {
     return 'ASAP pickup is currently unavailable.';
   }
 
