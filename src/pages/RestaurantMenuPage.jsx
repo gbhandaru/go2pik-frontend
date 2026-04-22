@@ -291,6 +291,7 @@ export default function RestaurantMenuPage() {
   );
   const missingScheduledTime = selectedPickupMode === PICKUP_MODES.SCHEDULED && !scheduledPickupTime;
   const asapReadyLabel = getAsapReadyLabel(asapReadyTime, pickupAvailability);
+  const showPickupReadyLine = !(pickupAvailability?.isOpenNow === false && pickupAvailability?.asapAllowed);
   const menuErrorMessage =
     errorInfo?.offline
       ? 'You appear to be offline. Check your connection and try again.'
@@ -943,7 +944,7 @@ function PickupTimeCard({
         </div>
       </div>
       <div className="pickup-summary-lines">
-        <p className="pickup-ready-line">{asapReadyLabel}</p>
+        {showPickupReadyLine ? <p className="pickup-ready-line">{asapReadyLabel}</p> : null}
         <p className="pickup-by-line">
           Pickup around <strong>{pickupByLabel}</strong>
         </p>
@@ -1668,10 +1669,6 @@ function CartSummary({
           <div className="cart-divider" aria-hidden="true" />
 
           <div className="cart-preview-totals">
-            <div>
-              <span>Subtotal</span>
-              <strong>{formatCurrency(total)}</strong>
-            </div>
             <div className="cart-preview-totals-grand">
               <span>Total</span>
               <strong>{formatCurrency(grandTotal)}</strong>
