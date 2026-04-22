@@ -1665,12 +1665,9 @@ function CartSummary({
               </li>
             ))}
           </ul>
-
-          <div className="cart-divider" aria-hidden="true" />
-
           <div className="cart-preview-totals">
             <div className="cart-preview-totals-grand">
-              <span>Total</span>
+              <span>Estimated Total</span>
               <strong>{formatCurrency(grandTotal)}</strong>
             </div>
           </div>
