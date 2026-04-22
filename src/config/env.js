@@ -1,5 +1,6 @@
 export const ENV = {
   API_BASE_URL: import.meta.env.VITE_API_BASE_URL || '',
+  FRONTEND_BASE_URL: import.meta.env.VITE_FRONTEND_BASE_URL || '',
   OTP_LENGTH: normalizePositiveInteger(import.meta.env.VITE_OTP_LENGTH, 6),
 };
 

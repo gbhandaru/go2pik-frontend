@@ -8,6 +8,7 @@ import { useAuth } from '../hooks/useAuth.jsx';
 import { useFetch } from '../hooks/useFetch.js';
 import { formatCurrency } from '../utils/formatCurrency.js';
 import { getCustomerDisplayName, getCustomerId } from '../utils/customerIdentity.js';
+import { getRestaurantMenuPath } from '../utils/restaurantRoutes.js';
 
 export default function OrdersPage() {
   const navigate = useNavigate();
@@ -89,11 +90,11 @@ export default function OrdersPage() {
   }, [activePartialOrderId, partialOrders]);
 
   const handleReorder = (order) => {
-    const restaurantId = order?.restaurant?.id;
-    if (!restaurantId) {
+    const restaurantPath = getRestaurantMenuPath(order?.restaurant || order?.restaurantRouteKey || order?.restaurantId);
+    if (restaurantPath === '/home') {
       return;
     }
-    navigate(`/restaurants/${restaurantId}/menu`);
+    navigate(restaurantPath);
   };
 
   const handleRetryOrders = () => {

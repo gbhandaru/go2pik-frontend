@@ -5,6 +5,7 @@ import { useAuth } from '../hooks/useAuth.jsx';
 import { fetchRestaurants } from '../api/restaurantsApi.js';
 import { useFetch } from '../hooks/useFetch.js';
 import { getRestaurantAddressLines } from '../utils/formatRestaurantAddress.js';
+import { getRestaurantMenuPath } from '../utils/restaurantRoutes.js';
 
 export default function HomePage() {
   const navigate = useNavigate();
@@ -17,7 +18,7 @@ export default function HomePage() {
       ? 'You appear to be offline. Check your connection and try again.'
       : 'We’re having trouble loading restaurants right now. Please try again.';
 
-  const handleViewMenu = (restaurantId, event) => {
+  const handleViewMenu = (restaurant, event) => {
     if (canBrowseMenu) {
       return;
     }
@@ -25,7 +26,7 @@ export default function HomePage() {
     event.preventDefault();
     navigate('/login', {
       state: {
-        from: { pathname: `/restaurants/${restaurantId}/menu` },
+        from: { pathname: getRestaurantMenuPath(restaurant) },
       },
     });
   };
@@ -58,8 +59,8 @@ export default function HomePage() {
             <Link
               key={restaurant.id}
               className="restaurant-card-link"
-              to={`/restaurants/${restaurant.id}/menu`}
-              onClick={(event) => handleViewMenu(restaurant.id, event)}
+              to={getRestaurantMenuPath(restaurant)}
+              onClick={(event) => handleViewMenu(restaurant, event)}
             >
               <article className="card restaurant-card">
                 {restaurant.heroImage && (

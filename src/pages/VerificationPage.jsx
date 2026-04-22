@@ -16,6 +16,7 @@ import {
   storeCustomerOrderVerification,
 } from '../services/authStorage.js';
 import { getCustomerDisplayName } from '../utils/customerIdentity.js';
+import { getRestaurantMenuPath } from '../utils/restaurantRoutes.js';
 
 const DEFAULT_OTP_LENGTH = ENV.OTP_LENGTH;
 const VERIFICATION_START_TIMEOUT_MS = 12000;
@@ -202,8 +203,9 @@ export default function VerificationPage() {
   };
 
   const handleBackToMenu = () => {
-    if (orderDraft?.restaurantId || orderDraft?.restaurant?.id) {
-      navigate(`/restaurants/${orderDraft.restaurantId || orderDraft.restaurant?.id}/menu`, { replace: true });
+    const menuPath = getRestaurantMenuPath(orderDraft?.restaurantRouteKey || orderDraft?.restaurant || orderDraft?.restaurantId);
+    if (menuPath !== '/home') {
+      navigate(menuPath, { replace: true });
       return;
     }
 

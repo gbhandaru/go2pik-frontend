@@ -6,6 +6,7 @@ import { useAuth } from '../hooks/useAuth.jsx';
 import { formatCurrency } from '../utils/formatCurrency.js';
 import { getRestaurantAddressLines } from '../utils/formatRestaurantAddress.js';
 import { buildSupportMailtoHref } from '../utils/supportEmail.js';
+import { getRestaurantMenuPath } from '../utils/restaurantRoutes.js';
 
 function formatPickupLabel(order) {
   const readyTime = extractReadyTime(order);
@@ -187,11 +188,7 @@ function resolveCustomerName({ user, order }) {
 }
 
 function getBrowseMenuPath(order) {
-  if (!order) {
-    return '/home';
-  }
-  const restaurantId = order.restaurantId || order.restaurant?.id;
-  return restaurantId ? `/restaurants/${restaurantId}/menu` : '/home';
+  return getRestaurantMenuPath(order?.restaurantRouteKey || order?.restaurant || order?.restaurantId);
 }
 
 function isPartialAcceptance(order) {

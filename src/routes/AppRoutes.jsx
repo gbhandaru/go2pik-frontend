@@ -35,6 +35,7 @@ export default function AppRoutes() {
         <Route path="/order/:orderNumber" element={<OrderReviewPage />} />
         <Route element={<ProtectedRoute allowGuest />}>
           <Route path="/home" element={<HomePage />} />
+          <Route path="/restaurant/:restaurantRouteKey" element={<RestaurantMenuPage />} />
           <Route path="/restaurants/:restaurantId/menu" element={<RestaurantMenuPage />} />
           <Route path="/verification" element={<VerificationPage />} />
           <Route path="/order-confirmation" element={<OrderConfirmationPage />} />

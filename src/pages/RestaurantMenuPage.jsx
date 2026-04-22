@@ -6,6 +6,7 @@ import AsyncState from '../components/shared/AsyncState.jsx';
 import { useFetch } from '../hooks/useFetch.js';
 import { formatCurrency } from '../utils/formatCurrency.js';
 import { getRestaurantAddressLines } from '../utils/formatRestaurantAddress.js';
+import { getRestaurantMenuPath, matchesRestaurantRouteKey, resolveRestaurantRouteKey } from '../utils/restaurantRoutes.js';
 import { useAuth } from '../hooks/useAuth.jsx';
 import { clearCustomerOrderVerification, getCustomerOrderDraft, storeCustomerOrderDraft } from '../services/authStorage.js';
 import { getCustomerId, getCustomerPhone } from '../utils/customerIdentity.js';
@@ -20,9 +21,10 @@ const PICKUP_SLOT_STEP_MINUTES = 15;
 const PICKUP_SLOT_LOOKAHEAD_DAYS = 7;
 
 export default function RestaurantMenuPage() {
-  const { restaurantId } = useParams();
+  const { restaurantId, restaurantRouteKey } = useParams();
   const navigate = useNavigate();
   const { user, canAccessCustomerFlow } = useAuth();
+  const routeKey = restaurantRouteKey || restaurantId || '';
   const customerName = useMemo(() => getCustomerDisplayName(user), [user]);
   const customerId = useMemo(() => getCustomerId(user), [user]);
   const initialCustomerPhone = useMemo(() => getCustomerPhone(user) || '', [user]);
@@ -35,8 +37,8 @@ export default function RestaurantMenuPage() {
   const [retryKey, setRetryKey] = useState(0);
   const phoneInputRef = useRef(null);
   const { data, loading, error, errorInfo } = useFetch(
-    () => fetchRestaurantMenu(restaurantId),
-    [restaurantId, retryKey],
+    () => fetchRestaurantMenu(routeKey),
+    [routeKey, retryKey],
   );
   const {
     data: customerOrdersData,
@@ -52,8 +54,10 @@ export default function RestaurantMenuPage() {
 
   useEffect(() => {
     const storedDraft = getCustomerOrderDraft();
-    const storedRestaurantId = storedDraft?.restaurantId || storedDraft?.restaurant?.id;
-    const matchesRestaurant = storedRestaurantId && String(storedRestaurantId) === String(restaurantId);
+    const matchesRestaurant =
+      matchesRestaurantRouteKey(storedDraft?.restaurantRouteKey, routeKey) ||
+      matchesRestaurantRouteKey(storedDraft?.restaurant, routeKey) ||
+      matchesRestaurantRouteKey(storedDraft?.restaurantId, routeKey);
 
     if (matchesRestaurant) {
       setCart(Array.isArray(storedDraft.items) ? storedDraft.items.map((item) => ({ ...item })) : []);
@@ -66,7 +70,7 @@ export default function RestaurantMenuPage() {
     setCart([]);
     setSelectedPickupMode(PICKUP_MODES.ASAP);
     setScheduledPickupTime('');
-  }, [restaurantId, initialCustomerPhone]);
+  }, [routeKey, initialCustomerPhone]);
 
   useEffect(() => {
     setCustomerPhoneInput((prev) => prev || initialCustomerPhone);
@@ -320,6 +324,7 @@ export default function RestaurantMenuPage() {
       cartItemById,
       customerName,
       customerPhone: getCustomerPhone(user) || initialCustomerPhone,
+      restaurantRouteKey: restaurantId,
       restaurant,
       scheduledPickupTime,
       selectedPickupMode,
@@ -348,6 +353,7 @@ export default function RestaurantMenuPage() {
       cartItemById,
       customerName,
       customerPhone,
+      restaurantRouteKey: restaurantId,
       restaurant,
       scheduledPickupTime,
       selectedPickupMode,
@@ -374,7 +380,7 @@ export default function RestaurantMenuPage() {
       <Navigate
         to="/login"
         replace
-        state={{ from: { pathname: `/restaurants/${restaurantId}/menu` } }}
+        state={{ from: { pathname: getRestaurantMenuPath(routeKey) } }}
       />
     );
   }
@@ -499,6 +505,7 @@ function buildCustomerOrderDraft({
   cartItemById,
   customerName,
   customerPhone,
+  restaurantRouteKey,
   restaurant,
   scheduledPickupTime,
   selectedPickupMode,
@@ -520,6 +527,7 @@ function buildCustomerOrderDraft({
 
   return {
     restaurantId: restaurant.id,
+    restaurantRouteKey: restaurantRouteKey || resolveRestaurantRouteKey(restaurant),
     restaurant,
     items: orderItems,
     subtotal: total,
