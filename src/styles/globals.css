@@ -2242,6 +2242,12 @@ textarea {
   margin: 0.15rem 0 0;
 }
 
+.confirmation-address {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+}
+
 .pickup-info-helper {
   margin: 0;
   font-size: 0.95rem;
@@ -3316,6 +3322,13 @@ hr {
   justify-content: space-between;
   flex-wrap: wrap;
   gap: 1rem;
+}
+
+.hero-footer-links {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  flex-wrap: wrap;
 }
 
 .hero-footer button,

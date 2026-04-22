@@ -1026,11 +1026,6 @@ function PickupTimeCard({
                 Selected: <strong>{formatScheduledPickupSelection(scheduledPickupTime, timezone)}</strong>
               </p>
             ) : null}
-            {!isOpenNow ? (
-              <p className="pickup-slot-closed-note">
-                Currently the restaurant is closed, but you can still place an order for later pickup.
-              </p>
-            ) : null}
           </div>
         ) : null}
       </div>
@@ -1803,7 +1798,7 @@ function buildPickupTimestamp(timeValue) {
 function getPickupSummary(mode, scheduledTime, asapReadyTime, pickupAvailability) {
   if (mode === PICKUP_MODES.SCHEDULED) {
     return scheduledTime
-      ? `Scheduled for ${formatScheduledPickupSelection(scheduledTime, pickupAvailability?.timezone)}`
+      ? formatScheduledPickupSelection(scheduledTime, pickupAvailability?.timezone)
       : 'Choose a pickup time';
   }
   return getAsapReadyLabel(asapReadyTime, pickupAvailability);
