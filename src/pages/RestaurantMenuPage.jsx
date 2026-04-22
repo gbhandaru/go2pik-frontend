@@ -1682,7 +1682,7 @@ function CartSummary({
           <div className="cart-preview-totals">
             <div className="cart-preview-totals-grand">
               <span>Estimated Total</span>
-              <strong>{formatCurrency(grandTotal)}</strong>
+              <strong>{grandTotal}</strong>
             </div>
           </div>
         </>
