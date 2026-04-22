@@ -4,6 +4,7 @@ import heroImage from '../assets/Go2Pik_Logo.png';
 import { fetchRestaurants } from '../api/restaurantsApi.js';
 import AsyncState from '../components/shared/AsyncState.jsx';
 import { useFetch } from '../hooks/useFetch.js';
+import { buildSupportMailtoHref } from '../utils/supportEmail.js';
 
 const heroPerks = [
   { label: 'Pay at the restaurant', icon: '💳' },
@@ -61,6 +62,11 @@ export default function LandingPage() {
     setRetryKey((current) => current + 1);
   }
 
+  const supportHref = buildSupportMailtoHref({
+    subject: 'Go2Pik support',
+    body: 'Hi Go2Pik team, I need help with my order or account.',
+  });
+
   return (
     <section className="landing hero-mode">
       <div className="landing-hero-shell">
@@ -77,7 +83,7 @@ export default function LandingPage() {
             </button>
           </nav>
           <div className="hero-nav-right">
-            <a className="hero-contact" href="mailto:hello@go2pik.com">
+            <a className="hero-contact" href={supportHref}>
               Contact
             </a>
             <button type="button" className="hero-nav-cta" onClick={handleStartOrdering}>
@@ -209,10 +215,10 @@ export default function LandingPage() {
 
         <footer className="hero-footer">
           <p>© {new Date().getFullYear()} Go2Pik. All rights reserved.</p>
-          <div>
+          <div className="hero-footer-links">
             <Link to="/privacy">Privacy</Link>
             <Link to="/terms">Terms</Link>
-            <a href="mailto:hello@go2pik.com">
+            <a href={supportHref}>
               Contact
             </a>
           </div>

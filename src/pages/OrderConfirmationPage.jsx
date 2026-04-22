@@ -4,6 +4,8 @@ import { acceptUpdatedCustomerOrder, cancelCustomerOrder, fetchOrderById } from 
 import CustomerPartialOrderModal from '../components/shared/CustomerPartialOrderModal.jsx';
 import { useAuth } from '../hooks/useAuth.jsx';
 import { formatCurrency } from '../utils/formatCurrency.js';
+import { getRestaurantAddressLines } from '../utils/formatRestaurantAddress.js';
+import { buildSupportMailtoHref } from '../utils/supportEmail.js';
 
 function formatPickupLabel(order) {
   const readyTime = extractReadyTime(order);
@@ -347,13 +349,22 @@ export default function OrderConfirmationPage() {
   const items = getVisibleOrderItems(order);
   const pickupLabel = formatPickupLabel(order);
   const restaurantName = order.restaurant?.name || 'your restaurant';
-  const destination = order.restaurant?.location || order.restaurant?.address || '';
+  const restaurantAddress = getRestaurantAddressLines(order.restaurant);
+  const destination =
+    [restaurantAddress.line1, restaurantAddress.secondary].filter(Boolean).join(', ') ||
+    order.restaurant?.location ||
+    order.restaurant?.address ||
+    '';
   const confirmationNumber = getConfirmationNumber(order);
   const resolvedCustomerName = resolveCustomerName({ user, order });
   const fallbackCustomerName = location.state?.customerName;
   const customerName = fallbackCustomerName || resolvedCustomerName;
   const total = resolveOrderTotal(order, items);
   const browseMenuPath = getBrowseMenuPath(order);
+  const supportHref = buildSupportMailtoHref({
+    subject: `Go2Pik support - Order ${confirmationNumber}`,
+    body: `Hi Go2Pik team,\n\nI need help with order #${confirmationNumber}.`,
+  });
 
   const heroSubtitle = customerName
     ? `Thank you, ${customerName}! Your order is being prepared.`
@@ -425,7 +436,15 @@ export default function OrderConfirmationPage() {
             <div>
               <p className="eyebrow">Location</p>
               <strong>{restaurantName}</strong>
-              <p className="info-subtext">{destination || 'Ready when you arrive'}</p>
+              {destination ? (
+                <div className="info-subtext confirmation-address">
+                  {restaurantAddress.line1 ? <span>{restaurantAddress.line1}</span> : null}
+                  {restaurantAddress.secondary ? <span>{restaurantAddress.secondary}</span> : null}
+                  {!restaurantAddress.line1 && !restaurantAddress.secondary ? <span>{destination}</span> : null}
+                </div>
+              ) : (
+                <p className="info-subtext">Ready when you arrive</p>
+              )}
             </div>
           </div>
           <p className="pickup-info-helper">
@@ -484,7 +503,7 @@ export default function OrderConfirmationPage() {
 
         <p className="support-text">
           Need help?{' '}
-          <a href="mailto:support@go2pik.com" className="text-link">
+          <a href={supportHref} className="text-link">
             Contact support
           </a>
         </p>

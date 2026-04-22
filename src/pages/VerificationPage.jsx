@@ -39,6 +39,7 @@ export default function VerificationPage() {
   const [retryKey, setRetryKey] = useState(0);
   const [now, setNow] = useState(Date.now());
   const inputsRef = useRef([]);
+  const lastAutoSubmittedCodeRef = useRef('');
   const resolvedOtpLength = otpLength;
   const phone = getVerificationPhone(orderDraft, user, verification);
 
@@ -287,41 +288,36 @@ export default function VerificationPage() {
     inputsRef.current[focusIndex]?.focus();
   };
 
-  const handleResend = () => {
-    if (!canResend || starting) {
+  useEffect(() => {
+    if (!verification?.id || !isCodeComplete || submitting || starting) {
       return;
     }
 
-    if (!verification?.id) {
-      setError('Verification session is missing. Please restart from the menu.');
+    if (lastAutoSubmittedCodeRef.current === codeValue) {
       return;
     }
 
-    setStarting(true);
-    setError('');
-    resendOrderVerification({
-      verificationId: verification.id,
-    })
-      .then((response) => {
-        setVerification(response?.verification || null);
-        setCode(Array.from({ length: resolvedOtpLength }, () => ''));
-        inputsRef.current[0]?.focus();
-      })
-      .catch((err) => {
-        setError(err.message || 'Unable to resend verification code right now.');
-      })
-      .finally(() => {
-        setStarting(false);
-      });
-  };
+    lastAutoSubmittedCodeRef.current = codeValue;
+    void submitVerification();
+  }, [codeValue, isCodeComplete, verification?.id, submitting, starting]);
 
-  const handleVerify = async (event) => {
-    event.preventDefault();
+  useEffect(() => {
+    if (!isCodeComplete) {
+      lastAutoSubmittedCodeRef.current = '';
+    }
+  }, [codeValue, isCodeComplete]);
+
+  async function submitVerification() {
+    if (!verification?.id || submitting || starting) {
+      return;
+    }
+
     if (!isCodeComplete) {
       setError(`Enter the ${resolvedOtpLength}-digit code to continue.`);
       return;
     }
 
+    lastAutoSubmittedCodeRef.current = codeValue;
     setSubmitting(true);
     setError('');
     try {
@@ -359,6 +355,39 @@ export default function VerificationPage() {
     } finally {
       setSubmitting(false);
     }
+  }
+
+  const handleResend = () => {
+    if (!canResend || starting) {
+      return;
+    }
+
+    if (!verification?.id) {
+      setError('Verification session is missing. Please restart from the menu.');
+      return;
+    }
+
+    setStarting(true);
+    setError('');
+    resendOrderVerification({
+      verificationId: verification.id,
+    })
+      .then((response) => {
+        setVerification(response?.verification || null);
+        setCode(Array.from({ length: resolvedOtpLength }, () => ''));
+        inputsRef.current[0]?.focus();
+      })
+      .catch((err) => {
+        setError(err.message || 'Unable to resend verification code right now.');
+      })
+      .finally(() => {
+        setStarting(false);
+      });
+  };
+
+  const handleVerify = async (event) => {
+    event.preventDefault();
+    await submitVerification();
   };
 
   return (
