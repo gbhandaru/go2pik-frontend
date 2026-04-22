@@ -215,6 +215,45 @@ function createPartialAcceptDraft(order) {
   };
 }
 
+function buildPartialAcceptFeedback(notification, order, actionOrderId) {
+  if (!notification || typeof notification !== 'object') {
+    return null;
+  }
+
+  const orderLabel = order?.orderNumber || actionOrderId || 'order';
+  const reason = typeof notification.reason === 'string' ? notification.reason.trim() : '';
+  const messageSid = typeof notification.messageSid === 'string' ? notification.messageSid.trim() : '';
+
+  if (notification.delivered === true) {
+    return {
+      kind: 'success',
+      message: `Order #${orderLabel} updated. SMS review link sent to customer.`,
+      label: 'Delivered',
+      details: reason || messageSid || null,
+    };
+  }
+
+  if (notification.skipped === true) {
+    return {
+      kind: 'info',
+      message: `Order #${orderLabel} updated. SMS review link was skipped.`,
+      label: 'Skipped',
+      details: reason || messageSid || null,
+    };
+  }
+
+  if (notification.delivered === false && notification.skipped === false) {
+    return {
+      kind: 'info',
+      message: `Order #${orderLabel} updated. SMS delivery needs support review.`,
+      label: 'Delivery failed',
+      details: reason || notification.error || messageSid || null,
+    };
+  }
+
+  return null;
+}
+
 function normalizePartialAcceptItems(order) {
   const rawItems = order?.items || [];
 
@@ -611,16 +650,27 @@ export default function KitchenOrdersPage() {
     setUpdatingId(actionOrderId);
     setUpdatingStatus(targetStatus);
     try {
-      await updateOrderStatus(actionOrderId, targetStatus, options);
+      const response = await updateOrderStatus(actionOrderId, targetStatus, options);
       await Promise.all([refresh(), refreshNew()]);
       if (targetStatus === 'completed') {
         setActiveStatus('completed');
       }
-      setFeedback({
-        kind: 'success',
-        message: `Order #${order.orderNumber || actionOrderId} moved to ${targetStatus.replace(/_/g, ' ')}`,
-      });
-      return true;
+      if (targetStatus === 'partially_accepted') {
+        console.info('Partial accept response', response);
+        const notificationFeedback = buildPartialAcceptFeedback(response?.notification, order, actionOrderId);
+        setFeedback(
+          notificationFeedback || {
+            kind: 'success',
+            message: response?.message || `Order #${order.orderNumber || actionOrderId} moved to ${targetStatus.replace(/_/g, ' ')}`,
+          },
+        );
+      } else {
+        setFeedback({
+          kind: 'success',
+          message: response?.message || `Order #${order.orderNumber || actionOrderId} moved to ${targetStatus.replace(/_/g, ' ')}`,
+        });
+      }
+      return response;
     } catch (err) {
       setActionError(err.message || 'Unable to update order status');
       return false;
@@ -841,7 +891,15 @@ export default function KitchenOrdersPage() {
       </header>
 
       {actionError && <p style={{ color: '#dc2626', fontWeight: 600 }}>{actionError}</p>}
-      {feedback && <div className={`kitchen-feedback kitchen-feedback--${feedback.kind}`}>{feedback.message}</div>}
+      {feedback ? (
+        <div className={`kitchen-feedback kitchen-feedback--${feedback.kind}`}>
+          <div className="kitchen-feedback__row">
+            {feedback.label ? <span className="kitchen-feedback__tag">{feedback.label}</span> : null}
+            <span>{feedback.message}</span>
+          </div>
+          {feedback.details ? <small className="kitchen-feedback__details">{feedback.details}</small> : null}
+        </div>
+      ) : null}
       {partialAcceptOrder ? (
         <PartialAcceptModal
           order={partialAcceptOrder.order}
