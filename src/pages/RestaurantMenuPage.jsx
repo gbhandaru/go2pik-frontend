@@ -54,10 +54,14 @@ export default function RestaurantMenuPage() {
 
   useEffect(() => {
     const storedDraft = getCustomerOrderDraft();
-    const matchesRestaurant =
-      matchesRestaurantRouteKey(storedDraft?.restaurantRouteKey, routeKey) ||
-      matchesRestaurantRouteKey(storedDraft?.restaurant, routeKey) ||
-      matchesRestaurantRouteKey(storedDraft?.restaurantId, routeKey);
+    const currentRestaurantKey = data?.restaurant?.id || routeKey;
+    const restaurantKeys = [currentRestaurantKey, routeKey].filter(Boolean);
+    const matchesRestaurant = restaurantKeys.some(
+      (key) =>
+        matchesRestaurantRouteKey(storedDraft?.restaurantRouteKey, key) ||
+        matchesRestaurantRouteKey(storedDraft?.restaurant, key) ||
+        matchesRestaurantRouteKey(storedDraft?.restaurantId, key),
+    );
 
     if (matchesRestaurant) {
       setCart(Array.isArray(storedDraft.items) ? storedDraft.items.map((item) => ({ ...item })) : []);
@@ -70,7 +74,7 @@ export default function RestaurantMenuPage() {
     setCart([]);
     setSelectedPickupMode(PICKUP_MODES.ASAP);
     setScheduledPickupTime('');
-  }, [routeKey, initialCustomerPhone]);
+  }, [data?.restaurant?.id, routeKey, initialCustomerPhone]);
 
   useEffect(() => {
     setCustomerPhoneInput((prev) => prev || initialCustomerPhone);
@@ -112,6 +116,7 @@ export default function RestaurantMenuPage() {
   const menu = data?.menu || [];
   const categories = data?.categories || data?.menuCategories || data?.menu_categories || [];
   const restaurant = data?.restaurant;
+  const restaurantHistoryKey = restaurant?.id || routeKey;
   const pickupAvailability = useMemo(
     () => resolvePickupAvailability(data, restaurant),
     [data, restaurant],
@@ -123,16 +128,16 @@ export default function RestaurantMenuPage() {
   const hasMenuItems = menu.length > 0;
 
   const lastOrder = useMemo(() => {
-    const sourceItems = data?.lastOrder?.items?.length ? data.lastOrder.items : [];
+    const sourceItems = normalizeOrderItems(data?.lastOrder);
     if (!sourceItems.length) {
-      return getLastOrderFromHistory(customerOrdersData?.orders, restaurantId);
+      return getLastOrderFromHistory(customerOrdersData?.orders, restaurantHistoryKey);
     }
     return {
       id: data?.lastOrder?.id || null,
       items: sourceItems,
       summary: sourceItems.map((item) => `${item.quantity}× ${item.name}`).join(', '),
     };
-  }, [data?.lastOrder, customerOrdersData?.orders, restaurantId]);
+  }, [data?.lastOrder, customerOrdersData?.orders, restaurantHistoryKey]);
 
   useEffect(() => {
     if (selectedPickupMode !== PICKUP_MODES.SCHEDULED) {
@@ -1976,6 +1981,8 @@ function matchesRestaurantId(order, restaurantId) {
     order?.restaurant_id ||
     order?.restaurant?.restaurantId ||
     order?.restaurant?.restaurant_id ||
+    order?.restaurant?.slug ||
+    order?.restaurant?.restaurantSlug ||
     '';
 
   return String(orderRestaurantId).trim() === String(restaurantId).trim();
@@ -1988,6 +1995,10 @@ function normalizeOrderItems(order) {
     order?.order_items ||
     order?.lineItems ||
     order?.line_items ||
+    order?.acceptedItems ||
+    order?.accepted_items ||
+    order?.visibleItems ||
+    order?.visible_items ||
     [];
 
   if (!Array.isArray(rawItems)) {

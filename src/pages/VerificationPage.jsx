@@ -115,6 +115,14 @@ export default function VerificationPage() {
     let active = true;
 
     async function requestVerification() {
+      const resolvedRestaurantId = resolveRestaurantIdForVerification(orderDraft);
+      if (resolvedRestaurantId == null) {
+        if (active) {
+          setStartError('Restaurant information is missing. Please return to the menu and try again.');
+        }
+        return;
+      }
+
       const payload = buildVerificationStartPayload(orderDraft, customerName, fallbackCustomerPhone);
       if (!payload.customer.phone) {
         if (active) {
@@ -319,6 +327,12 @@ export default function VerificationPage() {
       return;
     }
 
+    const resolvedRestaurantId = resolveRestaurantIdForVerification(orderDraft);
+    if (resolvedRestaurantId == null) {
+      setError('Restaurant information is missing. Please return to the menu and try again.');
+      return;
+    }
+
     lastAutoSubmittedCodeRef.current = codeValue;
     setSubmitting(true);
     setError('');
@@ -328,7 +342,7 @@ export default function VerificationPage() {
         code: codeValue,
         customer: orderDraft.customer,
         customerName: orderDraft.customerName,
-        restaurantId: orderDraft.restaurantId,
+        restaurantId: resolvedRestaurantId,
         restaurant: orderDraft.restaurant,
         items: orderDraft.items,
         subtotal: orderDraft.subtotal,
@@ -543,6 +557,7 @@ function withTimeout(promise, timeoutMs, timeoutMessage) {
 }
 
 function buildVerificationStartPayload(orderDraft, customerName, customerPhone) {
+  const restaurantId = resolveRestaurantIdForVerification(orderDraft);
   const items = Array.isArray(orderDraft?.items)
     ? orderDraft.items.map((item) => ({
         sku: item.sku ?? item.code ?? '',
@@ -565,7 +580,7 @@ function buildVerificationStartPayload(orderDraft, customerName, customerPhone) 
   );
 
   return {
-    restaurantId: orderDraft?.restaurantId || orderDraft?.restaurant?.id,
+    restaurantId,
     items,
     customer: {
       name: customerName || orderDraft?.customer?.name || orderDraft?.customerName || '',
@@ -575,6 +590,46 @@ function buildVerificationStartPayload(orderDraft, customerName, customerPhone) 
       notes: orderDraft?.customer?.notes || orderDraft?.pickupRequest?.summary || '',
     },
   };
+}
+
+function resolveRestaurantIdForVerification(orderDraft) {
+  const candidates = [
+    orderDraft?.restaurantId,
+    orderDraft?.restaurant?.id,
+    orderDraft?.restaurant?.restaurantId,
+    orderDraft?.restaurant?.restaurant_id,
+  ];
+
+  for (const candidate of candidates) {
+    const resolved = normalizeRestaurantId(candidate);
+    if (resolved != null) {
+      return resolved;
+    }
+  }
+
+  return null;
+}
+
+function normalizeRestaurantId(value) {
+  if (value == null) {
+    return null;
+  }
+
+  if (typeof value === 'number' && Number.isFinite(value)) {
+    return value;
+  }
+
+  const input = String(value).trim();
+  if (!input) {
+    return null;
+  }
+
+  if (!/^\d+$/.test(input)) {
+    return null;
+  }
+
+  const parsed = Number(input);
+  return Number.isFinite(parsed) ? parsed : null;
 }
 
 function normalizeE164Phone(value) {
