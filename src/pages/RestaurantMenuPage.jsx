@@ -291,7 +291,6 @@ export default function RestaurantMenuPage() {
   );
   const missingScheduledTime = selectedPickupMode === PICKUP_MODES.SCHEDULED && !scheduledPickupTime;
   const asapReadyLabel = getAsapReadyLabel(asapReadyTime, pickupAvailability);
-  const showPickupReadyLine = !(pickupAvailability?.isOpenNow === false && pickupAvailability?.asapAllowed);
   const menuErrorMessage =
     errorInfo?.offline
       ? 'You appear to be offline. Check your connection and try again.'
@@ -909,6 +908,7 @@ function PickupTimeCard({
       ].slice(0, 2)
     : availablePickupSlots.slice(0, 2);
   const displayedPickupSlots = showMorePickupTimes ? availablePickupSlots : collapsedPickupSlots;
+  const showPickupReadyLine = !(pickupAvailability?.isOpenNow === false && pickupAvailability?.asapAllowed);
 
   useEffect(() => {
     if (!isScheduled) {
