@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import heroImage from '../assets/Go2Pik_Logo.png';
 import { fetchRestaurants } from '../api/restaurantsApi.js';
 import AsyncState from '../components/shared/AsyncState.jsx';
@@ -210,11 +210,11 @@ export default function LandingPage() {
         <footer className="hero-footer">
           <p>© {new Date().getFullYear()} Go2Pik. All rights reserved.</p>
           <div>
-            <button type="button">Privacy</button>
-            <button type="button">Terms</button>
-            <button type="button" onClick={() => (window.location.href = 'mailto:hello@go2pik.com')}>
+            <Link to="/privacy">Privacy</Link>
+            <Link to="/terms">Terms</Link>
+            <a href="mailto:hello@go2pik.com">
               Contact
-            </button>
+            </a>
           </div>
         </footer>
       </div>

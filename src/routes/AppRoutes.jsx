@@ -1,7 +1,9 @@
 import { Navigate, Route, Routes } from 'react-router-dom';
 import LandingPage from '../pages/LandingPage.jsx';
+import PrivacyPage from '../pages/PrivacyPage.jsx';
 import LoginPage from '../pages/LoginPage.jsx';
 import PasswordUpdatePage from '../pages/PasswordUpdatePage.jsx';
+import TermsPage from '../pages/TermsPage.jsx';
 import SignupPage from '../pages/SignupPage.jsx';
 import HomePage from '../pages/HomePage.jsx';
 import RestaurantMenuPage from '../pages/RestaurantMenuPage.jsx';
@@ -24,6 +26,8 @@ export default function AppRoutes() {
     <Routes>
       <Route element={<CustomerLayout />}>
         <Route path="/" element={<LandingPage />} />
+        <Route path="/privacy" element={<PrivacyPage />} />
+        <Route path="/terms" element={<TermsPage />} />
         <Route path="/login" element={<LoginPage />} />
         <Route path="/signup" element={<SignupPage />} />
         <Route path="/password-update" element={<PasswordUpdatePage />} />
