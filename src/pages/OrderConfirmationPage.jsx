@@ -6,6 +6,7 @@ import { useAuth } from '../hooks/useAuth.jsx';
 import { formatCurrency } from '../utils/formatCurrency.js';
 import { getRestaurantAddressLines } from '../utils/formatRestaurantAddress.js';
 import { buildSupportMailtoHref } from '../utils/supportEmail.js';
+import { getRestaurantMenuPath } from '../utils/restaurantRoutes.js';
 
 function formatPickupLabel(order) {
   const readyTime = extractReadyTime(order);
@@ -187,11 +188,7 @@ function resolveCustomerName({ user, order }) {
 }
 
 function getBrowseMenuPath(order) {
-  if (!order) {
-    return '/home';
-  }
-  const restaurantId = order.restaurantId || order.restaurant?.id;
-  return restaurantId ? `/restaurants/${restaurantId}/menu` : '/home';
+  return getRestaurantMenuPath(order?.restaurantRouteKey || order?.restaurant || order?.restaurantId);
 }
 
 function isPartialAcceptance(order) {
@@ -245,25 +242,30 @@ function resolveOrderSubtotal(order, items) {
 }
 
 function resolveOrderTotal(order, items) {
-  const direct =
-    order?.updatedTotal ??
-    order?.updated_total ??
-    order?.total ??
-    order?.totalAmount ??
-    order?.total_amount;
-
-  if (typeof direct === 'number' && Number.isFinite(direct)) {
-    return direct;
+  const subtotalDisplay =
+    order?.subtotalDisplay ||
+    order?.updatedSubtotalDisplay ||
+    order?.updated_subtotal_display;
+  if (typeof subtotalDisplay === 'string' && subtotalDisplay.trim()) {
+    return subtotalDisplay.trim();
   }
 
-  if (typeof direct === 'string' && direct.trim()) {
-    const parsed = Number(direct);
-    if (Number.isFinite(parsed)) {
-      return parsed;
+  const subtotalNumeric =
+    order?.subtotal ??
+    order?.updatedSubtotal ??
+    order?.updated_subtotal;
+  if (typeof subtotalNumeric === 'number' && Number.isFinite(subtotalNumeric)) {
+    return formatCurrency(subtotalNumeric);
+  }
+  if (typeof subtotalNumeric === 'string' && subtotalNumeric.trim()) {
+    const parsedSubtotal = Number(subtotalNumeric);
+    if (Number.isFinite(parsedSubtotal)) {
+      return formatCurrency(parsedSubtotal);
     }
   }
 
-  return resolveOrderSubtotal(order, items);
+  const fallback = resolveOrderSubtotal(order, items);
+  return formatCurrency(fallback);
 }
 
 function normalizeOrderItems(items) {
@@ -483,9 +485,8 @@ export default function OrderConfirmationPage() {
             <div className="grand">
               <div className="order-totals-grand-label">
                 <strong>Estimated total</strong>
-                <strong>{formatCurrency(total)}</strong>
+                <strong>{total}</strong>
               </div>
-              <small className="order-totals-footnote">* Taxes will be calculated at the time of payment</small>
             </div>
           </div>
         </div>

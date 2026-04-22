@@ -5,9 +5,11 @@ import { fetchCustomerOrders } from '../api/customersApi.js';
 import AsyncState from '../components/shared/AsyncState.jsx';
 import { useFetch } from '../hooks/useFetch.js';
 import { formatCurrency } from '../utils/formatCurrency.js';
+import { resolveMoneyDisplay } from '../utils/orderMoney.js';
 import { getRestaurantAddressLines } from '../utils/formatRestaurantAddress.js';
+import { getRestaurantMenuPath, matchesRestaurantRouteKey, resolveRestaurantRouteKey } from '../utils/restaurantRoutes.js';
 import { useAuth } from '../hooks/useAuth.jsx';
-import { clearCustomerOrderVerification, getCustomerOrderDraft, storeCustomerOrderDraft } from '../services/authStorage.js';
+import { clearCustomerOrderVerification, getCustomerOrderDraft, getVerifiedCustomerPhone, storeCustomerOrderDraft } from '../services/authStorage.js';
 import { getCustomerId, getCustomerPhone } from '../utils/customerIdentity.js';
 
 const PICKUP_MODES = {
@@ -20,9 +22,10 @@ const PICKUP_SLOT_STEP_MINUTES = 15;
 const PICKUP_SLOT_LOOKAHEAD_DAYS = 7;
 
 export default function RestaurantMenuPage() {
-  const { restaurantId } = useParams();
+  const { restaurantId, restaurantRouteKey } = useParams();
   const navigate = useNavigate();
   const { user, canAccessCustomerFlow } = useAuth();
+  const routeKey = restaurantRouteKey || restaurantId || '';
   const customerName = useMemo(() => getCustomerDisplayName(user), [user]);
   const customerId = useMemo(() => getCustomerId(user), [user]);
   const initialCustomerPhone = useMemo(() => getCustomerPhone(user) || '', [user]);
@@ -35,8 +38,8 @@ export default function RestaurantMenuPage() {
   const [retryKey, setRetryKey] = useState(0);
   const phoneInputRef = useRef(null);
   const { data, loading, error, errorInfo } = useFetch(
-    () => fetchRestaurantMenu(restaurantId),
-    [restaurantId, retryKey],
+    () => fetchRestaurantMenu(routeKey),
+    [routeKey, retryKey],
   );
   const {
     data: customerOrdersData,
@@ -52,8 +55,14 @@ export default function RestaurantMenuPage() {
 
   useEffect(() => {
     const storedDraft = getCustomerOrderDraft();
-    const storedRestaurantId = storedDraft?.restaurantId || storedDraft?.restaurant?.id;
-    const matchesRestaurant = storedRestaurantId && String(storedRestaurantId) === String(restaurantId);
+    const currentRestaurantKey = data?.restaurant?.id || routeKey;
+    const restaurantKeys = [currentRestaurantKey, routeKey].filter(Boolean);
+    const matchesRestaurant = restaurantKeys.some(
+      (key) =>
+        matchesRestaurantRouteKey(storedDraft?.restaurantRouteKey, key) ||
+        matchesRestaurantRouteKey(storedDraft?.restaurant, key) ||
+        matchesRestaurantRouteKey(storedDraft?.restaurantId, key),
+    );
 
     if (matchesRestaurant) {
       setCart(Array.isArray(storedDraft.items) ? storedDraft.items.map((item) => ({ ...item })) : []);
@@ -66,7 +75,7 @@ export default function RestaurantMenuPage() {
     setCart([]);
     setSelectedPickupMode(PICKUP_MODES.ASAP);
     setScheduledPickupTime('');
-  }, [restaurantId, initialCustomerPhone]);
+  }, [data?.restaurant?.id, routeKey, initialCustomerPhone]);
 
   useEffect(() => {
     setCustomerPhoneInput((prev) => prev || initialCustomerPhone);
@@ -108,6 +117,7 @@ export default function RestaurantMenuPage() {
   const menu = data?.menu || [];
   const categories = data?.categories || data?.menuCategories || data?.menu_categories || [];
   const restaurant = data?.restaurant;
+  const restaurantHistoryKey = restaurant?.id || routeKey;
   const pickupAvailability = useMemo(
     () => resolvePickupAvailability(data, restaurant),
     [data, restaurant],
@@ -119,16 +129,16 @@ export default function RestaurantMenuPage() {
   const hasMenuItems = menu.length > 0;
 
   const lastOrder = useMemo(() => {
-    const sourceItems = data?.lastOrder?.items?.length ? data.lastOrder.items : [];
+    const sourceItems = normalizeOrderItems(data?.lastOrder);
     if (!sourceItems.length) {
-      return getLastOrderFromHistory(customerOrdersData?.orders, restaurantId);
+      return getLastOrderFromHistory(customerOrdersData?.orders, restaurantHistoryKey, restaurant?.name || '');
     }
     return {
       id: data?.lastOrder?.id || null,
       items: sourceItems,
       summary: sourceItems.map((item) => `${item.quantity}× ${item.name}`).join(', '),
     };
-  }, [data?.lastOrder, customerOrdersData?.orders, restaurantId]);
+  }, [data?.lastOrder, customerOrdersData?.orders, restaurantHistoryKey, restaurant?.name]);
 
   useEffect(() => {
     if (selectedPickupMode !== PICKUP_MODES.SCHEDULED) {
@@ -320,6 +330,7 @@ export default function RestaurantMenuPage() {
       cartItemById,
       customerName,
       customerPhone: getCustomerPhone(user) || initialCustomerPhone,
+      restaurantRouteKey: restaurantId,
       restaurant,
       scheduledPickupTime,
       selectedPickupMode,
@@ -348,6 +359,7 @@ export default function RestaurantMenuPage() {
       cartItemById,
       customerName,
       customerPhone,
+      restaurantRouteKey: restaurantId,
       restaurant,
       scheduledPickupTime,
       selectedPickupMode,
@@ -374,7 +386,7 @@ export default function RestaurantMenuPage() {
       <Navigate
         to="/login"
         replace
-        state={{ from: { pathname: `/restaurants/${restaurantId}/menu` } }}
+        state={{ from: { pathname: getRestaurantMenuPath(routeKey) } }}
       />
     );
   }
@@ -499,6 +511,7 @@ function buildCustomerOrderDraft({
   cartItemById,
   customerName,
   customerPhone,
+  restaurantRouteKey,
   restaurant,
   scheduledPickupTime,
   selectedPickupMode,
@@ -520,6 +533,7 @@ function buildCustomerOrderDraft({
 
   return {
     restaurantId: restaurant.id,
+    restaurantRouteKey: restaurantRouteKey || resolveRestaurantRouteKey(restaurant),
     restaurant,
     items: orderItems,
     subtotal: total,
@@ -1608,7 +1622,7 @@ function CartSummary({
   onUpdateQuantity,
   onPlaceOrder,
 }) {
-  const grandTotal = total;
+  const grandTotal = resolveMoneyDisplay(null, total);
   const isCartEmpty = cart.length === 0;
 
   return (
@@ -1620,7 +1634,7 @@ function CartSummary({
         </div>
         <div className="cart-total">
           <p className="eyebrow">Cart</p>
-          <strong>{formatCurrency(grandTotal)}</strong>
+          <strong>{grandTotal}</strong>
           <span className="muted">{totalItems || 0} items</span>
         </div>
       </div>
@@ -1668,7 +1682,7 @@ function CartSummary({
           <div className="cart-preview-totals">
             <div className="cart-preview-totals-grand">
               <span>Estimated Total</span>
-              <strong>{formatCurrency(grandTotal)}</strong>
+              <strong>{grandTotal}</strong>
             </div>
           </div>
         </>
@@ -1936,50 +1950,89 @@ function getAsapReadyLabel(value, pickupAvailability) {
   return '⚡ ASAP (15–20 min)';
 }
 
-function getLastOrderFromHistory(orders = [], restaurantId) {
-  if (!restaurantId || !Array.isArray(orders) || !orders.length) {
+function getLastOrderFromHistory(orders = [], restaurantId, restaurantName = '') {
+  if (!Array.isArray(orders) || !orders.length) {
     return null;
   }
 
-  const latestOrder = [...orders]
-    .filter((order) => matchesRestaurantId(order, restaurantId))
-    .sort((a, b) => getOrderTimeValue(b) - getOrderTimeValue(a))[0];
+  const ordersWithItems = [...orders]
+    .map((order) => ({
+      order,
+      items: normalizeOrderItems(order),
+    }))
+    .filter((entry) => entry.items.length)
+    .sort((a, b) => getOrderTimeValue(b.order) - getOrderTimeValue(a.order));
 
-  if (!latestOrder) {
+  if (!ordersWithItems.length) {
     return null;
   }
 
-  const items = normalizeOrderItems(latestOrder);
-  if (!items.length) {
-    return null;
-  }
+  const matchedOrder = restaurantId
+    ? ordersWithItems.find((entry) => matchesRestaurantId(entry.order, restaurantId, restaurantName))
+    : null;
+  const selectedOrder = matchedOrder || ordersWithItems[0];
+  const items = selectedOrder.items;
 
   return {
-    id: latestOrder.id || latestOrder.orderNumber || null,
+    id: selectedOrder.order.id || selectedOrder.order.orderNumber || null,
     items,
     summary: items.map((item) => `${item.quantity}× ${item.name}`).join(', '),
   };
 }
 
-function matchesRestaurantId(order, restaurantId) {
+function matchesRestaurantId(order, restaurantId, restaurantName = '') {
   const orderRestaurantId =
     order?.restaurantId ||
     order?.restaurant?.id ||
     order?.restaurant_id ||
     order?.restaurant?.restaurantId ||
     order?.restaurant?.restaurant_id ||
+    order?.restaurant?.slug ||
+    order?.restaurant?.restaurantSlug ||
     '';
 
-  return String(orderRestaurantId).trim() === String(restaurantId).trim();
+  if (String(orderRestaurantId).trim() === String(restaurantId).trim()) {
+    return true;
+  }
+
+  const orderRestaurantName =
+    order?.restaurant?.name ||
+    order?.restaurantName ||
+    order?.restaurant_name ||
+    order?.restaurant?.displayName ||
+    '';
+
+  return Boolean(
+    restaurantName &&
+      String(orderRestaurantName).trim().toLowerCase() === String(restaurantName).trim().toLowerCase(),
+  );
 }
 
 function normalizeOrderItems(order) {
+  if (Array.isArray(order)) {
+    return order
+      .filter(Boolean)
+      .map((item, index) => ({
+        ...item,
+        id: item?.id || item?.menuItemId || item?.menu_item_id || item?.sku || item?.name || `item-${index}`,
+        sku: item?.sku ?? item?.code ?? item?.menuItemId ?? item?.menu_item_id ?? '',
+        name: item?.name || item?.title || item?.label || 'Item',
+        price: Number(item?.price ?? item?.unitPrice ?? item?.unit_price ?? 0),
+        quantity: Number(item?.quantity || 1),
+      }))
+      .filter((item) => item.id && item.name);
+  }
+
   const rawItems =
     order?.items ||
     order?.orderItems ||
     order?.order_items ||
     order?.lineItems ||
     order?.line_items ||
+    order?.acceptedItems ||
+    order?.accepted_items ||
+    order?.visibleItems ||
+    order?.visible_items ||
     [];
 
   if (!Array.isArray(rawItems)) {

@@ -11,11 +11,13 @@ import {
   clearCustomerOrderVerification,
   getCustomerOrderDraft,
   getCustomerOrderVerification,
+  getVerifiedCustomerPhone,
   setVerifiedCustomerPhone,
   storeCustomerOrderDraft,
   storeCustomerOrderVerification,
 } from '../services/authStorage.js';
 import { getCustomerDisplayName } from '../utils/customerIdentity.js';
+import { getRestaurantMenuPath } from '../utils/restaurantRoutes.js';
 
 const DEFAULT_OTP_LENGTH = ENV.OTP_LENGTH;
 const VERIFICATION_START_TIMEOUT_MS = 12000;
@@ -23,12 +25,12 @@ const VERIFICATION_START_TIMEOUT_MS = 12000;
 export default function VerificationPage() {
   const navigate = useNavigate();
   const location = useLocation();
-  const { user, loading: authLoading } = useAuth();
+  const { user } = useAuth();
   const [orderDraft, setOrderDraft] = useState(() => location.state?.orderDraft || getCustomerOrderDraft() || null);
   const fallbackCustomerName = location.state?.customerName || '';
   const fallbackCustomerPhone = location.state?.customerPhone || '';
   const customerName = getCustomerDisplayName(user) || fallbackCustomerName;
-  const [otpLength, setOtpLength] = useState(null);
+  const [otpLength, setOtpLength] = useState(DEFAULT_OTP_LENGTH);
   const [verification, setVerification] = useState(() => getCustomerOrderVerification() || null);
   const [code, setCode] = useState([]);
   const [submitting, setSubmitting] = useState(false);
@@ -107,14 +109,22 @@ export default function VerificationPage() {
   }, [verification]);
 
   useEffect(() => {
-    if (!orderDraft || authLoading || !resolvedOtpLength || verification || startError) {
+    if (!orderDraft || !resolvedOtpLength || verification || startError) {
       return;
     }
 
     let active = true;
 
     async function requestVerification() {
-      const payload = buildVerificationStartPayload(orderDraft, customerName, fallbackCustomerPhone);
+      const resolvedRestaurantId = resolveRestaurantIdForVerification(orderDraft);
+      if (resolvedRestaurantId == null) {
+        if (active) {
+          setStartError('Restaurant information is missing. Please return to the menu and try again.');
+        }
+        return;
+      }
+
+      const payload = buildVerificationStartPayload(orderDraft, customerName, fallbackCustomerPhone, user);
       if (!payload.customer.phone) {
         if (active) {
           setStartError('A phone number is required to send the verification code.');
@@ -159,7 +169,7 @@ export default function VerificationPage() {
     return () => {
       active = false;
     };
-  }, [orderDraft, authLoading, resolvedOtpLength, verification, retryKey, customerName, fallbackCustomerPhone, startError]);
+  }, [orderDraft, resolvedOtpLength, verification, retryKey, customerName, fallbackCustomerPhone, startError, user]);
 
   const codeValue = useMemo(() => code.join(''), [code]);
   const isCodeComplete = code.every((digit) => /\d/.test(digit));
@@ -202,8 +212,9 @@ export default function VerificationPage() {
   };
 
   const handleBackToMenu = () => {
-    if (orderDraft?.restaurantId || orderDraft?.restaurant?.id) {
-      navigate(`/restaurants/${orderDraft.restaurantId || orderDraft.restaurant?.id}/menu`, { replace: true });
+    const menuPath = getRestaurantMenuPath(orderDraft?.restaurantRouteKey || orderDraft?.restaurant || orderDraft?.restaurantId);
+    if (menuPath !== '/home') {
+      navigate(menuPath, { replace: true });
       return;
     }
 
@@ -225,7 +236,7 @@ export default function VerificationPage() {
     );
   }
 
-  if (!resolvedOtpLength || (pendingVerification && !verification && !startError)) {
+  if (!orderDraft || !resolvedOtpLength || (pendingVerification && !verification && !startError)) {
     return (
       <main className="page-section verification-page">
         <section className="verification-shell">
@@ -317,6 +328,18 @@ export default function VerificationPage() {
       return;
     }
 
+    const resolvedRestaurantId = resolveRestaurantIdForVerification(orderDraft);
+    if (resolvedRestaurantId == null) {
+      setError('Restaurant information is missing. Please return to the menu and try again.');
+      return;
+    }
+
+    const resolvedPhone = resolveVerificationPhone(orderDraft, fallbackCustomerPhone, user);
+    if (!resolvedPhone) {
+      setError('A phone number is required to send the verification code.');
+      return;
+    }
+
     lastAutoSubmittedCodeRef.current = codeValue;
     setSubmitting(true);
     setError('');
@@ -324,9 +347,12 @@ export default function VerificationPage() {
       const response = await confirmOrderVerification({
         verificationId: verification?.id,
         code: codeValue,
-        customer: orderDraft.customer,
+        customer: {
+          ...(orderDraft.customer || {}),
+          phone: resolvedPhone,
+        },
         customerName: orderDraft.customerName,
-        restaurantId: orderDraft.restaurantId,
+        restaurantId: resolvedRestaurantId,
         restaurant: orderDraft.restaurant,
         items: orderDraft.items,
         subtotal: orderDraft.subtotal,
@@ -540,9 +566,12 @@ function withTimeout(promise, timeoutMs, timeoutMessage) {
   ]);
 }
 
-function buildVerificationStartPayload(orderDraft, customerName, customerPhone) {
+function buildVerificationStartPayload(orderDraft, customerName, customerPhone, user) {
+  const restaurantId = resolveRestaurantIdForVerification(orderDraft);
   const items = Array.isArray(orderDraft?.items)
     ? orderDraft.items.map((item) => ({
+        id: item.id ?? item.menuItemId ?? item.menu_item_id ?? item.sku ?? '',
+        menuItemId: item.menuItemId ?? item.menu_item_id ?? item.id ?? '',
         sku: item.sku ?? item.code ?? '',
         name: item.name || item.title || item.label || '',
         quantity: item.quantity || 1,
@@ -555,15 +584,10 @@ function buildVerificationStartPayload(orderDraft, customerName, customerPhone) 
     orderDraft?.customer?.pickupTime ||
     orderDraft?.pickupTime ||
     '';
-  const normalizedPhone = normalizeE164Phone(
-    customerPhone ||
-    orderDraft?.customer?.phone ||
-    orderDraft?.customer?.phone_number ||
-    '',
-  );
+  const normalizedPhone = resolveVerificationPhone(orderDraft, customerPhone, user);
 
   return {
-    restaurantId: orderDraft?.restaurantId || orderDraft?.restaurant?.id,
+    restaurantId,
     items,
     customer: {
       name: customerName || orderDraft?.customer?.name || orderDraft?.customerName || '',
@@ -573,6 +597,60 @@ function buildVerificationStartPayload(orderDraft, customerName, customerPhone) 
       notes: orderDraft?.customer?.notes || orderDraft?.pickupRequest?.summary || '',
     },
   };
+}
+
+function resolveVerificationPhone(orderDraft, customerPhone, user) {
+  return normalizeE164Phone(
+    customerPhone ||
+      orderDraft?.customer?.phone ||
+      orderDraft?.customer?.phone_number ||
+      orderDraft?.customerPhone ||
+      orderDraft?.phone ||
+      user?.phone ||
+      user?.phone_number ||
+      getVerifiedCustomerPhone() ||
+      '',
+  );
+}
+
+function resolveRestaurantIdForVerification(orderDraft) {
+  const candidates = [
+    orderDraft?.restaurantId,
+    orderDraft?.restaurant?.id,
+    orderDraft?.restaurant?.restaurantId,
+    orderDraft?.restaurant?.restaurant_id,
+  ];
+
+  for (const candidate of candidates) {
+    const resolved = normalizeRestaurantId(candidate);
+    if (resolved != null) {
+      return resolved;
+    }
+  }
+
+  return null;
+}
+
+function normalizeRestaurantId(value) {
+  if (value == null) {
+    return null;
+  }
+
+  if (typeof value === 'number' && Number.isFinite(value)) {
+    return value;
+  }
+
+  const input = String(value).trim();
+  if (!input) {
+    return null;
+  }
+
+  if (!/^\d+$/.test(input)) {
+    return null;
+  }
+
+  const parsed = Number(input);
+  return Number.isFinite(parsed) ? parsed : null;
 }
 
 function normalizeE164Phone(value) {

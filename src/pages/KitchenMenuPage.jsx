@@ -16,6 +16,7 @@ import {
 } from '../api/kitchenMenuApi.js';
 import { restaurantUserLogout } from '../api/authApi.js';
 import { formatCurrency } from '../utils/formatCurrency.js';
+import { getRestaurantQrDestinationUrl } from '../utils/restaurantRoutes.js';
 import { clearKitchenAuthTokens, getKitchenRefreshToken, getKitchenRestaurantId } from '../services/authStorage.js';
 
 const MENU_FILTERS = [
@@ -731,7 +732,9 @@ export default function KitchenMenuPage() {
   const [bulkJson, setBulkJson] = useState('');
   const [csvFileName, setCsvFileName] = useState('');
   const [csvImportPayload, setCsvImportPayload] = useState(null);
+  const [qrCopyFeedback, setQrCopyFeedback] = useState('');
   const feedbackTimerRef = useRef(null);
+  const qrCopyTimerRef = useRef(null);
   const itemEditorRef = useRef(null);
   const categoryEditorRef = useRef(null);
   const groupSectionRefs = useRef(new Map());
@@ -800,6 +803,26 @@ export default function KitchenMenuPage() {
     }
   }, [categoryEditorOpen]);
 
+  useEffect(() => {
+    if (!qrCopyFeedback) return undefined;
+
+    if (qrCopyTimerRef.current) {
+      clearTimeout(qrCopyTimerRef.current);
+    }
+
+    qrCopyTimerRef.current = window.setTimeout(() => {
+      setQrCopyFeedback('');
+      qrCopyTimerRef.current = null;
+    }, 2500);
+
+    return () => {
+      if (qrCopyTimerRef.current) {
+        clearTimeout(qrCopyTimerRef.current);
+        qrCopyTimerRef.current = null;
+      }
+    };
+  }, [qrCopyFeedback]);
+
   const categoryOptions = useMemo(() => normalizeCategories(categories), [categories]);
   const filteredMenuItems = useMemo(
     () => filterMenuItems(menuItems, searchQuery, menuFilter),
@@ -814,6 +837,10 @@ export default function KitchenMenuPage() {
     [menuItems, selectedItemIds],
   );
   const bulkCategoryOptions = useMemo(() => categoryOptions, [categoryOptions]);
+  const restaurantQrUrl = useMemo(
+    () => getRestaurantQrDestinationUrl(restaurant || restaurantId),
+    [restaurant, restaurantId],
+  );
 
   useEffect(() => {
     if (!groupedItems.length || typeof window === 'undefined' || !('IntersectionObserver' in window)) {
@@ -885,6 +912,25 @@ export default function KitchenMenuPage() {
     } finally {
       clearKitchenAuthTokens();
       navigate('/kitchen/login', { replace: true });
+    }
+  };
+
+  const handleCopyRestaurantQrUrl = async () => {
+    if (!restaurantQrUrl) {
+      setQrCopyFeedback('QR link not available yet.');
+      return;
+    }
+
+    if (typeof navigator === 'undefined' || !navigator.clipboard?.writeText) {
+      setQrCopyFeedback('Copy the link manually.');
+      return;
+    }
+
+    try {
+      await navigator.clipboard.writeText(restaurantQrUrl);
+      setQrCopyFeedback('QR link copied.');
+    } catch {
+      setQrCopyFeedback('Copy the link manually.');
     }
   };
 
@@ -1256,6 +1302,34 @@ export default function KitchenMenuPage() {
             Use the buttons above to create items, import a current snapshot, or load a CSV file.
             Upload CSV with columns: name, price, category.
           </p>
+        </section>
+
+        <section className="card kitchen-menu-qr">
+          <div className="kitchen-menu-qr__copy">
+            <p className="eyebrow">Restaurant QR</p>
+            <h3>Absolute QR destination URL</h3>
+            <p className="muted">
+              Uses the backend slug when available and falls back to the restaurant ID only if needed.
+            </p>
+          </div>
+          <div className="kitchen-menu-qr__controls">
+            <input
+              type="text"
+              readOnly
+              value={restaurantQrUrl}
+              placeholder="QR URL will appear after the restaurant loads"
+              aria-label="Restaurant QR destination URL"
+            />
+            <button
+              type="button"
+              className="primary-btn secondary"
+              onClick={handleCopyRestaurantQrUrl}
+              disabled={!restaurantQrUrl}
+            >
+              Copy QR Link
+            </button>
+          </div>
+          {qrCopyFeedback ? <p className="kitchen-menu-qr__feedback muted">{qrCopyFeedback}</p> : null}
         </section>
 
         <section className="card kitchen-menu-toolbar kitchen-menu-toolbar--compact">
