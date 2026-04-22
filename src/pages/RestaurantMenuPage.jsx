@@ -8,7 +8,7 @@ import { formatCurrency } from '../utils/formatCurrency.js';
 import { getRestaurantAddressLines } from '../utils/formatRestaurantAddress.js';
 import { getRestaurantMenuPath, matchesRestaurantRouteKey, resolveRestaurantRouteKey } from '../utils/restaurantRoutes.js';
 import { useAuth } from '../hooks/useAuth.jsx';
-import { clearCustomerOrderVerification, getCustomerOrderDraft, storeCustomerOrderDraft } from '../services/authStorage.js';
+import { clearCustomerOrderVerification, getCustomerOrderDraft, getVerifiedCustomerPhone, storeCustomerOrderDraft } from '../services/authStorage.js';
 import { getCustomerId, getCustomerPhone } from '../utils/customerIdentity.js';
 
 const PICKUP_MODES = {
@@ -130,14 +130,14 @@ export default function RestaurantMenuPage() {
   const lastOrder = useMemo(() => {
     const sourceItems = normalizeOrderItems(data?.lastOrder);
     if (!sourceItems.length) {
-      return getLastOrderFromHistory(customerOrdersData?.orders, restaurantHistoryKey);
+      return getLastOrderFromHistory(customerOrdersData?.orders, restaurantHistoryKey, restaurant?.name || '');
     }
     return {
       id: data?.lastOrder?.id || null,
       items: sourceItems,
       summary: sourceItems.map((item) => `${item.quantity}× ${item.name}`).join(', '),
     };
-  }, [data?.lastOrder, customerOrdersData?.orders, restaurantHistoryKey]);
+  }, [data?.lastOrder, customerOrdersData?.orders, restaurantHistoryKey, restaurant?.name]);
 
   useEffect(() => {
     if (selectedPickupMode !== PICKUP_MODES.SCHEDULED) {
@@ -1949,32 +1949,37 @@ function getAsapReadyLabel(value, pickupAvailability) {
   return '⚡ ASAP (15–20 min)';
 }
 
-function getLastOrderFromHistory(orders = [], restaurantId) {
-  if (!restaurantId || !Array.isArray(orders) || !orders.length) {
+function getLastOrderFromHistory(orders = [], restaurantId, restaurantName = '') {
+  if (!Array.isArray(orders) || !orders.length) {
     return null;
   }
 
-  const latestOrder = [...orders]
-    .filter((order) => matchesRestaurantId(order, restaurantId))
-    .sort((a, b) => getOrderTimeValue(b) - getOrderTimeValue(a))[0];
+  const ordersWithItems = [...orders]
+    .map((order) => ({
+      order,
+      items: normalizeOrderItems(order),
+    }))
+    .filter((entry) => entry.items.length)
+    .sort((a, b) => getOrderTimeValue(b.order) - getOrderTimeValue(a.order));
 
-  if (!latestOrder) {
+  if (!ordersWithItems.length) {
     return null;
   }
 
-  const items = normalizeOrderItems(latestOrder);
-  if (!items.length) {
-    return null;
-  }
+  const matchedOrder = restaurantId
+    ? ordersWithItems.find((entry) => matchesRestaurantId(entry.order, restaurantId, restaurantName))
+    : null;
+  const selectedOrder = matchedOrder || ordersWithItems[0];
+  const items = selectedOrder.items;
 
   return {
-    id: latestOrder.id || latestOrder.orderNumber || null,
+    id: selectedOrder.order.id || selectedOrder.order.orderNumber || null,
     items,
     summary: items.map((item) => `${item.quantity}× ${item.name}`).join(', '),
   };
 }
 
-function matchesRestaurantId(order, restaurantId) {
+function matchesRestaurantId(order, restaurantId, restaurantName = '') {
   const orderRestaurantId =
     order?.restaurantId ||
     order?.restaurant?.id ||
@@ -1985,10 +1990,38 @@ function matchesRestaurantId(order, restaurantId) {
     order?.restaurant?.restaurantSlug ||
     '';
 
-  return String(orderRestaurantId).trim() === String(restaurantId).trim();
+  if (String(orderRestaurantId).trim() === String(restaurantId).trim()) {
+    return true;
+  }
+
+  const orderRestaurantName =
+    order?.restaurant?.name ||
+    order?.restaurantName ||
+    order?.restaurant_name ||
+    order?.restaurant?.displayName ||
+    '';
+
+  return Boolean(
+    restaurantName &&
+      String(orderRestaurantName).trim().toLowerCase() === String(restaurantName).trim().toLowerCase(),
+  );
 }
 
 function normalizeOrderItems(order) {
+  if (Array.isArray(order)) {
+    return order
+      .filter(Boolean)
+      .map((item, index) => ({
+        ...item,
+        id: item?.id || item?.menuItemId || item?.menu_item_id || item?.sku || item?.name || `item-${index}`,
+        sku: item?.sku ?? item?.code ?? item?.menuItemId ?? item?.menu_item_id ?? '',
+        name: item?.name || item?.title || item?.label || 'Item',
+        price: Number(item?.price ?? item?.unitPrice ?? item?.unit_price ?? 0),
+        quantity: Number(item?.quantity || 1),
+      }))
+      .filter((item) => item.id && item.name);
+  }
+
   const rawItems =
     order?.items ||
     order?.orderItems ||

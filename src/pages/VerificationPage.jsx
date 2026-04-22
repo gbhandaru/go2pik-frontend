@@ -11,6 +11,7 @@ import {
   clearCustomerOrderVerification,
   getCustomerOrderDraft,
   getCustomerOrderVerification,
+  getVerifiedCustomerPhone,
   setVerifiedCustomerPhone,
   storeCustomerOrderDraft,
   storeCustomerOrderVerification,
@@ -123,7 +124,7 @@ export default function VerificationPage() {
         return;
       }
 
-      const payload = buildVerificationStartPayload(orderDraft, customerName, fallbackCustomerPhone);
+      const payload = buildVerificationStartPayload(orderDraft, customerName, fallbackCustomerPhone, user);
       if (!payload.customer.phone) {
         if (active) {
           setStartError('A phone number is required to send the verification code.');
@@ -168,7 +169,7 @@ export default function VerificationPage() {
     return () => {
       active = false;
     };
-  }, [orderDraft, authLoading, resolvedOtpLength, verification, retryKey, customerName, fallbackCustomerPhone, startError]);
+  }, [orderDraft, authLoading, resolvedOtpLength, verification, retryKey, customerName, fallbackCustomerPhone, startError, user]);
 
   const codeValue = useMemo(() => code.join(''), [code]);
   const isCodeComplete = code.every((digit) => /\d/.test(digit));
@@ -333,6 +334,12 @@ export default function VerificationPage() {
       return;
     }
 
+    const resolvedPhone = resolveVerificationPhone(orderDraft, fallbackCustomerPhone, user);
+    if (!resolvedPhone) {
+      setError('A phone number is required to send the verification code.');
+      return;
+    }
+
     lastAutoSubmittedCodeRef.current = codeValue;
     setSubmitting(true);
     setError('');
@@ -340,7 +347,10 @@ export default function VerificationPage() {
       const response = await confirmOrderVerification({
         verificationId: verification?.id,
         code: codeValue,
-        customer: orderDraft.customer,
+        customer: {
+          ...(orderDraft.customer || {}),
+          phone: resolvedPhone,
+        },
         customerName: orderDraft.customerName,
         restaurantId: resolvedRestaurantId,
         restaurant: orderDraft.restaurant,
@@ -556,10 +566,12 @@ function withTimeout(promise, timeoutMs, timeoutMessage) {
   ]);
 }
 
-function buildVerificationStartPayload(orderDraft, customerName, customerPhone) {
+function buildVerificationStartPayload(orderDraft, customerName, customerPhone, user) {
   const restaurantId = resolveRestaurantIdForVerification(orderDraft);
   const items = Array.isArray(orderDraft?.items)
     ? orderDraft.items.map((item) => ({
+        id: item.id ?? item.menuItemId ?? item.menu_item_id ?? item.sku ?? '',
+        menuItemId: item.menuItemId ?? item.menu_item_id ?? item.id ?? '',
         sku: item.sku ?? item.code ?? '',
         name: item.name || item.title || item.label || '',
         quantity: item.quantity || 1,
@@ -572,12 +584,7 @@ function buildVerificationStartPayload(orderDraft, customerName, customerPhone) 
     orderDraft?.customer?.pickupTime ||
     orderDraft?.pickupTime ||
     '';
-  const normalizedPhone = normalizeE164Phone(
-    customerPhone ||
-    orderDraft?.customer?.phone ||
-    orderDraft?.customer?.phone_number ||
-    '',
-  );
+  const normalizedPhone = resolveVerificationPhone(orderDraft, customerPhone, user);
 
   return {
     restaurantId,
@@ -590,6 +597,20 @@ function buildVerificationStartPayload(orderDraft, customerName, customerPhone) 
       notes: orderDraft?.customer?.notes || orderDraft?.pickupRequest?.summary || '',
     },
   };
+}
+
+function resolveVerificationPhone(orderDraft, customerPhone, user) {
+  return normalizeE164Phone(
+    customerPhone ||
+      orderDraft?.customer?.phone ||
+      orderDraft?.customer?.phone_number ||
+      orderDraft?.customerPhone ||
+      orderDraft?.phone ||
+      user?.phone ||
+      user?.phone_number ||
+      getVerifiedCustomerPhone() ||
+      '',
+  );
 }
 
 function resolveRestaurantIdForVerification(orderDraft) {
