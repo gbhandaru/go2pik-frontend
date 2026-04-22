@@ -4017,15 +4017,14 @@ hr {
 .kitchen-empty-state--compact {
   min-height: 110px;
   padding: 1rem;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 0.35rem;
 }
 
 .kitchen-report-table__right {
   text-align: right;
-}
-
-.kitchen-empty-state--compact {
-  min-height: 110px;
-  padding: 1rem;
 }
 
 @keyframes reportShimmer {

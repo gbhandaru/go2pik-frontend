@@ -140,6 +140,11 @@ export default function KitchenReportsPage() {
     : fallbackAverageOrder(totals.amount, totals.orders);
   const grossSalesLabel = formatMoneyDisplay(totals.amountDisplay, totals.amount);
   const topItemsLabel = rangeMode === 'today' ? 'Top Items Today' : 'Top Items';
+  const hasGraphSeries = graphSeries.length > 0;
+  const graphMetaLabel = hasGraphSeries ? `${graphSeries.length} point${graphSeries.length === 1 ? '' : 's'}` : 'No trend data';
+  const graphEmptyMessage = hasGraphSeries
+    ? 'No Sales yet for this period.'
+    : 'No Sales yet for this period. Try Week or Month to view a trend.';
 
   return (
     <main className="page-section kitchen-page kitchen-dashboard kitchen-reports-page">
@@ -301,16 +306,16 @@ export default function KitchenReportsPage() {
                 <p className="eyebrow">Sales Graph</p>
                 <h3>Sales trend</h3>
               </div>
-              <span className="muted">{graphSeries.length ? `${graphSeries.length} point${graphSeries.length === 1 ? '' : 's'}` : 'No series data'}</span>
+              <span className="muted">{graphMetaLabel}</span>
             </div>
 
-            {graphSeries.length ? (
+            {hasGraphSeries ? (
               <div className="kitchen-report-series">
                 {graphSeries.map((point, index) => (
                   <article key={getGraphPointKey(point, index)} className="kitchen-report-series__point">
                     <div className="kitchen-report-series__header">
                       <strong>{formatGraphDate(point.date)}</strong>
-                      <span>{formatMoneyDisplay(null, point.amount)}</span>
+                      <span>{formatMoneyDisplay(point.amountDisplay, point.amount)}</span>
                     </div>
                     <div className="kitchen-report-series__bar-track" aria-hidden="true">
                       <span
@@ -327,7 +332,7 @@ export default function KitchenReportsPage() {
               </div>
             ) : (
               <div className="kitchen-empty-state kitchen-empty-state--compact">
-                No Sales yet for this period.
+                <span>{graphEmptyMessage}</span>
               </div>
             )}
           </section>
@@ -390,7 +395,7 @@ export default function KitchenReportsPage() {
           <section className="card kitchen-report-breakdown">
             <div className="kitchen-report-card-header">
               <div>
-                <p className="eyebrow">Revenue Breakdown</p>
+                <p className="eyebrow">Revenue Break Down</p>
                 <h3>Gross Sales, Platform Fee, Net Earnings</h3>
               </div>
               {commissionRateLabel ? <span className="muted">Commission {commissionRateLabel}</span> : null}
