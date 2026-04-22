@@ -5,6 +5,7 @@ import CustomerPartialOrderModal from '../components/shared/CustomerPartialOrder
 import { useAuth } from '../hooks/useAuth.jsx';
 import { formatCurrency } from '../utils/formatCurrency.js';
 import { getRestaurantAddressLines } from '../utils/formatRestaurantAddress.js';
+import { resolveMoneyDisplay } from '../utils/orderMoney.js';
 import { buildSupportMailtoHref } from '../utils/supportEmail.js';
 import { getRestaurantMenuPath } from '../utils/restaurantRoutes.js';
 
@@ -242,25 +243,21 @@ function resolveOrderSubtotal(order, items) {
 }
 
 function resolveOrderTotal(order, items) {
-  const direct =
+  const displayValue =
+    order?.totalDisplay ||
+    order?.updatedTotalDisplay ||
+    order?.updated_total_display ||
+    order?.totalAmountDisplay ||
+    order?.total_amount_display;
+  const numericValue =
     order?.updatedTotal ??
     order?.updated_total ??
     order?.total ??
     order?.totalAmount ??
-    order?.total_amount;
+    order?.total_amount ??
+    resolveOrderSubtotal(order, items);
 
-  if (typeof direct === 'number' && Number.isFinite(direct)) {
-    return direct;
-  }
-
-  if (typeof direct === 'string' && direct.trim()) {
-    const parsed = Number(direct);
-    if (Number.isFinite(parsed)) {
-      return parsed;
-    }
-  }
-
-  return resolveOrderSubtotal(order, items);
+  return resolveMoneyDisplay(displayValue, numericValue);
 }
 
 function normalizeOrderItems(items) {
@@ -480,9 +477,8 @@ export default function OrderConfirmationPage() {
             <div className="grand">
               <div className="order-totals-grand-label">
                 <strong>Estimated total</strong>
-                <strong>{formatCurrency(total)}</strong>
+                <strong>{total}</strong>
               </div>
-              <small className="order-totals-footnote">* Taxes will be calculated at the time of payment</small>
             </div>
           </div>
         </div>

@@ -5,6 +5,7 @@ import { fetchCustomerOrders } from '../api/customersApi.js';
 import AsyncState from '../components/shared/AsyncState.jsx';
 import { useFetch } from '../hooks/useFetch.js';
 import { formatCurrency } from '../utils/formatCurrency.js';
+import { resolveMoneyDisplay } from '../utils/orderMoney.js';
 import { getRestaurantAddressLines } from '../utils/formatRestaurantAddress.js';
 import { getRestaurantMenuPath, matchesRestaurantRouteKey, resolveRestaurantRouteKey } from '../utils/restaurantRoutes.js';
 import { useAuth } from '../hooks/useAuth.jsx';
@@ -1621,7 +1622,7 @@ function CartSummary({
   onUpdateQuantity,
   onPlaceOrder,
 }) {
-  const grandTotal = total;
+  const grandTotal = resolveMoneyDisplay(null, total);
   const isCartEmpty = cart.length === 0;
 
   return (
@@ -1633,7 +1634,7 @@ function CartSummary({
         </div>
         <div className="cart-total">
           <p className="eyebrow">Cart</p>
-          <strong>{formatCurrency(grandTotal)}</strong>
+          <strong>{grandTotal}</strong>
           <span className="muted">{totalItems || 0} items</span>
         </div>
       </div>
