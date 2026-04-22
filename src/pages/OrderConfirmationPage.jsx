@@ -5,7 +5,6 @@ import CustomerPartialOrderModal from '../components/shared/CustomerPartialOrder
 import { useAuth } from '../hooks/useAuth.jsx';
 import { formatCurrency } from '../utils/formatCurrency.js';
 import { getRestaurantAddressLines } from '../utils/formatRestaurantAddress.js';
-import { resolveMoneyDisplay } from '../utils/orderMoney.js';
 import { buildSupportMailtoHref } from '../utils/supportEmail.js';
 import { getRestaurantMenuPath } from '../utils/restaurantRoutes.js';
 
@@ -243,21 +242,30 @@ function resolveOrderSubtotal(order, items) {
 }
 
 function resolveOrderTotal(order, items) {
-  const displayValue =
-    order?.totalDisplay ||
-    order?.updatedTotalDisplay ||
-    order?.updated_total_display ||
-    order?.totalAmountDisplay ||
-    order?.total_amount_display;
-  const numericValue =
-    order?.updatedTotal ??
-    order?.updated_total ??
-    order?.total ??
-    order?.totalAmount ??
-    order?.total_amount ??
-    resolveOrderSubtotal(order, items);
+  const subtotalDisplay =
+    order?.subtotalDisplay ||
+    order?.updatedSubtotalDisplay ||
+    order?.updated_subtotal_display;
+  if (typeof subtotalDisplay === 'string' && subtotalDisplay.trim()) {
+    return subtotalDisplay.trim();
+  }
 
-  return resolveMoneyDisplay(displayValue, numericValue);
+  const subtotalNumeric =
+    order?.subtotal ??
+    order?.updatedSubtotal ??
+    order?.updated_subtotal;
+  if (typeof subtotalNumeric === 'number' && Number.isFinite(subtotalNumeric)) {
+    return formatCurrency(subtotalNumeric);
+  }
+  if (typeof subtotalNumeric === 'string' && subtotalNumeric.trim()) {
+    const parsedSubtotal = Number(subtotalNumeric);
+    if (Number.isFinite(parsedSubtotal)) {
+      return formatCurrency(parsedSubtotal);
+    }
+  }
+
+  const fallback = resolveOrderSubtotal(order, items);
+  return formatCurrency(fallback);
 }
 
 function normalizeOrderItems(items) {
