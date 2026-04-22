@@ -154,7 +154,7 @@ export default function RestaurantMenuPage() {
   }, [pickupAvailability, pickupSlotGroups, scheduledPickupTime, selectedPickupMode]);
 
   useEffect(() => {
-    if (pickupAvailability.asapAllowed !== false || selectedPickupMode !== PICKUP_MODES.ASAP) {
+    if (pickupAvailability?.asapAllowed !== false || selectedPickupMode !== PICKUP_MODES.ASAP) {
       return;
     }
 
@@ -165,7 +165,7 @@ export default function RestaurantMenuPage() {
         setScheduledPickupTime(firstAvailableSlot);
       }
     }
-  }, [pickupAvailability.asapAllowed, pickupSlotGroups, scheduledPickupTime, selectedPickupMode]);
+  }, [pickupAvailability?.asapAllowed, pickupSlotGroups, scheduledPickupTime, selectedPickupMode]);
 
   const addToCart = (menuItem, options = {}) => {
     const identity = resolveMenuItemIdentity(menuItem);
@@ -1928,11 +1928,11 @@ function getTimeFromNow(minutesAhead) {
 }
 
 function getAsapReadyLabel(value, pickupAvailability) {
-  if (pickupAvailability && pickupAvailability.isOpenNow === false && pickupAvailability.asapAllowed) {
+  if (pickupAvailability?.isOpenNow === false && pickupAvailability?.asapAllowed) {
     return 'Currently the restaurant is closed, but you can still place an order for later pickup.';
   }
 
-  if (pickupAvailability && pickupAvailability.asapAllowed === false) {
+  if (pickupAvailability?.asapAllowed === false) {
     return 'ASAP pickup is currently unavailable.';
   }
 
