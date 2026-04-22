@@ -15,16 +15,11 @@ export function resolveRestaurantRouteKey(source) {
   }
 
   const candidates = [
-    source.restaurantRouteKey,
-    source.restaurant_route_key,
-    source.slug,
-    source.restaurantSlug,
-    source.restaurant_slug,
-    source.menuSlug,
-    source.menu_slug,
     source.restaurantId,
     source.restaurant_id,
     source.id,
+    source.restaurantRouteKey,
+    source.restaurant_route_key,
   ];
 
   for (const candidate of candidates) {
@@ -43,7 +38,7 @@ export function resolveRestaurantRouteKey(source) {
 
 export function getRestaurantMenuPath(source) {
   const routeKey = resolveRestaurantRouteKey(source);
-  return routeKey ? `/restaurant/${encodeURIComponent(routeKey)}` : '/home';
+  return routeKey ? `/restaurants/${encodeURIComponent(routeKey)}/menu` : '/home';
 }
 
 export function getRestaurantQrDestinationUrl(source) {
@@ -57,7 +52,7 @@ export function getRestaurantQrDestinationUrl(source) {
     return '';
   }
 
-  return new URL(`/restaurant/${encodeURIComponent(routeKey)}`, baseUrl).toString();
+  return new URL(`/restaurants/${encodeURIComponent(routeKey)}/menu`, baseUrl).toString();
 }
 
 export function matchesRestaurantRouteKey(source, routeKey) {
