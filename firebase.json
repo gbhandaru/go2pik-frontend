@@ -3,6 +3,9 @@
     {
       "site": "ui-preview",
       "public": "dist",
+      "predeploy": [
+        "npm run build:preview"
+      ],
       "ignore": [
         "firebase.json",
         "**/.*",
