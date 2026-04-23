@@ -2023,17 +2023,7 @@ function normalizeOrderItems(order) {
       .filter((item) => item.id && item.name);
   }
 
-  const rawItems =
-    order?.items ||
-    order?.orderItems ||
-    order?.order_items ||
-    order?.lineItems ||
-    order?.line_items ||
-    order?.acceptedItems ||
-    order?.accepted_items ||
-    order?.visibleItems ||
-    order?.visible_items ||
-    [];
+  const rawItems = resolveOrderItemsArray(order);
 
   if (!Array.isArray(rawItems)) {
     return [];
@@ -2045,10 +2035,85 @@ function normalizeOrderItems(order) {
       id: item?.id || item?.menuItemId || item?.menu_item_id || item?.sku || item?.name,
       sku: item?.sku ?? item?.code ?? item?.menuItemId ?? item?.menu_item_id ?? '',
       name: item?.name || item?.title || item?.label || 'Item',
-      price: Number(item?.price ?? item?.unitPrice ?? item?.unit_price ?? 0),
+      price: Number(item?.price ?? item?.unitPrice ?? item?.unit_price ?? item?.lineTotal ?? item?.totalAmount ?? 0),
       quantity: Number(item?.quantity || 1),
     }))
     .filter((item) => item.id && item.name);
+}
+
+function resolveOrderItemsArray(order) {
+  const directCandidates = [
+    order?.items,
+    order?.orderItems,
+    order?.order_items,
+    order?.lineItems,
+    order?.line_items,
+    order?.acceptedItems,
+    order?.accepted_items,
+    order?.visibleItems,
+    order?.visible_items,
+  ];
+
+  for (const candidate of directCandidates) {
+    if (Array.isArray(candidate)) {
+      return candidate;
+    }
+  }
+
+  return findNestedOrderItemsArray(order);
+}
+
+function findNestedOrderItemsArray(value, seen = new Set()) {
+  if (!value || typeof value !== 'object' || seen.has(value)) {
+    return null;
+  }
+
+  seen.add(value);
+
+  const nestedKeys = [
+    'order',
+    'data',
+    'result',
+    'payload',
+    'details',
+    'lastOrder',
+    'last_order',
+    'orderData',
+    'order_data',
+  ];
+
+  for (const key of nestedKeys) {
+    const nested = value[key];
+    if (!nested) {
+      continue;
+    }
+
+    if (Array.isArray(nested)) {
+      return nested;
+    }
+
+    const resolved = findNestedOrderItemsArray(nested, seen);
+    if (resolved) {
+      return resolved;
+    }
+  }
+
+  for (const nested of Object.values(value)) {
+    if (!nested || typeof nested !== 'object') {
+      continue;
+    }
+
+    if (Array.isArray(nested)) {
+      return nested;
+    }
+
+    const resolved = findNestedOrderItemsArray(nested, seen);
+    if (resolved) {
+      return resolved;
+    }
+  }
+
+  return null;
 }
 
 function getOrderTimeValue(order) {
