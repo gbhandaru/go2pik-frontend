@@ -28,6 +28,14 @@ export default function RestaurantMenuPage() {
   const routeKey = restaurantRouteKey || restaurantId || '';
   const customerName = useMemo(() => getCustomerDisplayName(user), [user]);
   const customerId = useMemo(() => getCustomerId(user), [user]);
+  const authMode = user ? 'authenticated' : canAccessCustomerFlow ? 'guest' : 'anonymous';
+  const authProfileKeys = useMemo(() => {
+    if (!user || typeof user !== 'object') {
+      return '';
+    }
+
+    return Object.keys(user).slice(0, 12).join(', ');
+  }, [user]);
   const initialCustomerPhone = useMemo(() => getCustomerPhone(user) || '', [user]);
   const [cart, setCart] = useState([]);
   const [selectedPickupMode, setSelectedPickupMode] = useState(PICKUP_MODES.ASAP);
@@ -459,7 +467,7 @@ export default function RestaurantMenuPage() {
             onReorderItem={reorderSingleItem}
           />
           <p className="muted" style={{ marginTop: '-0.5rem', fontSize: '0.75rem' }}>
-            Debug: customerId={customerId || '—'} | orders={debugCustomerOrders.length} | priorItems={lastOrder?.items?.length || 0}
+            Debug: authMode={authMode} | customerId={customerId || '—'} | profileKeys={authProfileKeys || '—'} | orders={debugCustomerOrders.length} | priorItems={lastOrder?.items?.length || 0}
           </p>
 
           {hasMenuItems ? (
