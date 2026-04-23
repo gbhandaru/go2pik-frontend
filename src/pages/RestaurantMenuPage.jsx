@@ -11,7 +11,6 @@ import { getRestaurantMenuPath, matchesRestaurantRouteKey, resolveRestaurantRout
 import { useAuth } from '../hooks/useAuth.jsx';
 import { clearCustomerOrderVerification, getCustomerOrderDraft, getVerifiedCustomerPhone, storeCustomerOrderDraft } from '../services/authStorage.js';
 import { getCustomerId, getCustomerPhone } from '../utils/customerIdentity.js';
-import { getAuthToken, getRefreshToken, hasCustomerGuestAccess } from '../services/authStorage.js';
 
 const PICKUP_MODES = {
   ASAP: 'ASAP',
@@ -25,27 +24,10 @@ const PICKUP_SLOT_LOOKAHEAD_DAYS = 7;
 export default function RestaurantMenuPage() {
   const { restaurantId, restaurantRouteKey } = useParams();
   const navigate = useNavigate();
-  const { user, canAccessCustomerFlow } = useAuth();
+  const { user, canAccessCustomerFlow, loading: authLoading } = useAuth();
   const routeKey = restaurantRouteKey || restaurantId || '';
   const customerName = useMemo(() => getCustomerDisplayName(user), [user]);
   const customerId = useMemo(() => getCustomerId(user), [user]);
-  const authMode = user ? 'authenticated' : canAccessCustomerFlow ? 'guest' : 'anonymous';
-  const authProfileKeys = useMemo(() => {
-    if (!user || typeof user !== 'object') {
-      return '';
-    }
-
-    return Object.keys(user).slice(0, 12).join(', ');
-  }, [user]);
-  const storageDebug = useMemo(() => {
-    const profile = typeof window !== 'undefined' ? window.localStorage.getItem('go2pik.profile') : null;
-    return {
-      hasAccessToken: Boolean(getAuthToken()),
-      hasRefreshToken: Boolean(getRefreshToken()),
-      guestAccess: hasCustomerGuestAccess(),
-      hasProfile: Boolean(profile),
-    };
-  }, []);
   const initialCustomerPhone = useMemo(() => getCustomerPhone(user) || '', [user]);
   const [cart, setCart] = useState([]);
   const [selectedPickupMode, setSelectedPickupMode] = useState(PICKUP_MODES.ASAP);
@@ -147,15 +129,13 @@ export default function RestaurantMenuPage() {
     [pickupAvailability],
   );
   const hasMenuItems = menu.length > 0;
-  const debugCustomerOrders = Array.isArray(resolveCustomerOrdersList(customerOrdersData))
-    ? resolveCustomerOrdersList(customerOrdersData)
-    : [];
+  const customerOrdersList = useMemo(() => resolveCustomerOrdersList(customerOrdersData), [customerOrdersData]);
 
   const lastOrder = useMemo(() => {
     const sourceItems = normalizeOrderItems(data?.lastOrder);
     if (!sourceItems.length) {
       return getLastOrderFromHistory(
-        resolveCustomerOrdersList(customerOrdersData),
+        customerOrdersList,
         restaurantHistoryKey,
         restaurant?.name || '',
       );
@@ -165,7 +145,7 @@ export default function RestaurantMenuPage() {
       items: sourceItems,
       summary: sourceItems.map((item) => `${item.quantity}× ${item.name}`).join(', '),
     };
-  }, [data?.lastOrder, customerOrdersData?.orders, restaurantHistoryKey, restaurant?.name]);
+  }, [data?.lastOrder, customerOrdersList, restaurantHistoryKey, restaurant?.name]);
 
   useEffect(() => {
     if (selectedPickupMode !== PICKUP_MODES.SCHEDULED) {
@@ -410,6 +390,14 @@ export default function RestaurantMenuPage() {
     });
   };
 
+  if (authLoading) {
+    return (
+      <main className="page-section">
+        <AsyncState title="Loading your account" message="Please wait while we restore your session." loading />
+      </main>
+    );
+  }
+
   if (!canBrowseMenu) {
     return (
       <Navigate
@@ -476,12 +464,6 @@ export default function RestaurantMenuPage() {
             onReorder={reorderLastOrder}
             onReorderItem={reorderSingleItem}
           />
-          <p className="muted" style={{ marginTop: '-0.5rem', fontSize: '0.75rem' }}>
-            Debug: authMode={authMode} | customerId={customerId || '—'} | profileKeys={authProfileKeys || '—'} | orders={debugCustomerOrders.length} | priorItems={lastOrder?.items?.length || 0}
-          </p>
-          <p className="muted" style={{ marginTop: '-0.35rem', fontSize: '0.75rem' }}>
-            Storage: accessToken={storageDebug.hasAccessToken ? 'yes' : 'no'} | refreshToken={storageDebug.hasRefreshToken ? 'yes' : 'no'} | guestAccess={storageDebug.guestAccess ? 'yes' : 'no'} | profile={storageDebug.hasProfile ? 'yes' : 'no'}
-          </p>
 
           {hasMenuItems ? (
             <MenuList

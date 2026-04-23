@@ -99,10 +99,58 @@ export function AuthProvider({ children }) {
   });
 
   useEffect(() => {
+    let cancelled = false;
+
+    function waitForAuthBootstrap(delayMs = 250) {
+      return new Promise((resolve) => {
+        window.setTimeout(resolve, delayMs);
+      });
+    }
+
     async function hydrate() {
       const token = getAuthToken();
       const refreshToken = getRefreshToken();
       if (!token && !refreshToken) {
+        await waitForAuthBootstrap();
+        if (cancelled) {
+          return;
+        }
+
+        const nextToken = getAuthToken();
+        const nextRefreshToken = getRefreshToken();
+        if (nextToken || nextRefreshToken) {
+          if (nextToken) {
+            const profileResponse = await fetchCustomerProfile();
+            if (cancelled) {
+              return;
+            }
+            const profile = resolveCustomerProfile(profileResponse) || profileResponse;
+            storeAuthTokens({ accessToken: nextToken, profile });
+            clearCustomerGuestAccess();
+            setState({ user: profile, loading: false, error: null, sessionMode: 'authenticated' });
+            return;
+          }
+
+          const response = await customerRefreshSession(nextRefreshToken);
+          if (cancelled) {
+            return;
+          }
+          clearCustomerGuestAccess();
+          const profile = resolveCustomerProfile(response);
+          storeAuthTokens({
+            accessToken: response?.access_token,
+            refreshToken: response?.refresh_token,
+            profile,
+          });
+          setState({
+            user: profile,
+            loading: false,
+            error: null,
+            sessionMode: profile ? 'authenticated' : 'anonymous',
+          });
+          return;
+        }
+
         const guestMode = hasCustomerGuestAccess();
         if (!guestMode) {
           clearAuthTokens();
@@ -118,6 +166,9 @@ export function AuthProvider({ children }) {
       try {
         if (token) {
           const profileResponse = await fetchCustomerProfile();
+          if (cancelled) {
+            return;
+          }
           const profile = resolveCustomerProfile(profileResponse) || profileResponse;
           storeAuthTokens({ accessToken: token, profile });
           clearCustomerGuestAccess();
@@ -126,6 +177,9 @@ export function AuthProvider({ children }) {
         }
 
         const response = await customerRefreshSession(refreshToken);
+        if (cancelled) {
+          return;
+        }
         clearCustomerGuestAccess();
         const profile = resolveCustomerProfile(response);
         storeAuthTokens({
@@ -147,6 +201,10 @@ export function AuthProvider({ children }) {
     }
 
     hydrate();
+
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   useEffect(() => {
