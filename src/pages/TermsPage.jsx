@@ -4,7 +4,7 @@ const termsPoints = [
   'By providing your phone number, you agree to receive SMS messages related to your order and account.',
   'You can reply STOP at any time to opt out of future text messages.',
   'You can reply HELP for assistance with messaging or your order.',
-  'Messaging frequency may vary based on order activity and account updates.',
+  '* Messaging frequency may vary based on order activity and account updates. Message and data rates may apply.',
 ];
 
 export default function TermsPage() {

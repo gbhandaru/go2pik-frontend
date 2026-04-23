@@ -30,7 +30,7 @@ export default function PrivacyPage() {
             When you provide your mobile phone number and opt in to receive text messages from Go2Pik, we use your number only to send transactional messages related to your orders, such as order confirmations, order status updates (accepted, preparing, ready for pickup), and pickup notifications.
           </p>
           <p>
-            No mobile information will be shared with third parties or affiliates for marketing or promotional purposes.
+            Mobile opt-in data and consent will not be shared with any third parties or affiliates for marketing or promotional purposes.
           </p>
           <p>
             Text messaging originator opt-in data and consent will not be shared with any third parties, excluding aggregators and service providers required to deliver the SMS messages.
