@@ -133,7 +133,11 @@ export default function RestaurantMenuPage() {
   const lastOrder = useMemo(() => {
     const sourceItems = normalizeOrderItems(data?.lastOrder);
     if (!sourceItems.length) {
-      return getLastOrderFromHistory(customerOrdersData?.orders, restaurantHistoryKey, restaurant?.name || '');
+      return getLastOrderFromHistory(
+        resolveCustomerOrdersList(customerOrdersData),
+        restaurantHistoryKey,
+        restaurant?.name || '',
+      );
     }
     return {
       id: data?.lastOrder?.id || null,
@@ -1997,6 +2001,31 @@ function getLastOrderFromHistory(orders = [], restaurantId, restaurantName = '')
     items,
     summary: items.map((item) => `${item.quantity}× ${item.name}`).join(', '),
   };
+}
+
+function resolveCustomerOrdersList(customerOrdersData) {
+  const directCandidates = [
+    customerOrdersData?.orders,
+    customerOrdersData?.orderHistory,
+    customerOrdersData?.order_history,
+    customerOrdersData?.history,
+    customerOrdersData?.customer?.orders,
+    customerOrdersData?.customer?.orderHistory,
+    customerOrdersData?.customer?.order_history,
+    customerOrdersData?.customer?.history,
+    customerOrdersData?.data?.orders,
+    customerOrdersData?.data?.orderHistory,
+    customerOrdersData?.data?.order_history,
+    customerOrdersData?.data?.history,
+  ];
+
+  for (const candidate of directCandidates) {
+    if (Array.isArray(candidate) && candidate.length) {
+      return candidate;
+    }
+  }
+
+  return [];
 }
 
 function matchesRestaurantId(order, restaurantId, restaurantName = '') {
