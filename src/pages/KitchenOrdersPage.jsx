@@ -331,8 +331,8 @@ function PartialAcceptModal({
               <strong>{placedAtLabel}</strong>
             </div>
             <div>
-              <span className="muted">Order total:</span>
-              <strong>{formatCurrency(order.total ?? order.totalDisplay ?? selectedSubtotal)}</strong>
+              <span className="muted">Estimated total:</span>
+              <strong>{resolveEstimatedTotalDisplay(order, selectedSubtotal)}</strong>
             </div>
           </div>
         </div>
@@ -454,6 +454,35 @@ function getItemInstructions(item) {
     item.note ||
     ''
   );
+}
+
+function resolveEstimatedTotalDisplay(order, fallbackValue = 0) {
+  const displayCandidates = [
+    order?.subtotalDisplay,
+    order?.updatedSubtotalDisplay,
+    order?.updated_subtotal_display,
+  ];
+
+  for (const candidate of displayCandidates) {
+    if (typeof candidate === 'string' && candidate.trim()) {
+      return candidate.trim();
+    }
+  }
+
+  const numericCandidates = [
+    order?.subtotal,
+    order?.updatedSubtotal,
+    order?.updated_subtotal,
+  ];
+
+  for (const candidate of numericCandidates) {
+    const parsed = Number(candidate);
+    if (Number.isFinite(parsed)) {
+      return formatCurrency(parsed);
+    }
+  }
+
+  return formatCurrency(fallbackValue);
 }
 
 export default function KitchenOrdersPage() {
