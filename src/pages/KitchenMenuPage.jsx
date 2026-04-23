@@ -63,6 +63,13 @@ function normalizeBoolean(value, fallback = false) {
   return fallback;
 }
 
+function normalizeCategoryName(value) {
+  return String(value || '')
+    .trim()
+    .replace(/\s+/g, ' ')
+    .toLowerCase();
+}
+
 function normalizeMenuItems(items = []) {
   return items.map((item, index) => ({
     ...item,
@@ -89,6 +96,29 @@ function normalizeCategories(categories = []) {
       isActive: normalizeBoolean(category.is_active ?? category.isActive, true),
     }))
     .sort((a, b) => (a.displayOrder - b.displayOrder) || a.name.localeCompare(b.name));
+}
+
+function resolveRestaurantDisplayId(restaurant, fallbackId = '') {
+  const candidates = [
+    restaurant?.id,
+    restaurant?.restaurantId,
+    restaurant?.restaurant_id,
+    restaurant?.restaurantID,
+    fallbackId,
+  ];
+
+  for (const candidate of candidates) {
+    if (candidate == null) {
+      continue;
+    }
+
+    const normalized = String(candidate).trim();
+    if (normalized) {
+      return normalized;
+    }
+  }
+
+  return '';
 }
 
 function sortMenuItems(items = []) {
@@ -518,6 +548,12 @@ function CategoryEditor({
   isOpen,
   onToggleOpen,
 }) {
+  const toggleLabel = isOpen
+    ? editing
+      ? 'Editing existing category'
+      : 'Hide'
+    : 'Create Category';
+
   return (
     <section className="card kitchen-menu-panel">
       <div className="kitchen-menu-panel__header">
@@ -526,7 +562,7 @@ function CategoryEditor({
           <h2>Manage categories</h2>
         </div>
         <button type="button" className="kitchen-panel__toggle" onClick={onToggleOpen}>
-          {isOpen ? 'Hide' : 'Create Category'}
+          {toggleLabel}
         </button>
       </div>
 
@@ -814,6 +850,10 @@ export default function KitchenMenuPage() {
     [menuItems, selectedItemIds],
   );
   const bulkCategoryOptions = useMemo(() => categoryOptions, [categoryOptions]);
+  const restaurantDisplayId = useMemo(
+    () => resolveRestaurantDisplayId(restaurant, restaurantId),
+    [restaurant, restaurantId],
+  );
 
   useEffect(() => {
     if (!groupedItems.length || typeof window === 'undefined' || !('IntersectionObserver' in window)) {
@@ -1049,6 +1089,21 @@ export default function KitchenMenuPage() {
       return;
     }
 
+    const nextCategoryName = normalizeCategoryName(categoryForm.name);
+    const duplicateCategory = categoryOptions.find(
+      (category) =>
+        normalizeCategoryName(category.name) === nextCategoryName &&
+        String(category.id) !== String(editingCategoryId || ''),
+    );
+    if (duplicateCategory) {
+      setEditingCategoryId(duplicateCategory.id);
+      setCategoryForm(toCategoryForm(duplicateCategory));
+      setCategoryEditorOpen(true);
+      setActiveCategoryId(String(duplicateCategory.id));
+      showFeedback('info', `Category "${duplicateCategory.name}" already exists. Editing the existing category instead.`);
+      return;
+    }
+
     setSavingCategory(true);
     try {
       const payload = buildCategoryPayload(categoryForm);
@@ -1245,7 +1300,7 @@ export default function KitchenMenuPage() {
               +Add Item
             </button>
             <button type="button" className="primary-btn secondary" onClick={handleLoadCurrentExport}>
-              {bulkBusy ? 'Loading…' : 'Bulk Upload'}
+              {bulkBusy ? 'Loading…' : 'Load Export'}
             </button>
             <label className="primary-btn ghost kitchen-menu-file-trigger">
               {csvBusy ? 'Processing…' : 'Import CSV'}
@@ -1253,8 +1308,8 @@ export default function KitchenMenuPage() {
             </label>
           </div>
           <p className="kitchen-menu-toolbar__note muted">
-            Use the buttons above to create items, import a current snapshot, or load a CSV file.
-            Upload CSV with columns: name, price, category.
+            Use Load Export to pull the latest menu snapshot from the backend, then review it and click Import Snapshot to save changes back.
+            Use Import CSV if you already have a CSV file with columns: name, price, category.
           </p>
         </section>
 
@@ -1340,8 +1395,8 @@ export default function KitchenMenuPage() {
 
         {activePanel === 'bulk' ? (
           <ImportPanel
-            title="Bulk Upload"
-            subtitle="Load the current export or paste CSV and import it back."
+            title="Menu Snapshot"
+            subtitle="Load the current export, review or edit it, then import the snapshot back to the backend."
             onClose={closePanels}
           >
             <textarea
@@ -1352,7 +1407,7 @@ export default function KitchenMenuPage() {
             />
             <div className="kitchen-menu-actions">
               <button type="button" className="primary-btn secondary" onClick={handleLoadCurrentExport} disabled={bulkBusy}>
-                {bulkBusy ? 'Loading…' : 'Load Current Export'}
+                {bulkBusy ? 'Loading…' : 'Reload Export'}
               </button>
               <button type="button" className="primary-btn emphasis" onClick={handleBulkImport} disabled={bulkBusy}>
                 {bulkBusy ? 'Importing…' : 'Import Snapshot'}
@@ -1364,12 +1419,12 @@ export default function KitchenMenuPage() {
         {activePanel === 'csv' ? (
           <ImportPanel
             title="Import CSV"
-            subtitle="Upload CSV with columns: name, price, category"
+            subtitle="Upload CSV with columns: name, price, category."
             onClose={closePanels}
           >
             <div className="kitchen-menu-csv-summary">
               <strong>{csvFileName || 'No CSV file selected'}</strong>
-              <p className="muted">Upload CSV with columns: name, price, category</p>
+              <p className="muted">Use Load Export if you want the latest backend snapshot instead of a CSV file.</p>
               <p className="muted">
                 {csvImportPayload
                   ? `${Math.max(0, csvImportPayload.split(/\r?\n/).length - 1)} data row(s) ready to import.`
@@ -1378,7 +1433,7 @@ export default function KitchenMenuPage() {
             </div>
             <div className="kitchen-menu-actions">
               <button type="button" className="primary-btn secondary" onClick={handleLoadCurrentExport} disabled={csvBusy}>
-                {csvBusy ? 'Loading…' : 'Load Snapshot'}
+                {csvBusy ? 'Loading…' : 'Load Export'}
               </button>
               <button type="button" className="primary-btn emphasis" onClick={handleCsvImport} disabled={csvBusy || !csvImportPayload}>
                 {csvBusy ? 'Importing…' : 'Import CSV'}
@@ -1414,7 +1469,8 @@ export default function KitchenMenuPage() {
                 )}
               </div>
             </div>
-            <div className="kitchen-menu-section__meta">
+          <div className="kitchen-menu-section__meta">
+              {restaurantDisplayId ? <span>Restaurant ID: {restaurantDisplayId}</span> : <span>Restaurant ID: —</span>}
               <span>Items: {menuItems.length}</span>
               <span>Last updated: {formatTimestamp(lastUpdated)}</span>
             </div>
