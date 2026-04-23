@@ -22,7 +22,10 @@ export default function TermsPage() {
           ))}
         </ul>
         <p className="legal-note">
-          Message and data rates may apply. If you no longer want SMS messages, reply STOP to opt out.
+          Message and data rates may apply.
+        </p>
+        <p className="legal-note">
+          Consent to receive SMS messages is not a condition of purchase.
         </p>
         <div className="legal-actions">
           <Link className="primary-btn" to="/">
