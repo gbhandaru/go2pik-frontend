@@ -129,6 +129,9 @@ export default function RestaurantMenuPage() {
     [pickupAvailability],
   );
   const hasMenuItems = menu.length > 0;
+  const debugCustomerOrders = Array.isArray(resolveCustomerOrdersList(customerOrdersData))
+    ? resolveCustomerOrdersList(customerOrdersData)
+    : [];
 
   const lastOrder = useMemo(() => {
     const sourceItems = normalizeOrderItems(data?.lastOrder);
@@ -455,6 +458,9 @@ export default function RestaurantMenuPage() {
             onReorder={reorderLastOrder}
             onReorderItem={reorderSingleItem}
           />
+          <p className="muted" style={{ marginTop: '-0.5rem', fontSize: '0.75rem' }}>
+            Debug: customerId={customerId || '—'} | orders={debugCustomerOrders.length} | priorItems={lastOrder?.items?.length || 0}
+          </p>
 
           {hasMenuItems ? (
             <MenuList
