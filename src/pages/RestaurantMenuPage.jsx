@@ -24,7 +24,7 @@ const PICKUP_SLOT_LOOKAHEAD_DAYS = 7;
 export default function RestaurantMenuPage() {
   const { restaurantId, restaurantRouteKey } = useParams();
   const navigate = useNavigate();
-  const { user, canAccessCustomerFlow } = useAuth();
+  const { user, canAccessCustomerFlow, loading: authLoading } = useAuth();
   const routeKey = restaurantRouteKey || restaurantId || '';
   const customerName = useMemo(() => getCustomerDisplayName(user), [user]);
   const customerId = useMemo(() => getCustomerId(user), [user]);
@@ -34,6 +34,7 @@ export default function RestaurantMenuPage() {
   const [scheduledPickupTime, setScheduledPickupTime] = useState('');
   const [orderError, setOrderError] = useState('');
   const [customerPhoneInput, setCustomerPhoneInput] = useState(initialCustomerPhone);
+  const [smsConsentAccepted, setSmsConsentAccepted] = useState(false);
   const [showPhoneModal, setShowPhoneModal] = useState(false);
   const [retryKey, setRetryKey] = useState(0);
   const phoneInputRef = useRef(null);
@@ -83,6 +84,7 @@ export default function RestaurantMenuPage() {
 
   useEffect(() => {
     if (showPhoneModal) {
+      setSmsConsentAccepted(false);
       phoneInputRef.current?.focus();
     }
   }, [showPhoneModal]);
@@ -127,18 +129,23 @@ export default function RestaurantMenuPage() {
     [pickupAvailability],
   );
   const hasMenuItems = menu.length > 0;
+  const customerOrdersList = useMemo(() => resolveCustomerOrdersList(customerOrdersData), [customerOrdersData]);
 
   const lastOrder = useMemo(() => {
     const sourceItems = normalizeOrderItems(data?.lastOrder);
     if (!sourceItems.length) {
-      return getLastOrderFromHistory(customerOrdersData?.orders, restaurantHistoryKey, restaurant?.name || '');
+      return getLastOrderFromHistory(
+        customerOrdersList,
+        restaurantHistoryKey,
+        restaurant?.name || '',
+      );
     }
     return {
       id: data?.lastOrder?.id || null,
       items: sourceItems,
       summary: sourceItems.map((item) => `${item.quantity}× ${item.name}`).join(', '),
     };
-  }, [data?.lastOrder, customerOrdersData?.orders, restaurantHistoryKey, restaurant?.name]);
+  }, [data?.lastOrder, customerOrdersList, restaurantHistoryKey, restaurant?.name]);
 
   useEffect(() => {
     if (selectedPickupMode !== PICKUP_MODES.SCHEDULED) {
@@ -340,6 +347,7 @@ export default function RestaurantMenuPage() {
     });
     storeCustomerOrderDraft(draft);
     setCustomerPhoneInput(getCustomerPhone(user) || initialCustomerPhone);
+    setSmsConsentAccepted(false);
     setShowPhoneModal(true);
   };
 
@@ -371,6 +379,7 @@ export default function RestaurantMenuPage() {
     storeCustomerOrderDraft(payload);
     clearCustomerOrderVerification();
     setShowPhoneModal(false);
+    setSmsConsentAccepted(false);
     navigate('/verification', {
       state: {
         orderDraft: payload,
@@ -380,6 +389,14 @@ export default function RestaurantMenuPage() {
       },
     });
   };
+
+  if (authLoading) {
+    return (
+      <main className="page-section">
+        <AsyncState title="Loading your account" message="Please wait while we restore your session." loading />
+      </main>
+    );
+  }
 
   if (!canBrowseMenu) {
     return (
@@ -484,23 +501,26 @@ export default function RestaurantMenuPage() {
       </section>
 
       {showPhoneModal ? (
-        <PhoneModal
-          customerPhone={customerPhoneInput}
-          error={phoneValidationMessage || orderError}
-          canSendCode={isCustomerPhoneValid}
-          onClose={() => {
-            setShowPhoneModal(false);
-            setOrderError('');
-          }}
-          onCustomerPhoneChange={(value) => {
-            setCustomerPhoneInput(value);
-            if (orderError) {
+          <PhoneModal
+            customerPhone={customerPhoneInput}
+            error={phoneValidationMessage || orderError}
+            canSendCode={isCustomerPhoneValid && smsConsentAccepted}
+            smsConsentAccepted={smsConsentAccepted}
+            onClose={() => {
+              setShowPhoneModal(false);
               setOrderError('');
-            }
-          }}
-          onSendOtp={handleSendOtp}
-          phoneInputRef={phoneInputRef}
-        />
+              setSmsConsentAccepted(false);
+            }}
+            onCustomerPhoneChange={(value) => {
+              setCustomerPhoneInput(value);
+              if (orderError) {
+                setOrderError('');
+              }
+            }}
+            onSmsConsentChange={setSmsConsentAccepted}
+            onSendOtp={handleSendOtp}
+            phoneInputRef={phoneInputRef}
+          />
       ) : null}
     </main>
   );
@@ -1709,8 +1729,10 @@ function PhoneModal({
   customerPhone,
   error,
   canSendCode,
+  smsConsentAccepted,
   onClose,
   onCustomerPhoneChange,
+  onSmsConsentChange,
   onSendOtp,
   phoneInputRef,
 }) {
@@ -1745,6 +1767,16 @@ function PhoneModal({
             />
           </div>
         </label>
+        <label className="phone-modal__consent">
+          <input
+            type="checkbox"
+            checked={smsConsentAccepted}
+            onChange={(event) => onSmsConsentChange(event.target.checked)}
+          />
+          <span>
+            I agree to receive SMS messages from Go2Pik for order updates(confirmation, status, pickup alerts). Messages & data rates may apply. Reply STOP to opt out, HELP for help.
+          </span>
+        </label>
         {error ? <p className="error-text phone-modal__error">{error}</p> : null}
         <button
           type="button"
@@ -1755,7 +1787,7 @@ function PhoneModal({
           Send Code
         </button>
         <p className="phone-modal__legal">
-          By continuing, you agree to receive a one-time SMS for order verification. Message and data rates may apply.
+          By continuing, you agree to receive SMS messages related to your order. Message frequency may vary. Message and data rates may apply.
         </p>
         <p className="phone-modal__helper">
           <span aria-hidden="true">✓</span>
@@ -1978,6 +2010,31 @@ function getLastOrderFromHistory(orders = [], restaurantId, restaurantName = '')
     items,
     summary: items.map((item) => `${item.quantity}× ${item.name}`).join(', '),
   };
+}
+
+function resolveCustomerOrdersList(customerOrdersData) {
+  const directCandidates = [
+    customerOrdersData?.orders,
+    customerOrdersData?.orderHistory,
+    customerOrdersData?.order_history,
+    customerOrdersData?.history,
+    customerOrdersData?.customer?.orders,
+    customerOrdersData?.customer?.orderHistory,
+    customerOrdersData?.customer?.order_history,
+    customerOrdersData?.customer?.history,
+    customerOrdersData?.data?.orders,
+    customerOrdersData?.data?.orderHistory,
+    customerOrdersData?.data?.order_history,
+    customerOrdersData?.data?.history,
+  ];
+
+  for (const candidate of directCandidates) {
+    if (Array.isArray(candidate) && candidate.length) {
+      return candidate;
+    }
+  }
+
+  return [];
 }
 
 function matchesRestaurantId(order, restaurantId, restaurantName = '') {

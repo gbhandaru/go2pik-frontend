@@ -5,14 +5,22 @@ function normalizeCustomerOrdersResponse(response) {
     return { customer: null, orders: [] };
   }
 
+  const customer = response.customer || response.data?.customer || null;
+  const orders =
+    response.orders ||
+    response.data?.orders ||
+    response.items ||
+    response.data?.items ||
+    customer?.orders ||
+    customer?.orderHistory ||
+    customer?.order_history ||
+    response.orderHistory ||
+    response.order_history ||
+    [];
+
   return {
-    customer: response.customer || response.data?.customer || null,
-    orders:
-      response.orders ||
-      response.data?.orders ||
-      response.items ||
-      response.data?.items ||
-      [],
+    customer,
+    orders,
   };
 }
 
