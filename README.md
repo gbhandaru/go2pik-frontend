@@ -13,6 +13,7 @@ Vite + React implementation of the Go2Pik ordering experience. The repo mirrors 
 | File | Purpose |
 | --- | --- |
 | `.env.development` | Local dev API base URL (`VITE_API_BASE_URL`) |
+| `.env.preview` | Firebase preview API base URL |
 | `.env.production` | Production API base URL |
 
 Create a `.env.local` file to override development values without committing secrets.
@@ -30,14 +31,16 @@ That spins up Vite at `http://localhost:5173`. The `/api` proxy in `vite.config.
 
 ```bash
 npm run build     # outputs dist/
+npm run build:preview   # build with .env.preview
+npm run build:production # build with .env.production
 npm run preview   # serves the production build locally
 ```
 
 ## Deploying to Firebase Hosting
 
 1. Authenticate and pick your project: `firebase login` then `firebase use <project-id>`.
-2. Build fresh assets: `npm ci && npm run build`.
-3. Deploy: `firebase deploy --only hosting`.
+2. Build and deploy preview: `npm ci && npm run deploy:preview`.
+3. Build and deploy production: `npm ci && npm run deploy:production` (`hosting:live`).
 
 The Firebase Hosting target should point its public directory to `dist/`. Add rewrite rules for single-page app routing (same as foof-order-app) so that all paths fall back to `index.html`.
 

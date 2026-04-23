@@ -5,7 +5,11 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "vite build",
+    "build": "vite build --mode production",
+    "build:preview": "vite build --mode preview",
+    "build:production": "vite build --mode production",
+    "deploy:preview": "npm run build:preview && firebase deploy --only hosting:ui_preview",
+    "deploy:production": "npm run build:production && firebase deploy --only hosting:live",
     "preview": "vite preview"
   },
   "dependencies": {
