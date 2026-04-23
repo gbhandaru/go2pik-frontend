@@ -1,7 +1,7 @@
 {
   "hosting": [
     {
-      "site": "ui_preview",
+      "site": "ui-preview",
       "public": "dist",
       "ignore": [
         "firebase.json",
