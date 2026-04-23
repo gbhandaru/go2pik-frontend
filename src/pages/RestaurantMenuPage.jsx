@@ -11,6 +11,7 @@ import { getRestaurantMenuPath, matchesRestaurantRouteKey, resolveRestaurantRout
 import { useAuth } from '../hooks/useAuth.jsx';
 import { clearCustomerOrderVerification, getCustomerOrderDraft, getVerifiedCustomerPhone, storeCustomerOrderDraft } from '../services/authStorage.js';
 import { getCustomerId, getCustomerPhone } from '../utils/customerIdentity.js';
+import { getAuthToken, getRefreshToken, hasCustomerGuestAccess } from '../services/authStorage.js';
 
 const PICKUP_MODES = {
   ASAP: 'ASAP',
@@ -36,6 +37,15 @@ export default function RestaurantMenuPage() {
 
     return Object.keys(user).slice(0, 12).join(', ');
   }, [user]);
+  const storageDebug = useMemo(() => {
+    const profile = typeof window !== 'undefined' ? window.localStorage.getItem('go2pik.profile') : null;
+    return {
+      hasAccessToken: Boolean(getAuthToken()),
+      hasRefreshToken: Boolean(getRefreshToken()),
+      guestAccess: hasCustomerGuestAccess(),
+      hasProfile: Boolean(profile),
+    };
+  }, []);
   const initialCustomerPhone = useMemo(() => getCustomerPhone(user) || '', [user]);
   const [cart, setCart] = useState([]);
   const [selectedPickupMode, setSelectedPickupMode] = useState(PICKUP_MODES.ASAP);
@@ -468,6 +478,9 @@ export default function RestaurantMenuPage() {
           />
           <p className="muted" style={{ marginTop: '-0.5rem', fontSize: '0.75rem' }}>
             Debug: authMode={authMode} | customerId={customerId || '—'} | profileKeys={authProfileKeys || '—'} | orders={debugCustomerOrders.length} | priorItems={lastOrder?.items?.length || 0}
+          </p>
+          <p className="muted" style={{ marginTop: '-0.35rem', fontSize: '0.75rem' }}>
+            Storage: accessToken={storageDebug.hasAccessToken ? 'yes' : 'no'} | refreshToken={storageDebug.hasRefreshToken ? 'yes' : 'no'} | guestAccess={storageDebug.guestAccess ? 'yes' : 'no'} | profile={storageDebug.hasProfile ? 'yes' : 'no'}
           </p>
 
           {hasMenuItems ? (
