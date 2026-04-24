@@ -972,6 +972,7 @@ function PickupTimeCard({
 }) {
   const [showMorePickupTimes, setShowMorePickupTimes] = useState(false);
   const isScheduled = selectedMode === PICKUP_MODES.SCHEDULED;
+  const hasScheduledSelection = Boolean(scheduledPickupTime);
   const scheduledTimeHelperId = 'scheduled-time-helper';
   const isOpenNow = Boolean(pickupAvailability?.isOpenNow);
   const asapAllowed = pickupAvailability?.asapAllowed !== false;
@@ -1058,7 +1059,18 @@ function PickupTimeCard({
               <strong>Available pickup times</strong>
               <span className="muted">Only times within open hours are shown.</span>
             </div>
-            {scheduledPickupGroups.length ? (
+            {hasScheduledSelection ? (
+              <div className="pickup-slot-selection pickup-slot-selection--compact">
+                <div>
+                  <p className="eyebrow">Selected pickup time</p>
+                  <strong>{formatScheduledPickupSelection(scheduledPickupTime, timezone)}</strong>
+                </div>
+                <button type="button" className="pickup-slot-toggle" onClick={() => setShowMorePickupTimes(true)}>
+                  Change
+                </button>
+              </div>
+            ) : null}
+            {(!hasScheduledSelection || showMorePickupTimes) && scheduledPickupGroups.length ? (
               scheduledPickupGroups.map((group, groupIndex) => {
                 const visibleSlots = showMorePickupTimes ? group.slots : group.slots.slice(0, 4);
                 return (
@@ -1108,11 +1120,6 @@ function PickupTimeCard({
                 </p>
               </div>
             )}
-            {scheduledPickupTime ? (
-              <p className="pickup-slot-selection">
-                Selected: <strong>{formatScheduledPickupSelection(scheduledPickupTime, timezone)}</strong>
-              </p>
-            ) : null}
           </div>
         ) : null}
       </div>
