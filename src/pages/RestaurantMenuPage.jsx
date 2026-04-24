@@ -593,7 +593,7 @@ function buildCustomerOrderDraft({
       type: selectedPickupMode,
       scheduledTime: pickupTime,
       summary: pickupSummary,
-      displayTime: pickupDisplayTime || pickupSummary,
+      displayTime: selectedPickupMode === PICKUP_MODES.SCHEDULED ? pickupSummary : pickupDisplayTime || pickupSummary,
       readyTime: selectedPickupMode === PICKUP_MODES.ASAP ? pickupReadyTime || undefined : undefined,
     },
     customer: {
@@ -1077,7 +1077,10 @@ function PickupTimeCard({
                             type="button"
                             className={`pickup-slot${isSelected ? ' active' : ''}${isRecommended ? ' pickup-slot--recommended' : ''}`}
                             aria-pressed={isSelected}
-                            onClick={() => onSelectPickupTime(slot.value)}
+                            onClick={() => {
+                              onSelectPickupTime(slot.value);
+                              setShowMorePickupTimes(false);
+                            }}
                           >
                             {isRecommended ? <span className="pickup-slot__badge">Recommended</span> : null}
                             <span>{slot.label}</span>

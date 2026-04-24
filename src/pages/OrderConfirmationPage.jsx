@@ -10,25 +10,31 @@ import { getRestaurantMenuPath } from '../utils/restaurantRoutes.js';
 
 function formatPickupLabel(order) {
   const request = order?.pickupRequest || {};
-  const displayTime =
-    request.displayTime ||
+  const scheduledLabel =
     request.summary ||
-    order?.customer?.pickupTime ||
     order?.pickupDisplayTime ||
+    order?.customer?.pickupDisplayTime ||
+    request.displayTime ||
     '';
-  if (displayTime && (request.type === 'ASAP' || !request.type)) {
-    return `Pickup around ${displayTime}`;
+  const asapLabel =
+    request.displayTime ||
+    order?.pickupDisplayTime ||
+    order?.customer?.pickupDisplayTime ||
+    '';
+
+  if (request.type === 'SCHEDULED' && scheduledLabel) {
+    return `Pickup around ${scheduledLabel}`;
   }
-  if (displayTime && request.type === 'SCHEDULED') {
-    return `Ready by ${displayTime}`;
+  if ((request.type === 'ASAP' || !request.type) && asapLabel) {
+    return `Pickup around ${asapLabel}`;
   }
-  if (displayTime) {
-    return `Pickup around ${displayTime}`;
+  if (scheduledLabel) {
+    return `Pickup around ${scheduledLabel}`;
   }
 
   const readyTime = extractReadyTime(order);
   if (readyTime) {
-    return `Ready by ${readyTime}`;
+    return `Pickup around ${readyTime}`;
   }
   return 'Ready soon';
 }
@@ -69,6 +75,9 @@ function extractReadyTime(order) {
   }
   if (typeof order?.pickupDisplayTime === 'string' && order.pickupDisplayTime.trim()) {
     return order.pickupDisplayTime.trim();
+  }
+  if (typeof request.summary === 'string' && request.summary.trim()) {
+    return request.summary.trim();
   }
   if (request.type === 'SCHEDULED' && request.scheduledTime) {
     return formatDisplayTime(request.scheduledTime);
