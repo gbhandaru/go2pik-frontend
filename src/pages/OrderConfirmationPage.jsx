@@ -9,6 +9,23 @@ import { buildSupportMailtoHref } from '../utils/supportEmail.js';
 import { getRestaurantMenuPath } from '../utils/restaurantRoutes.js';
 
 function formatPickupLabel(order) {
+  const request = order?.pickupRequest || {};
+  const displayTime =
+    request.displayTime ||
+    request.summary ||
+    order?.customer?.pickupTime ||
+    order?.pickupDisplayTime ||
+    '';
+  if (displayTime && (request.type === 'ASAP' || !request.type)) {
+    return `Pickup around ${displayTime}`;
+  }
+  if (displayTime && request.type === 'SCHEDULED') {
+    return `Ready by ${displayTime}`;
+  }
+  if (displayTime) {
+    return `Pickup around ${displayTime}`;
+  }
+
   const readyTime = extractReadyTime(order);
   if (readyTime) {
     return `Ready by ${readyTime}`;
@@ -47,6 +64,12 @@ function extractReadyTime(order) {
     return '';
   }
   const request = order.pickupRequest || {};
+  if (typeof request.displayTime === 'string' && request.displayTime.trim()) {
+    return request.displayTime.trim();
+  }
+  if (typeof order?.pickupDisplayTime === 'string' && order.pickupDisplayTime.trim()) {
+    return order.pickupDisplayTime.trim();
+  }
   if (request.type === 'SCHEDULED' && request.scheduledTime) {
     return formatDisplayTime(request.scheduledTime);
   }

@@ -130,6 +130,18 @@ export default function RestaurantMenuPage() {
   );
   const hasMenuItems = menu.length > 0;
   const customerOrdersList = useMemo(() => resolveCustomerOrdersList(customerOrdersData), [customerOrdersData]);
+  const pickupDisplayTime = useMemo(
+    () =>
+      getPickupByLabel(
+        selectedPickupMode,
+        scheduledPickupTime,
+        asapReadyTime,
+        pickupAvailability?.timezone,
+        pickupAvailability,
+        pickupAvailability?.today?.windows || [],
+      ),
+    [selectedPickupMode, scheduledPickupTime, asapReadyTime, pickupAvailability],
+  );
 
   const lastOrder = useMemo(() => {
     const sourceItems = normalizeOrderItems(data?.lastOrder);
@@ -343,6 +355,7 @@ export default function RestaurantMenuPage() {
       selectedPickupMode,
       total,
       pickupSummary,
+      pickupDisplayTime,
       user,
     });
     storeCustomerOrderDraft(draft);
@@ -373,6 +386,7 @@ export default function RestaurantMenuPage() {
       selectedPickupMode,
       total,
       pickupSummary,
+      pickupDisplayTime,
       user,
     });
 
@@ -389,6 +403,14 @@ export default function RestaurantMenuPage() {
       },
     });
   };
+
+  if (authLoading) {
+    return (
+      <main className="page-section">
+        <AsyncState title="Loading your account" message="Please wait while we restore your session." loading />
+      </main>
+    );
+  }
 
   if (authLoading) {
     return (
@@ -537,6 +559,7 @@ function buildCustomerOrderDraft({
   selectedPickupMode,
   total,
   pickupSummary,
+  pickupDisplayTime,
   user,
 }) {
   const orderItems = cart.map((item) => ({
@@ -562,12 +585,16 @@ function buildCustomerOrderDraft({
       type: selectedPickupMode,
       scheduledTime: pickupTime,
       summary: pickupSummary,
+      displayTime: pickupDisplayTime || pickupSummary,
     },
     customer: {
       name: customerName || getCustomerDisplayName(user) || '',
       phone: customerPhone,
       email: user?.email || '',
-      pickupTime,
+      pickupTime:
+        selectedPickupMode === PICKUP_MODES.SCHEDULED
+          ? pickupTime
+          : pickupDisplayTime || pickupTime,
       notes: pickupSummary || '',
     },
     customerName: customerName || undefined,
