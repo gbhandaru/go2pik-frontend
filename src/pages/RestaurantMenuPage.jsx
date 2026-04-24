@@ -1802,53 +1802,51 @@ function PhoneModal({
         <button type="button" className="phone-modal__close" onClick={onClose} aria-label="Close phone modal">
           ×
         </button>
-        <div className="phone-modal__content">
-          <div className="phone-modal__icon" aria-hidden="true">
-            <LockIcon />
-          </div>
-          <p className="phone-modal__eyebrow">Verify your phone</p>
-          <h2 id="phone-modal-title">We&apos;ll send a 6-digit code to confirm your order and share pickup updates</h2>
-          <label className="phone-modal__field">
-            <span>Phone number</span>
-            <div className="phone-modal__input-shell">
-              <span className="phone-modal__country" aria-hidden="true">🇺🇸</span>
-              <input
-                ref={phoneInputRef}
-                type="tel"
-                value={customerPhone}
-                onChange={(event) => onCustomerPhoneChange(event.target.value)}
-                placeholder="+1 555 123 4567"
-                autoComplete="tel"
-              />
-            </div>
-          </label>
-          <label className="phone-modal__consent">
-            <input
-              type="checkbox"
-              checked={smsConsentAccepted}
-              onChange={(event) => onSmsConsentChange(event.target.checked)}
-            />
-            <span className="phone-modal__consent-copy">
-              I agree to receive SMS messages from Go2Pik for order updates(confirmation, status, pickup alerts). Messages & data rates may apply. Reply STOP to opt out, HELP for help.
-            </span>
-          </label>
-          {error ? <p className="error-text phone-modal__error">{error}</p> : null}
-          <button
-            type="button"
-            className={`phone-modal__submit${canSendCode ? '' : ' is-disabled'}`}
-            onClick={onSendOtp}
-            disabled={!canSendCode}
-          >
-            Send Code
-          </button>
-          <p className="phone-modal__legal">
-            By continuing, you agree to receive SMS messages related to your order. Message frequency may vary. Message and data rates may apply.
-          </p>
-          <p className="phone-modal__helper">
-            <span aria-hidden="true">✓</span>
-            <span>Used only for order updates</span>
-          </p>
+        <div className="phone-modal__icon" aria-hidden="true">
+          <LockIcon />
         </div>
+        <p className="phone-modal__eyebrow">Verify your phone</p>
+        <h2 id="phone-modal-title">We&apos;ll send a 6-digit code to confirm your order and share pickup updates</h2>
+        <label className="phone-modal__field">
+          <span>Phone number</span>
+          <div className="phone-modal__input-shell">
+            <span className="phone-modal__country" aria-hidden="true">🇺🇸</span>
+            <input
+              ref={phoneInputRef}
+              type="tel"
+              value={customerPhone}
+              onChange={(event) => onCustomerPhoneChange(event.target.value)}
+              placeholder="+1 555 123 4567"
+              autoComplete="tel"
+            />
+          </div>
+        </label>
+        <label className="phone-modal__consent">
+          <input
+            type="checkbox"
+            checked={smsConsentAccepted}
+            onChange={(event) => onSmsConsentChange(event.target.checked)}
+          />
+          <span className="phone-modal__consent-copy">
+            I agree to receive SMS messages from Go2Pik for order updates(confirmation, status, pickup alerts). Messages & data rates may apply. Reply STOP to opt out, HELP for help.
+          </span>
+        </label>
+        {error ? <p className="error-text phone-modal__error">{error}</p> : null}
+        <button
+          type="button"
+          className={`phone-modal__submit${canSendCode ? '' : ' is-disabled'}`}
+          onClick={onSendOtp}
+          disabled={!canSendCode}
+        >
+          Send Code
+        </button>
+        <p className="phone-modal__legal">
+          By continuing, you agree to receive SMS messages related to your order. Message frequency may vary. Message and data rates may apply.
+        </p>
+        <p className="phone-modal__helper">
+          <span aria-hidden="true">✓</span>
+          <span>Used only for order updates</span>
+        </p>
       </section>
     </div>
   );

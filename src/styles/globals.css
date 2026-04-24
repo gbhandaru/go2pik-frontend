@@ -2380,14 +2380,6 @@ textarea {
   box-shadow: 0 24px 64px rgba(15, 23, 42, 0.16);
 }
 
-.phone-modal__content {
-  width: min(100%, 410px);
-  display: flex;
-  flex-direction: column;
-  align-items: stretch;
-  gap: 0;
-}
-
 .phone-modal__close {
   position: absolute;
   top: 0.9rem;
@@ -2436,7 +2428,7 @@ textarea {
 }
 
 .phone-modal__field {
-  width: 100%;
+  width: min(410px, 100%);
   display: grid;
   gap: 0.45rem;
   margin-top: 1.15rem;
@@ -2485,7 +2477,8 @@ textarea {
 }
 
 .phone-modal__consent {
-  width: 100%;
+  width: min(410px, 100%);
+  margin-inline: auto;
   display: flex;
   align-items: flex-start;
   gap: 0.55rem;
@@ -2534,7 +2527,8 @@ textarea {
 
 .phone-modal__helper {
   margin: 0.7rem 0 0;
-  width: 100%;
+  width: min(410px, 100%);
+  margin-inline: auto;
   font-size: 0.88rem;
   color: #5e5e5e;
   display: flex;
@@ -2550,7 +2544,8 @@ textarea {
 
 .phone-modal__legal {
   margin: 0.65rem 0 0;
-  width: 100%;
+  width: min(410px, 100%);
+  margin-inline: auto;
   font-size: 0.72rem;
   line-height: 1.3;
   color: #8a8a8a;
