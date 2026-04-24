@@ -4,7 +4,7 @@ import { acceptUpdatedCustomerOrder, cancelCustomerOrder, fetchOrderById } from 
 import CustomerPartialOrderModal from '../components/shared/CustomerPartialOrderModal.jsx';
 import { useAuth } from '../hooks/useAuth.jsx';
 import { formatCurrency } from '../utils/formatCurrency.js';
-import { getRestaurantAddressLines } from '../utils/formatRestaurantAddress.js';
+import { formatRestaurantAddress, getRestaurantAddressLines } from '../utils/formatRestaurantAddress.js';
 import { buildSupportMailtoHref } from '../utils/supportEmail.js';
 import { getRestaurantMenuPath } from '../utils/restaurantRoutes.js';
 
@@ -385,7 +385,7 @@ export default function OrderConfirmationPage() {
   const restaurantName = order.restaurant?.name || 'your restaurant';
   const restaurantAddress = getRestaurantAddressLines(order.restaurant);
   const destination =
-    [restaurantAddress.line1, restaurantAddress.secondary].filter(Boolean).join(', ') ||
+    formatRestaurantAddress(order.restaurant) ||
     order.restaurant?.location ||
     order.restaurant?.address ||
     '';
