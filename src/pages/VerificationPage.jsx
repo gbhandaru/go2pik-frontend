@@ -42,6 +42,7 @@ export default function VerificationPage() {
   const [now, setNow] = useState(Date.now());
   const inputsRef = useRef([]);
   const lastAutoSubmittedCodeRef = useRef('');
+  const hasAutoFocusedFirstCodeRef = useRef(false);
   const resolvedOtpLength = otpLength;
   const phone = getVerificationPhone(orderDraft, user, verification);
 
@@ -89,6 +90,7 @@ export default function VerificationPage() {
       return;
     }
     setCode(Array.from({ length: resolvedOtpLength }, () => ''));
+    hasAutoFocusedFirstCodeRef.current = false;
   }, [resolvedOtpLength]);
 
   useEffect(() => {
@@ -107,6 +109,19 @@ export default function VerificationPage() {
 
     storeCustomerOrderVerification(verification);
   }, [verification]);
+
+  useEffect(() => {
+    if (!verification?.id || !resolvedOtpLength || hasAutoFocusedFirstCodeRef.current) {
+      return;
+    }
+
+    const frame = window.requestAnimationFrame(() => {
+      inputsRef.current[0]?.focus();
+      hasAutoFocusedFirstCodeRef.current = true;
+    });
+
+    return () => window.cancelAnimationFrame(frame);
+  }, [resolvedOtpLength, verification?.id]);
 
   useEffect(() => {
     if (!orderDraft || !resolvedOtpLength || verification || startError) {
@@ -146,7 +161,7 @@ export default function VerificationPage() {
         setVerification(response?.verification || null);
         setPendingVerification(false);
         setCode(Array.from({ length: resolvedOtpLength }, () => ''));
-        inputsRef.current[0]?.focus();
+        hasAutoFocusedFirstCodeRef.current = false;
       } catch (err) {
         if (active) {
           setStartError(
@@ -476,7 +491,7 @@ export default function VerificationPage() {
       .then((response) => {
         setVerification(response?.verification || null);
         setCode(Array.from({ length: resolvedOtpLength }, () => ''));
-        inputsRef.current[0]?.focus();
+        hasAutoFocusedFirstCodeRef.current = false;
       })
       .catch((err) => {
         setError(err.message || 'Unable to resend verification code right now.');
