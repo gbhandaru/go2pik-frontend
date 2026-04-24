@@ -19,7 +19,7 @@ const PICKUP_MODES = {
 const PICKUP_WINDOW_MINUTES = 20;
 const EARLIEST_PICKUP_MINUTES = 15;
 const PICKUP_SLOT_STEP_MINUTES = 15;
-const PICKUP_SLOT_LOOKAHEAD_DAYS = 7;
+const PICKUP_SLOT_LOOKAHEAD_DAYS = 14;
 
 export default function RestaurantMenuPage() {
   const { restaurantId, restaurantRouteKey } = useParams();
@@ -933,6 +933,30 @@ function formatWeekdayFromDate(value, timezone) {
   });
 }
 
+function formatConfirmationDateLabel(dateKey, timezone) {
+  const input = String(dateKey || '').trim();
+  if (!input) {
+    return '';
+  }
+
+  const match = input.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (!match) {
+    return '';
+  }
+
+  const year = Number(match[1]);
+  const month = Number(match[2]);
+  const day = Number(match[3]);
+  const date = new Date(Date.UTC(year, month - 1, day, 12, 0, 0));
+  return date.toLocaleDateString([], {
+    weekday: 'short',
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+    timeZone: timezone || defaultTimeZone(),
+  });
+}
+
 function formatPickupWindows(windows = [], timezone) {
   const normalized = normalizePickupWindows(windows);
   if (!normalized.length) {
@@ -1135,8 +1159,10 @@ function SchedulePickupModal({
 }) {
   const timezone = pickupAvailability?.timezone || '';
   const activeGroup = findPickupScheduleGroup(scheduledPickupGroups, selectedDateKey) || scheduledPickupGroups[0] || null;
-  const visibleGroups = scheduledPickupGroups.slice(0, 7);
+  const visibleGroups = scheduledPickupGroups.slice(0, 14);
   const visibleSlots = activeGroup?.slots || [];
+  const selectedDateLabel = formatConfirmationDateLabel(activeGroup?.key, timezone) || 'Select a date';
+  const selectedTimeLabel = activeGroup?.slots?.find((slot) => slot.value === selectedTime)?.label || 'Select a time';
 
   useEffect(() => {
     if (!scheduledPickupGroups.length) {
@@ -1169,7 +1195,8 @@ function SchedulePickupModal({
             ×
           </button>
           <p className="pickup-schedule-modal__eyebrow">Pickup</p>
-          <h2 id="pickup-schedule-modal-title">Select a pickup time</h2>
+          <h2 id="pickup-schedule-modal-title">Schedule my order</h2>
+          <p className="pickup-schedule-modal__subcopy">Select a pickup time up to 14 days in advance.</p>
           <p className="pickup-schedule-modal__empty">We do not have any pickup times available right now.</p>
         </section>
       </div>
@@ -1191,76 +1218,78 @@ function SchedulePickupModal({
 
         <header className="pickup-schedule-modal__header">
           <p className="pickup-schedule-modal__eyebrow">Pickup</p>
-          <h2 id="pickup-schedule-modal-title">Select a pickup time</h2>
-          <p className="pickup-schedule-modal__subcopy">Choose a pickup date and time within the restaurant&apos;s open hours.</p>
+          <h2 id="pickup-schedule-modal-title">Schedule my order</h2>
+          <p className="pickup-schedule-modal__subcopy">Select a pickup time up to 14 days in advance.</p>
         </header>
 
-        <div className="pickup-schedule-modal__mode" aria-label="Pickup method">
-          <span className="pickup-schedule-modal__mode-pill is-active">Pickup</span>
-          <span className="pickup-schedule-modal__mode-helper">
-            {pickupAvailability?.isOpenNow ? 'Pickup available now' : 'Pickup later today or this week'}
-          </span>
-        </div>
+        <div className="pickup-schedule-modal__field-group">
+          <div className="pickup-schedule-modal__field">
+            <label className="pickup-schedule-modal__field-label" htmlFor="pickup-date-select">
+              Date
+            </label>
+            <div className="pickup-schedule-modal__select-shell">
+              <span className="pickup-schedule-modal__select-icon" aria-hidden="true">
+                📅
+              </span>
+              <select
+                id="pickup-date-select"
+                className="pickup-schedule-modal__select"
+                value={selectedDateKey || visibleGroups[0]?.key || ''}
+                onChange={(event) => {
+                  const nextDateKey = event.target.value;
+                  const nextGroup = findPickupScheduleGroup(scheduledPickupGroups, nextDateKey) || scheduledPickupGroups[0] || null;
+                  const nextTime = nextGroup?.slots?.[0]?.value || '';
+                  onSelectDate(nextDateKey);
+                  onSelectTime(nextTime);
+                }}
+              >
+                {visibleGroups.map((group) => (
+                  <option key={group.key} value={group.key}>
+                    {group.label}
+                  </option>
+                ))}
+              </select>
+              <span className="pickup-schedule-modal__select-caret" aria-hidden="true">
+                ›
+              </span>
+            </div>
+          </div>
 
-        <div className="pickup-schedule-modal__body">
-          <section className="pickup-schedule-modal__dates" aria-label="Available dates">
-            <div className="pickup-schedule-modal__section-title">
-              <strong>Date</strong>
-              <span>Available pickup days</span>
+          <div className="pickup-schedule-modal__field">
+            <label className="pickup-schedule-modal__field-label" htmlFor="pickup-time-select">
+              Time
+            </label>
+            <div className="pickup-schedule-modal__select-shell">
+              <span className="pickup-schedule-modal__select-icon" aria-hidden="true">
+                ⏰
+              </span>
+              <select
+                id="pickup-time-select"
+                className="pickup-schedule-modal__select"
+                value={selectedTime || visibleSlots[0]?.value || ''}
+                onChange={(event) => onSelectTime(event.target.value)}
+              >
+                {visibleSlots.map((slot) => (
+                  <option key={slot.value} value={slot.value}>
+                    {slot.label}
+                  </option>
+                ))}
+              </select>
+              <span className="pickup-schedule-modal__select-caret" aria-hidden="true">
+                ▾
+              </span>
             </div>
-            <div className="pickup-schedule-modal__date-list">
-              {visibleGroups.map((group) => {
-                const isSelected = group.key === selectedDateKey;
-                return (
-                  <button
-                    key={group.key}
-                    type="button"
-                    className={`pickup-schedule-modal__date${isSelected ? ' is-active' : ''}`}
-                    onClick={() => {
-                      onSelectDate(group.key);
-                      onSelectTime(group.slots[0]?.value || '');
-                    }}
-                  >
-                    <strong>{group.label}</strong>
-                    <span>{group.hoursLabel}</span>
-                  </button>
-                );
-              })}
-            </div>
-          </section>
-
-          <section className="pickup-schedule-modal__times" aria-label="Available pickup times">
-            <div className="pickup-schedule-modal__section-title">
-              <strong>Time</strong>
-              <span>Only times within the selected day&apos;s window are shown</span>
-            </div>
-            <div className="pickup-schedule-modal__time-list" role="list">
-              {visibleSlots.map((slot, index) => {
-                const isSelected = slot.value === selectedTime;
-                const isRecommended = !selectedTime && index === 0;
-                return (
-                  <button
-                    key={slot.value}
-                    type="button"
-                    className={`pickup-schedule-modal__time${isSelected ? ' is-active' : ''}${isRecommended ? ' is-recommended' : ''}`}
-                    aria-pressed={isSelected}
-                    onClick={() => onSelectTime(slot.value)}
-                  >
-                    {isRecommended ? <span className="pickup-schedule-modal__badge">Recommended</span> : null}
-                    <span>{slot.label}</span>
-                  </button>
-                );
-              })}
-            </div>
-          </section>
+          </div>
         </div>
 
         <footer className="pickup-schedule-modal__actions">
-          <button type="button" className="primary-btn secondary pickup-schedule-modal__cancel" onClick={onClose}>
-            Cancel
-          </button>
-          <button type="button" className="primary-btn emphasis pickup-schedule-modal__confirm" onClick={onConfirm} disabled={!selectedTime}>
-            Confirm Pickup Time
+          <button
+            type="button"
+            className="primary-btn emphasis pickup-schedule-modal__confirm"
+            onClick={onConfirm}
+            disabled={!selectedTime || !selectedDateKey}
+          >
+            Pickup {selectedDateLabel} at {selectedTimeLabel}
           </button>
         </footer>
       </section>

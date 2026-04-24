@@ -40,6 +40,7 @@ const customerBenefits = [
 export default function LandingPage() {
   const navigate = useNavigate();
   const [retryKey, setRetryKey] = useState(0);
+  const [showContactModal, setShowContactModal] = useState(false);
   const { data: restaurants = [], loading, error, errorInfo } = useFetch(() => fetchRestaurants(), [retryKey]);
   const availableNow = useMemo(() => (restaurants || []).slice(0, 3), [restaurants]);
   const availabilityError = errorInfo?.kind === 'not_found'
@@ -66,6 +67,23 @@ export default function LandingPage() {
     subject: 'Go2Pik support',
     body: 'Hi Go2Pik team, I need help with my order or account.',
   });
+  const supportEmail = 'support@go2pik.com';
+
+  async function handleCopySupportEmail() {
+    try {
+      await navigator.clipboard.writeText(supportEmail);
+    } catch {
+      const tempInput = document.createElement('input');
+      tempInput.value = supportEmail;
+      tempInput.setAttribute('readonly', 'true');
+      tempInput.style.position = 'absolute';
+      tempInput.style.left = '-9999px';
+      document.body.appendChild(tempInput);
+      tempInput.select();
+      document.execCommand('copy');
+      document.body.removeChild(tempInput);
+    }
+  }
 
   return (
     <section className="landing hero-mode">
@@ -83,9 +101,9 @@ export default function LandingPage() {
             </button>
           </nav>
           <div className="hero-nav-right">
-            <a className="hero-contact" href={supportHref}>
+            <button type="button" className="hero-contact" onClick={() => setShowContactModal(true)}>
               Contact
-            </a>
+            </button>
             <button type="button" className="hero-nav-cta" onClick={handleStartOrdering}>
               Start Ordering
             </button>
@@ -218,12 +236,50 @@ export default function LandingPage() {
           <div className="hero-footer-links">
             <Link to="/privacy">Privacy</Link>
             <Link to="/terms">Terms</Link>
-            <a href={supportHref}>
+            <button type="button" className="hero-contact" onClick={() => setShowContactModal(true)}>
               Contact
-            </a>
+            </button>
           </div>
         </footer>
+
+        {showContactModal ? (
+          <ContactSupportModal
+            supportEmail={supportEmail}
+            supportHref={supportHref}
+            onClose={() => setShowContactModal(false)}
+            onCopyEmail={handleCopySupportEmail}
+          />
+        ) : null}
       </div>
     </section>
+  );
+}
+
+function ContactSupportModal({ supportEmail, supportHref, onClose, onCopyEmail }) {
+  return (
+    <div className="support-modal-backdrop" role="presentation" onClick={onClose}>
+      <section className="support-modal" role="dialog" aria-modal="true" aria-labelledby="support-modal-title" onClick={(event) => event.stopPropagation()}>
+        <button type="button" className="support-modal__close" onClick={onClose} aria-label="Close contact modal">
+          ×
+        </button>
+        <p className="support-modal__eyebrow">Contact</p>
+        <h2 id="support-modal-title">Need help?</h2>
+        <p className="support-modal__copy">Use the email below to reach the Go2Pik support team.</p>
+        <div className="support-modal__email-row">
+          <strong>{supportEmail}</strong>
+          <button type="button" className="support-modal__copy-btn" onClick={onCopyEmail}>
+            Copy
+          </button>
+        </div>
+        <div className="support-modal__actions">
+          <a className="primary-btn support-modal__primary" href={supportHref}>
+            Email Support
+          </a>
+          <button type="button" className="primary-btn secondary support-modal__secondary" onClick={onClose}>
+            Close
+          </button>
+        </div>
+      </section>
+    </div>
   );
 }
