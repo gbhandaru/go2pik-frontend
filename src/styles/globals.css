@@ -1182,6 +1182,15 @@ textarea {
   outline: none;
 }
 
+.pickup-slot-toggle--primary {
+  display: inline-flex;
+  align-self: flex-start;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.15rem 0;
+  text-decoration: none;
+}
+
 .pickup-slot {
   border: 1px solid #d8e0ea;
   background: #f8fafc;
@@ -1317,7 +1326,7 @@ textarea {
 .scheduled-picker {
   display: flex;
   flex-direction: column;
-  gap: 0.25rem;
+  gap: 0.45rem;
 }
 
 .scheduled-picker label {
@@ -2549,6 +2558,255 @@ textarea {
   line-height: 1.3;
   color: #8a8a8a;
   overflow-wrap: anywhere;
+}
+
+.pickup-schedule-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 90;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1.1rem;
+  background: rgba(24, 30, 41, 0.7);
+  backdrop-filter: blur(10px);
+}
+
+.pickup-schedule-modal {
+  position: relative;
+  width: min(700px, 100%);
+  max-height: min(92vh, 900px);
+  overflow: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 0.8rem;
+  border-radius: 1.55rem;
+  padding: 1.3rem 1.35rem 1.2rem;
+  background: linear-gradient(180deg, #fffefc 0%, #faf8f4 100%);
+  border: 1px solid rgba(122, 96, 104, 0.1);
+  box-shadow: 0 24px 60px rgba(15, 23, 42, 0.18);
+}
+
+.pickup-schedule-modal__close {
+  position: absolute;
+  top: 0.9rem;
+  right: 0.9rem;
+  width: 2rem;
+  height: 2rem;
+  border: none;
+  border-radius: 999px;
+  background: rgba(15, 23, 42, 0.06);
+  color: #565656;
+  font-size: 1.3rem;
+  line-height: 1;
+}
+
+.pickup-schedule-modal__header {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  padding-right: 2.05rem;
+  align-items: flex-start;
+}
+
+.pickup-schedule-modal__eyebrow {
+  margin: 0;
+  color: #5f7d58;
+  font-size: 0.75rem;
+  font-weight: 800;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+}
+
+.pickup-schedule-modal h2 {
+  margin: 0;
+  color: #1f2937;
+  font-size: clamp(1.22rem, 2.2vw, 1.68rem);
+  line-height: 1.05;
+  letter-spacing: -0.028em;
+  font-weight: 700;
+}
+
+.pickup-schedule-modal__subcopy {
+  margin: 0;
+  color: #5b6471;
+  font-size: 0.85rem;
+  line-height: 1.34;
+}
+
+.pickup-schedule-modal__mode {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+  padding-bottom: 0.02rem;
+}
+
+.pickup-schedule-modal__mode-pill {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 999px;
+  padding: 0.3rem 0.8rem;
+  background: #eef3ec;
+  color: #5f7d58;
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+.pickup-schedule-modal__mode-pill.is-active {
+  background: linear-gradient(135deg, #5f7d58 0%, #7a9a70 100%);
+  color: #fff;
+}
+
+.pickup-schedule-modal__mode-helper {
+  color: #6b7280;
+  font-size: 0.77rem;
+}
+
+.pickup-schedule-modal__dates,
+.pickup-schedule-modal__times {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.pickup-schedule-modal__body {
+  display: grid;
+  grid-template-columns: minmax(188px, 0.86fr) minmax(0, 1.14fr);
+  gap: 0.8rem;
+  align-items: start;
+}
+
+.pickup-schedule-modal__section-title {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.pickup-schedule-modal__section-title strong {
+  color: #1f2937;
+  font-size: 0.8rem;
+  font-weight: 700;
+}
+
+.pickup-schedule-modal__section-title span {
+  color: #6b7280;
+  font-size: 0.71rem;
+}
+
+.pickup-schedule-modal__date-list {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 0.45rem;
+}
+
+.pickup-schedule-modal__date {
+  display: flex;
+  flex-direction: column;
+  gap: 0.16rem;
+  border: 1px solid #d8e0ea;
+  border-radius: 0.86rem;
+  padding: 0.7rem 0.8rem;
+  background: #fff;
+  color: #334155;
+  text-align: left;
+  box-shadow: 0 5px 12px rgba(15, 23, 42, 0.04);
+}
+
+.pickup-schedule-modal__date strong {
+  font-size: 0.88rem;
+  color: #111827;
+}
+
+.pickup-schedule-modal__date span {
+  font-size: 0.72rem;
+  color: #64748b;
+}
+
+.pickup-schedule-modal__date.is-active {
+  border-color: #5f7d58;
+  background: linear-gradient(135deg, #5f7d58 0%, #7a9a70 100%);
+  color: #fff;
+  box-shadow: 0 14px 26px rgba(95, 125, 88, 0.2);
+}
+
+.pickup-schedule-modal__date.is-active strong,
+.pickup-schedule-modal__date.is-active span {
+  color: #fff;
+}
+
+.pickup-schedule-modal__time-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(104px, 1fr));
+  gap: 0.42rem;
+}
+
+.pickup-schedule-modal__time {
+  display: flex;
+  flex-direction: column;
+  gap: 0.16rem;
+  align-items: center;
+  justify-content: center;
+  min-height: 2.8rem;
+  border: 1px solid #d8e0ea;
+  border-radius: 0.8rem;
+  background: #f8fafc;
+  color: #334155;
+  padding: 0.58rem 0.5rem;
+  text-align: center;
+  box-shadow: 0 5px 12px rgba(15, 23, 42, 0.04);
+}
+
+.pickup-schedule-modal__badge {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 999px;
+  padding: 0.08rem 0.36rem;
+  background: rgba(245, 158, 11, 0.14);
+  color: #b45309;
+  font-size: 0.57rem;
+  font-weight: 800;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+}
+
+.pickup-schedule-modal__time.is-active {
+  border-color: #4f6849;
+  background: linear-gradient(135deg, #5f7d58 0%, #7a9a70 100%);
+  color: #fff;
+  box-shadow: 0 16px 28px rgba(95, 125, 88, 0.18);
+}
+
+.pickup-schedule-modal__time.is-active .pickup-schedule-modal__badge {
+  background: rgba(255, 255, 255, 0.18);
+  color: #fff;
+}
+
+.pickup-schedule-modal__time.is-recommended:not(.is-active) {
+  border-color: rgba(95, 125, 88, 0.4);
+}
+
+.pickup-schedule-modal__actions {
+  display: flex;
+  gap: 0.5rem;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  margin-top: 0.02rem;
+}
+
+.pickup-schedule-modal__cancel,
+.pickup-schedule-modal__confirm {
+  min-width: 150px;
+  height: 2.6rem;
+  padding: 0 1rem;
+  font-size: 0.9rem;
+}
+
+.pickup-schedule-modal__empty {
+  margin: 0.2rem 0 0;
+  color: #5b6471;
 }
 
 .customer-partial-modal-backdrop {
@@ -6374,6 +6632,36 @@ hr {
 
   .scheduled-picker {
     gap: 0.45rem;
+  }
+
+  .pickup-schedule-modal {
+    width: min(100%, 42rem);
+    padding: 1.2rem;
+    gap: 0.85rem;
+  }
+
+  .pickup-schedule-modal__body {
+    grid-template-columns: 1fr;
+    gap: 0.7rem;
+  }
+
+  .pickup-schedule-modal__date-list {
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  }
+
+  .pickup-schedule-modal__time-list {
+    grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
+  }
+
+  .pickup-schedule-modal__actions {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .pickup-schedule-modal__cancel,
+  .pickup-schedule-modal__confirm {
+    min-width: 0;
+    width: 100%;
   }
 
   .kitchen-page {

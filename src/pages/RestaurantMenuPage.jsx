@@ -32,6 +32,9 @@ export default function RestaurantMenuPage() {
   const [cart, setCart] = useState([]);
   const [selectedPickupMode, setSelectedPickupMode] = useState(PICKUP_MODES.ASAP);
   const [scheduledPickupTime, setScheduledPickupTime] = useState('');
+  const [showScheduleModal, setShowScheduleModal] = useState(false);
+  const [scheduledPickupDraftDateKey, setScheduledPickupDraftDateKey] = useState('');
+  const [scheduledPickupDraftTime, setScheduledPickupDraftTime] = useState('');
   const [orderError, setOrderError] = useState('');
   const [customerPhoneInput, setCustomerPhoneInput] = useState(initialCustomerPhone);
   const [smsConsentAccepted, setSmsConsentAccepted] = useState(false);
@@ -313,6 +316,27 @@ export default function RestaurantMenuPage() {
     }
   };
 
+  const openScheduleModal = () => {
+    const initialSelection = getPickupScheduleDraftSelection(scheduledPickupTime, pickupSlotGroups);
+    setScheduledPickupDraftDateKey(initialSelection.dateKey);
+    setScheduledPickupDraftTime(initialSelection.slotValue);
+    setShowScheduleModal(true);
+  };
+
+  const closeScheduleModal = () => {
+    setShowScheduleModal(false);
+  };
+
+  const confirmScheduleSelection = () => {
+    if (!scheduledPickupDraftTime) {
+      return;
+    }
+
+    setSelectedPickupMode(PICKUP_MODES.SCHEDULED);
+    setScheduledPickupTime(scheduledPickupDraftTime);
+    setShowScheduleModal(false);
+  };
+
   const pickupSummary = getPickupSummary(
     selectedPickupMode,
     scheduledPickupTime,
@@ -473,11 +497,9 @@ export default function RestaurantMenuPage() {
             selectedMode={selectedPickupMode}
             scheduledPickupTime={scheduledPickupTime}
             onModeChange={handlePickupModeChange}
-            onSelectPickupTime={setScheduledPickupTime}
-            showTimeError={missingScheduledTime}
+            onScheduleLaterClick={openScheduleModal}
             asapReadyTime={asapReadyTime}
             asapReadyLabel={asapReadyLabel}
-            scheduledPickupGroups={pickupSlotGroups}
           />
 
           <ReorderCard
@@ -549,6 +571,19 @@ export default function RestaurantMenuPage() {
             onSendOtp={handleSendOtp}
             phoneInputRef={phoneInputRef}
           />
+      ) : null}
+
+      {showScheduleModal ? (
+        <SchedulePickupModal
+          pickupAvailability={pickupAvailability}
+          scheduledPickupGroups={pickupSlotGroups}
+          selectedDateKey={scheduledPickupDraftDateKey}
+          selectedTime={scheduledPickupDraftTime}
+          onClose={closeScheduleModal}
+          onConfirm={confirmScheduleSelection}
+          onSelectDate={setScheduledPickupDraftDateKey}
+          onSelectTime={setScheduledPickupDraftTime}
+        />
       ) : null}
     </main>
   );
@@ -963,15 +998,11 @@ function PickupTimeCard({
   selectedMode,
   scheduledPickupTime,
   onModeChange,
-  onSelectPickupTime,
-  showTimeError,
+  onScheduleLaterClick,
   asapReadyTime,
   asapReadyLabel,
-  scheduledPickupGroups,
 }) {
-  const [showMorePickupTimes, setShowMorePickupTimes] = useState(false);
   const isScheduled = selectedMode === PICKUP_MODES.SCHEDULED;
-  const hasScheduledSelection = Boolean(scheduledPickupTime);
   const isOpenNow = Boolean(pickupAvailability?.isOpenNow);
   const asapAllowed = pickupAvailability?.asapAllowed !== false;
   const timezone = pickupAvailability?.timezone || '';
@@ -986,18 +1017,6 @@ function PickupTimeCard({
     todayWindows,
   );
   const showPickupReadyLine = !(pickupAvailability?.isOpenNow === false && pickupAvailability?.asapAllowed);
-  const shouldShowPickupGroups = scheduledPickupGroups.length > 0 && (!hasScheduledSelection || showMorePickupTimes);
-
-  useEffect(() => {
-    if (!isScheduled) {
-      setShowMorePickupTimes(false);
-      return;
-    }
-
-    if (scheduledPickupTime) {
-      setShowMorePickupTimes(false);
-    }
-  }, [isScheduled, scheduledPickupTime]);
 
   return (
     <section className="pickup-card" aria-labelledby="pickup-card-title">
@@ -1041,7 +1060,11 @@ function PickupTimeCard({
               className={`pickup-tab${isActive ? ' active' : ''}${disabled ? ' is-disabled' : ''}`}
               onClick={() => {
                 if (!disabled) {
-                  onModeChange(mode);
+                  if (mode === PICKUP_MODES.ASAP) {
+                    onModeChange(mode);
+                  } else {
+                    onScheduleLaterClick?.();
+                  }
                 }
               }}
               disabled={disabled}
@@ -1055,67 +1078,193 @@ function PickupTimeCard({
         {isScheduled ? (
           <div className="scheduled-picker">
             <div className="scheduled-picker__header">
-              <strong>Available pickup times</strong>
-              <span className="muted">Only times within open hours are shown.</span>
+              <strong>Schedule your pickup</strong>
+              <span className="muted">Pick a day and time from the available pickup window.</span>
             </div>
-            {hasScheduledSelection ? (
-              <div className="pickup-selection-pill">
-                <span className="pickup-selection-pill__label">Selected</span>
-                <strong className="pickup-selection-pill__value">
-                  {formatScheduledPickupSelection(scheduledPickupTime, timezone)}
-                </strong>
-                <button type="button" className="pickup-slot-toggle pickup-selection-pill__action" onClick={() => setShowMorePickupTimes(true)}>
-                  Change
-                </button>
-              </div>
-            ) : null}
-            {shouldShowPickupGroups ? (
-              scheduledPickupGroups.map((group, groupIndex) => {
-                const visibleSlots = showMorePickupTimes ? group.slots : group.slots.slice(0, 4);
-                return (
-                  <div className="pickup-slot-group" key={group.key}>
-                    <div className="pickup-slot-group__header">
-                      <strong>{group.label}</strong>
-                      <span className="muted">{group.hoursLabel}</span>
-                    </div>
-                    <div className="pickup-slot-list" role="list" aria-label={`${group.label} pickup times`}>
-                      {visibleSlots.map((slot, index) => {
-                        const isSelected = scheduledPickupTime === slot.value;
-                        const isRecommended = groupIndex === 0 && !scheduledPickupTime && index === 0;
-                        return (
-                          <button
-                            key={slot.value}
-                            type="button"
-                            className={`pickup-slot${isSelected ? ' active' : ''}${isRecommended ? ' pickup-slot--recommended' : ''}`}
-                            aria-pressed={isSelected}
-                            onClick={() => {
-                              onSelectPickupTime(slot.value);
-                              setShowMorePickupTimes(false);
-                            }}
-                          >
-                            {isRecommended ? <span className="pickup-slot__badge">Recommended</span> : null}
-                            <span>{slot.label}</span>
-                          </button>
-                        );
-                      })}
-                    </div>
-                    {group.slots.length > visibleSlots.length ? (
-                      <button
-                        type="button"
-                        className="pickup-slot-toggle"
-                        onClick={() => setShowMorePickupTimes((current) => !current)}
-                      >
-                        {showMorePickupTimes ? 'Show Fewer Times' : 'See More Available Times'}
-                      </button>
-                    ) : null}
-                  </div>
-                );
-              })
-            ) : null}
+            <div className="pickup-selection-pill">
+              <span className="pickup-selection-pill__label">Selected</span>
+              <strong className="pickup-selection-pill__value">
+                {scheduledPickupTime ? formatScheduledPickupSelection(scheduledPickupTime, timezone) : 'Choose a pickup time'}
+              </strong>
+              <button type="button" className="pickup-slot-toggle pickup-selection-pill__action" onClick={onScheduleLaterClick}>
+                Change
+              </button>
+            </div>
+            <button type="button" className="pickup-slot-toggle pickup-slot-toggle--primary" onClick={onScheduleLaterClick}>
+              Open pickup scheduler
+            </button>
           </div>
         ) : null}
       </div>
     </section>
+  );
+}
+
+function getPickupScheduleDraftSelection(value, groups = []) {
+  const normalizedValue = String(value || '').trim();
+  for (const group of groups) {
+    const slot = group.slots.find((entry) => entry.value === normalizedValue);
+    if (slot) {
+      return {
+        dateKey: group.key,
+        slotValue: slot.value,
+      };
+    }
+  }
+
+  const firstGroup = groups[0];
+  return {
+    dateKey: firstGroup?.key || '',
+    slotValue: firstGroup?.slots?.[0]?.value || '',
+  };
+}
+
+function findPickupScheduleGroup(groups = [], dateKey = '') {
+  return groups.find((group) => group.key === dateKey) || null;
+}
+
+function SchedulePickupModal({
+  pickupAvailability,
+  scheduledPickupGroups,
+  selectedDateKey,
+  selectedTime,
+  onClose,
+  onConfirm,
+  onSelectDate,
+  onSelectTime,
+}) {
+  const timezone = pickupAvailability?.timezone || '';
+  const activeGroup = findPickupScheduleGroup(scheduledPickupGroups, selectedDateKey) || scheduledPickupGroups[0] || null;
+  const visibleGroups = scheduledPickupGroups.slice(0, 7);
+  const visibleSlots = activeGroup?.slots || [];
+
+  useEffect(() => {
+    if (!scheduledPickupGroups.length) {
+      return;
+    }
+
+    if (!findPickupScheduleGroup(scheduledPickupGroups, selectedDateKey)) {
+      const firstGroup = scheduledPickupGroups[0];
+      onSelectDate(firstGroup.key);
+      onSelectTime(firstGroup.slots[0]?.value || '');
+    }
+  }, [onSelectDate, onSelectTime, scheduledPickupGroups, selectedDateKey]);
+
+  useEffect(() => {
+    if (!activeGroup) {
+      return;
+    }
+
+    const stillValid = activeGroup.slots.some((slot) => slot.value === selectedTime);
+    if (!stillValid) {
+      onSelectTime(activeGroup.slots[0]?.value || '');
+    }
+  }, [activeGroup, onSelectTime, selectedTime]);
+
+  if (!scheduledPickupGroups.length) {
+    return (
+      <div className="pickup-schedule-modal-backdrop" role="presentation" onClick={onClose}>
+        <section className="pickup-schedule-modal" role="dialog" aria-modal="true" aria-labelledby="pickup-schedule-modal-title" onClick={(event) => event.stopPropagation()}>
+          <button type="button" className="pickup-schedule-modal__close" onClick={onClose} aria-label="Close pickup scheduler">
+            ×
+          </button>
+          <p className="pickup-schedule-modal__eyebrow">Pickup</p>
+          <h2 id="pickup-schedule-modal-title">Select a pickup time</h2>
+          <p className="pickup-schedule-modal__empty">We do not have any pickup times available right now.</p>
+        </section>
+      </div>
+    );
+  }
+
+  return (
+    <div className="pickup-schedule-modal-backdrop" role="presentation" onClick={onClose}>
+      <section
+        className="pickup-schedule-modal"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="pickup-schedule-modal-title"
+        onClick={(event) => event.stopPropagation()}
+      >
+        <button type="button" className="pickup-schedule-modal__close" onClick={onClose} aria-label="Close pickup scheduler">
+          ×
+        </button>
+
+        <header className="pickup-schedule-modal__header">
+          <p className="pickup-schedule-modal__eyebrow">Pickup</p>
+          <h2 id="pickup-schedule-modal-title">Select a pickup time</h2>
+          <p className="pickup-schedule-modal__subcopy">Choose a pickup date and time within the restaurant&apos;s open hours.</p>
+        </header>
+
+        <div className="pickup-schedule-modal__mode" aria-label="Pickup method">
+          <span className="pickup-schedule-modal__mode-pill is-active">Pickup</span>
+          <span className="pickup-schedule-modal__mode-helper">
+            {pickupAvailability?.isOpenNow ? 'Pickup available now' : 'Pickup later today or this week'}
+          </span>
+        </div>
+
+        <div className="pickup-schedule-modal__body">
+          <section className="pickup-schedule-modal__dates" aria-label="Available dates">
+            <div className="pickup-schedule-modal__section-title">
+              <strong>Date</strong>
+              <span>Available pickup days</span>
+            </div>
+            <div className="pickup-schedule-modal__date-list">
+              {visibleGroups.map((group) => {
+                const isSelected = group.key === selectedDateKey;
+                return (
+                  <button
+                    key={group.key}
+                    type="button"
+                    className={`pickup-schedule-modal__date${isSelected ? ' is-active' : ''}`}
+                    onClick={() => {
+                      onSelectDate(group.key);
+                      onSelectTime(group.slots[0]?.value || '');
+                    }}
+                  >
+                    <strong>{group.label}</strong>
+                    <span>{group.hoursLabel}</span>
+                  </button>
+                );
+              })}
+            </div>
+          </section>
+
+          <section className="pickup-schedule-modal__times" aria-label="Available pickup times">
+            <div className="pickup-schedule-modal__section-title">
+              <strong>Time</strong>
+              <span>Only times within the selected day&apos;s window are shown</span>
+            </div>
+            <div className="pickup-schedule-modal__time-list" role="list">
+              {visibleSlots.map((slot, index) => {
+                const isSelected = slot.value === selectedTime;
+                const isRecommended = !selectedTime && index === 0;
+                return (
+                  <button
+                    key={slot.value}
+                    type="button"
+                    className={`pickup-schedule-modal__time${isSelected ? ' is-active' : ''}${isRecommended ? ' is-recommended' : ''}`}
+                    aria-pressed={isSelected}
+                    onClick={() => onSelectTime(slot.value)}
+                  >
+                    {isRecommended ? <span className="pickup-schedule-modal__badge">Recommended</span> : null}
+                    <span>{slot.label}</span>
+                  </button>
+                );
+              })}
+            </div>
+          </section>
+        </div>
+
+        <footer className="pickup-schedule-modal__actions">
+          <button type="button" className="primary-btn secondary pickup-schedule-modal__cancel" onClick={onClose}>
+            Cancel
+          </button>
+          <button type="button" className="primary-btn emphasis pickup-schedule-modal__confirm" onClick={onConfirm} disabled={!selectedTime}>
+            Confirm Pickup Time
+          </button>
+        </footer>
+      </section>
+    </div>
   );
 }
 
