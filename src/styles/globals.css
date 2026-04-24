@@ -2630,9 +2630,9 @@ textarea {
 .pickup-schedule-modal h2 {
   margin: 0;
   color: #1f2937;
-  font-size: clamp(1.9rem, 3vw, 2.8rem);
-  line-height: 0.98;
-  letter-spacing: -0.04em;
+  font-size: clamp(1.7rem, 2.7vw, 2.35rem);
+  line-height: 1;
+  letter-spacing: -0.035em;
   font-weight: 800;
 }
 
@@ -3594,6 +3594,16 @@ hr {
   justify-content: space-between;
   flex-wrap: wrap;
   gap: 1rem;
+}
+
+.hero-footer-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+
+.hero-footer-copy p {
+  margin: 0;
 }
 
 .hero-footer-links {

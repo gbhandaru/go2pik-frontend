@@ -14,7 +14,7 @@ export default function TermsPage() {
         <p className="eyebrow">Terms &amp; Conditions</p>
         <h1>SMS consent and messaging terms</h1>
         <p className="legal-lede">
-          These terms explain how SMS messages work when you use Go2Pik for pickup ordering and order review.
+          Go2Pik is a service provided by EHA Technologies. These Terms govern your use of the Go2Pik platform.
         </p>
         <ul className="legal-list">
           {termsPoints.map((point) => (
