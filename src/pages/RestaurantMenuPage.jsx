@@ -973,7 +973,6 @@ function PickupTimeCard({
   const [showMorePickupTimes, setShowMorePickupTimes] = useState(false);
   const isScheduled = selectedMode === PICKUP_MODES.SCHEDULED;
   const hasScheduledSelection = Boolean(scheduledPickupTime);
-  const scheduledTimeHelperId = 'scheduled-time-helper';
   const isOpenNow = Boolean(pickupAvailability?.isOpenNow);
   const asapAllowed = pickupAvailability?.asapAllowed !== false;
   const timezone = pickupAvailability?.timezone || '';
@@ -988,6 +987,7 @@ function PickupTimeCard({
     todayWindows,
   );
   const showPickupReadyLine = !(pickupAvailability?.isOpenNow === false && pickupAvailability?.asapAllowed);
+  const shouldShowPickupGroups = scheduledPickupGroups.length > 0 && (!hasScheduledSelection || showMorePickupTimes);
 
   useEffect(() => {
     if (!isScheduled) {
@@ -1060,17 +1060,17 @@ function PickupTimeCard({
               <span className="muted">Only times within open hours are shown.</span>
             </div>
             {hasScheduledSelection ? (
-              <div className="pickup-slot-selection pickup-slot-selection--compact">
-                <div>
-                  <p className="eyebrow">Selected pickup time</p>
-                  <strong>{formatScheduledPickupSelection(scheduledPickupTime, timezone)}</strong>
-                </div>
-                <button type="button" className="pickup-slot-toggle" onClick={() => setShowMorePickupTimes(true)}>
+              <div className="pickup-selection-pill">
+                <span className="pickup-selection-pill__label">Selected</span>
+                <strong className="pickup-selection-pill__value">
+                  {formatScheduledPickupSelection(scheduledPickupTime, timezone)}
+                </strong>
+                <button type="button" className="pickup-slot-toggle pickup-selection-pill__action" onClick={() => setShowMorePickupTimes(true)}>
                   Change
                 </button>
               </div>
             ) : null}
-            {(!hasScheduledSelection || showMorePickupTimes) && scheduledPickupGroups.length ? (
+            {shouldShowPickupGroups ? (
               scheduledPickupGroups.map((group, groupIndex) => {
                 const visibleSlots = showMorePickupTimes ? group.slots : group.slots.slice(0, 4);
                 return (
@@ -1112,14 +1112,7 @@ function PickupTimeCard({
                   </div>
                 );
               })
-            ) : (
-              <div className="pickup-slot-empty">
-                <p className="muted">No pickup times are available right now.</p>
-                <p id={scheduledTimeHelperId} className={showTimeError ? 'error-text' : 'muted'}>
-                  Select a pickup time to continue
-                </p>
-              </div>
-            )}
+            ) : null}
           </div>
         ) : null}
       </div>
@@ -1834,7 +1827,7 @@ function PhoneModal({
             checked={smsConsentAccepted}
             onChange={(event) => onSmsConsentChange(event.target.checked)}
           />
-          <span>
+          <span className="phone-modal__consent-copy">
             I agree to receive SMS messages from Go2Pik for order updates(confirmation, status, pickup alerts). Messages & data rates may apply. Reply STOP to opt out, HELP for help.
           </span>
         </label>
