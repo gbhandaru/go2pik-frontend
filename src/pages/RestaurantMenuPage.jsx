@@ -320,6 +320,7 @@ export default function RestaurantMenuPage() {
     pickupAvailability,
   );
   const missingScheduledTime = selectedPickupMode === PICKUP_MODES.SCHEDULED && !scheduledPickupTime;
+  const closedAsapBlocked = selectedPickupMode === PICKUP_MODES.ASAP && pickupAvailability?.isOpenNow === false;
   const asapReadyLabel = getAsapReadyLabel(asapReadyTime, pickupAvailability);
   const menuErrorMessage =
     errorInfo?.offline
@@ -335,6 +336,10 @@ export default function RestaurantMenuPage() {
   const handlePlaceOrder = async () => {
     setOrderError('');
     if (!cart.length || !restaurant) {
+      return;
+    }
+    if (closedAsapBlocked) {
+      setOrderError('Restaurant is closed right now. Please place your order during restaurant open hours.');
       return;
     }
     if (cart.some((item) => !resolveMenuItemSku(item))) {
@@ -406,14 +411,6 @@ export default function RestaurantMenuPage() {
       },
     });
   };
-
-  if (authLoading) {
-    return (
-      <main className="page-section">
-        <AsyncState title="Loading your account" message="Please wait while we restore your session." loading />
-      </main>
-    );
-  }
 
   if (authLoading) {
     return (
@@ -514,12 +511,19 @@ export default function RestaurantMenuPage() {
 
         <CartSummary
           cart={cart}
-          total={total}
-          totalItems={totalItems}
-          pickupSummary={pickupSummary}
-          paymentMessage="No online payment required"
-          disabled={!cart.length || missingScheduledTime}
+        total={total}
+        totalItems={totalItems}
+        pickupSummary={pickupSummary}
+        paymentMessage="No online payment required"
+          disabled={!cart.length || missingScheduledTime || closedAsapBlocked}
           orderError={orderError}
+          statusMessage={
+            closedAsapBlocked
+              ? 'Restaurant is closed right now, place your order during restaurant open hours.'
+              : missingScheduledTime
+                ? 'Choose a pickup time from the available hours.'
+                : ''
+          }
           onUpdateQuantity={updateQuantity}
           onPlaceOrder={handlePlaceOrder}
         />
@@ -715,26 +719,42 @@ function buildPickupSlotGroups(availability) {
     return [];
   }
 
-  const candidateDate = new Date();
-  const dayParts = getDatePartsInTimeZone(candidateDate, availability.timezone);
-  const windows = normalizePickupWindows(availability.today?.windows);
-  if (!windows.length) {
-    return [];
-  }
+  const timezone = availability.timezone || defaultTimeZone();
+  const groups = [];
 
-  const slots = windows.flatMap((window) => buildPickupSlotsForWindow(dayParts, window, availability.timezone));
-  if (!slots.length) {
-    return [];
-  }
+  for (let offset = 0; offset < PICKUP_SLOT_LOOKAHEAD_DAYS; offset += 1) {
+    const candidateDate = new Date();
+    candidateDate.setDate(candidateDate.getDate() + offset);
+    const dayParts = getDatePartsInTimeZone(candidateDate, timezone);
+    const windows = getPickupWindowsForDate(availability, dayParts, offset);
+    if (!windows.length) {
+      continue;
+    }
 
-  return [
-    {
+    const slots = windows.flatMap((window) => buildPickupSlotsForWindow(dayParts, window, timezone));
+    if (!slots.length) {
+      continue;
+    }
+
+    groups.push({
       key: `${dayParts.year}-${dayParts.month}-${dayParts.day}`,
-      label: 'Today',
-      hoursLabel: formatPickupWindows(windows, availability.timezone),
+      label: formatPickupDayLabel(candidateDate, timezone, offset),
+      hoursLabel: formatPickupWindows(windows, timezone),
       slots,
-    },
-  ];
+    });
+  }
+
+  return groups;
+}
+
+function getPickupWindowsForDate(availability, dayParts, offset) {
+  if (offset === 0) {
+    return normalizePickupWindows(availability.today?.windows);
+  }
+
+  const weekday = dayParts.weekday || '';
+  const weeklyEntry = resolveWeeklyScheduleEntry(availability.weeklySchedule, weekday);
+  return normalizePickupWindows(weeklyEntry?.windows || weeklyEntry?.openHours || []);
 }
 
 function buildPickupSlotsForWindow(dayParts, window, timezone) {
@@ -966,15 +986,6 @@ function PickupTimeCard({
     pickupAvailability,
     todayWindows,
   );
-  const availablePickupSlots = scheduledPickupGroups[0]?.slots || [];
-  const selectedPickupSlot = availablePickupSlots.find((slot) => slot.value === scheduledPickupTime) || null;
-  const collapsedPickupSlots = selectedPickupSlot
-    ? [
-        selectedPickupSlot,
-        ...availablePickupSlots.filter((slot) => slot.value !== selectedPickupSlot.value),
-      ].slice(0, 2)
-    : availablePickupSlots.slice(0, 2);
-  const displayedPickupSlots = showMorePickupTimes ? availablePickupSlots : collapsedPickupSlots;
   const showPickupReadyLine = !(pickupAvailability?.isOpenNow === false && pickupAvailability?.asapAllowed);
 
   useEffect(() => {
@@ -1047,40 +1058,45 @@ function PickupTimeCard({
               <strong>Available pickup times</strong>
               <span className="muted">Only times within open hours are shown.</span>
             </div>
-            {scheduledPickupGroups[0] ? (
-              <div className="pickup-slot-group">
-                <div className="pickup-slot-group__header">
-                  <strong>Recommended</strong>
-                  <span className="muted">{scheduledPickupGroups[0].hoursLabel}</span>
-                </div>
-                <div className="pickup-slot-list" role="list" aria-label="Today pickup times">
-                  {displayedPickupSlots.map((slot, index) => {
-                    const isSelected = scheduledPickupTime === slot.value;
-                    const isRecommended = !scheduledPickupTime && index === 0;
-                    return (
+            {scheduledPickupGroups.length ? (
+              scheduledPickupGroups.map((group, groupIndex) => {
+                const visibleSlots = showMorePickupTimes ? group.slots : group.slots.slice(0, 4);
+                return (
+                  <div className="pickup-slot-group" key={group.key}>
+                    <div className="pickup-slot-group__header">
+                      <strong>{group.label}</strong>
+                      <span className="muted">{group.hoursLabel}</span>
+                    </div>
+                    <div className="pickup-slot-list" role="list" aria-label={`${group.label} pickup times`}>
+                      {visibleSlots.map((slot, index) => {
+                        const isSelected = scheduledPickupTime === slot.value;
+                        const isRecommended = groupIndex === 0 && !scheduledPickupTime && index === 0;
+                        return (
+                          <button
+                            key={slot.value}
+                            type="button"
+                            className={`pickup-slot${isSelected ? ' active' : ''}${isRecommended ? ' pickup-slot--recommended' : ''}`}
+                            aria-pressed={isSelected}
+                            onClick={() => onSelectPickupTime(slot.value)}
+                          >
+                            {isRecommended ? <span className="pickup-slot__badge">Recommended</span> : null}
+                            <span>{slot.label}</span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                    {group.slots.length > visibleSlots.length ? (
                       <button
-                        key={slot.value}
                         type="button"
-                        className={`pickup-slot${isSelected ? ' active' : ''}${isRecommended ? ' pickup-slot--recommended' : ''}`}
-                        aria-pressed={isSelected}
-                        onClick={() => onSelectPickupTime(slot.value)}
+                        className="pickup-slot-toggle"
+                        onClick={() => setShowMorePickupTimes((current) => !current)}
                       >
-                        {isRecommended ? <span className="pickup-slot__badge">Recommended</span> : null}
-                        <span>{slot.label}</span>
+                        {showMorePickupTimes ? 'Show Fewer Times' : 'See More Available Times'}
                       </button>
-                    );
-                  })}
-                </div>
-                {availablePickupSlots.length > displayedPickupSlots.length ? (
-                  <button
-                    type="button"
-                    className="pickup-slot-toggle"
-                    onClick={() => setShowMorePickupTimes((current) => !current)}
-                  >
-                    {showMorePickupTimes ? 'Show Fewer Times' : 'See More Available Times'}
-                  </button>
-                ) : null}
-              </div>
+                    ) : null}
+                  </div>
+                );
+              })
             ) : (
               <div className="pickup-slot-empty">
                 <p className="muted">No pickup times are available right now.</p>
@@ -1672,6 +1688,7 @@ function CartSummary({
   submitting,
   orderError,
   disabled,
+  statusMessage,
   onUpdateQuantity,
   onPlaceOrder,
 }) {
@@ -1750,6 +1767,7 @@ function CartSummary({
       </div>
 
       {orderError && <p className="error-text">{orderError}</p>}
+      {!orderError && statusMessage ? <p className="muted cart-preview-status">{statusMessage}</p> : null}
 
       <button className="primary-btn cart-preview-cta" type="button" disabled={disabled || submitting} onClick={onPlaceOrder}>
         {submitting ? 'Placing order…' : 'Place Order'}
