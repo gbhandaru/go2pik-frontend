@@ -1830,6 +1830,7 @@ function PhoneModal({
             <span className="phone-modal__consent-line">I agree to receive SMS messages from Go2Pik for order updates.</span>
             <span className="phone-modal__consent-line">Message &amp; data rates apply.</span>
             <span className="phone-modal__consent-line">Reply STOP to opt out, HELP for help.</span>
+            <span className="phone-modal__consent-line">Consent is not a condition of purchase.</span>
           </span>
         </label>
         {error ? <p className="error-text phone-modal__error">{error}</p> : null}

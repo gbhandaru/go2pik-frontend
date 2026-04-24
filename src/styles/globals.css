@@ -2478,9 +2478,10 @@ textarea {
 
 .phone-modal__consent {
   width: min(410px, 100%);
-  display: flex;
-  align-items: flex-start;
-  gap: 0.55rem;
+  display: grid;
+  grid-template-columns: 1rem 1fr;
+  column-gap: 0.55rem;
+  align-items: start;
   margin-top: 0.9rem;
   text-align: left;
   color: #374151;
@@ -2489,14 +2490,15 @@ textarea {
 }
 
 .phone-modal__consent input {
-  margin-top: 0.15rem;
-  flex: 0 0 auto;
+  margin-top: 0.2rem;
 }
 
 .phone-modal__consent-copy {
-  display: grid;
+  display: flex;
+  flex-direction: column;
   gap: 0.1rem;
   min-width: 0;
+  text-align: left;
 }
 
 .phone-modal__consent-line {
