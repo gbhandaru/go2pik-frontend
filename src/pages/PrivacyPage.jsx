@@ -14,7 +14,7 @@ export default function PrivacyPage() {
         <p className="eyebrow">Privacy Policy</p>
         <h1>SMS Privacy and Consent</h1>
         <p className="legal-lede">
-          Go2Pik is a service provided by EHA Technologies. This Privacy Policy explains how we collect, use, abd protect your information.
+          Go2Pik is a service provided by EHA Technologies. This Privacy Policy explains how we collect, use, and protect your information.
         </p>
         <ul className="legal-list">
           {policyPoints.map((point) => (
