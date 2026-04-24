@@ -1827,9 +1827,7 @@ function PhoneModal({
             checked={smsConsentAccepted}
             onChange={(event) => onSmsConsentChange(event.target.checked)}
           />
-          <span className="phone-modal__consent-copy">
-            I agree to receive SMS messages from Go2Pik for order updates(confirmation, status, pickup alerts). Messages & data rates may apply. Reply STOP to opt out, HELP for help.
-          </span>
+          <span className="phone-modal__consent-copy">I agree to receive SMS messages from Go2Pik for order updates. Messages & data rates may apply.</span>
         </label>
         {error ? <p className="error-text phone-modal__error">{error}</p> : null}
         <button
