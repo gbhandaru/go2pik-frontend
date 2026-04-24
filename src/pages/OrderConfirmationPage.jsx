@@ -9,9 +9,32 @@ import { buildSupportMailtoHref } from '../utils/supportEmail.js';
 import { getRestaurantMenuPath } from '../utils/restaurantRoutes.js';
 
 function formatPickupLabel(order) {
+  const request = order?.pickupRequest || {};
+  const scheduledLabel =
+    request.summary ||
+    order?.pickupDisplayTime ||
+    order?.customer?.pickupDisplayTime ||
+    request.displayTime ||
+    '';
+  const asapLabel =
+    request.displayTime ||
+    order?.pickupDisplayTime ||
+    order?.customer?.pickupDisplayTime ||
+    '';
+
+  if (request.type === 'SCHEDULED' && scheduledLabel) {
+    return `Pickup around ${scheduledLabel}`;
+  }
+  if ((request.type === 'ASAP' || !request.type) && asapLabel) {
+    return `Pickup around ${asapLabel}`;
+  }
+  if (scheduledLabel) {
+    return `Pickup around ${scheduledLabel}`;
+  }
+
   const readyTime = extractReadyTime(order);
   if (readyTime) {
-    return `Ready by ${readyTime}`;
+    return `Pickup around ${readyTime}`;
   }
   return 'Ready soon';
 }
@@ -47,6 +70,15 @@ function extractReadyTime(order) {
     return '';
   }
   const request = order.pickupRequest || {};
+  if (typeof request.displayTime === 'string' && request.displayTime.trim()) {
+    return request.displayTime.trim();
+  }
+  if (typeof order?.pickupDisplayTime === 'string' && order.pickupDisplayTime.trim()) {
+    return order.pickupDisplayTime.trim();
+  }
+  if (typeof request.summary === 'string' && request.summary.trim()) {
+    return request.summary.trim();
+  }
   if (request.type === 'SCHEDULED' && request.scheduledTime) {
     return formatDisplayTime(request.scheduledTime);
   }

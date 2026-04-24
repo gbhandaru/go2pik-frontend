@@ -350,6 +350,20 @@ export default function VerificationPage() {
         customer: {
           ...(orderDraft.customer || {}),
           phone: resolvedPhone,
+          pickupTime:
+            orderDraft?.pickupRequest?.scheduledTime ||
+            orderDraft?.pickupRequest?.readyTime ||
+            orderDraft?.customer?.pickupTime ||
+            orderDraft?.pickupTime ||
+            undefined,
+          pickupDisplayTime:
+            orderDraft?.pickupRequest?.displayTime ||
+            orderDraft?.pickupRequest?.summary ||
+            orderDraft?.customer?.pickupDisplayTime ||
+            orderDraft?.customer?.pickupTime ||
+            orderDraft?.pickupTime ||
+            undefined,
+          notes: orderDraft?.customer?.notes || orderDraft?.pickupRequest?.summary || '',
         },
         customerName: orderDraft.customerName,
         restaurantId: resolvedRestaurantId,
@@ -357,8 +371,60 @@ export default function VerificationPage() {
         items: orderDraft.items,
         subtotal: orderDraft.subtotal,
         total: orderDraft.total,
+        pickupRequest: {
+          ...(orderDraft.pickupRequest || {}),
+          displayTime:
+            orderDraft?.pickupRequest?.displayTime ||
+            orderDraft?.pickupRequest?.summary ||
+            orderDraft?.customer?.pickupDisplayTime ||
+            orderDraft?.customer?.pickupTime ||
+            orderDraft?.pickupTime ||
+            undefined,
+          summary: orderDraft?.pickupRequest?.summary || orderDraft?.pickupRequest?.displayTime || undefined,
+          readyTime:
+            orderDraft?.pickupRequest?.readyTime ||
+            orderDraft?.customer?.pickupTime ||
+            orderDraft?.pickupTime ||
+            undefined,
+        },
       });
       const responseOrder = response?.order || {};
+      const responsePickupRequest = responseOrder.pickupRequest || {};
+      const draftPickupRequest = orderDraft?.pickupRequest || {};
+      const mergedPickupRequest = {
+        ...draftPickupRequest,
+        ...responsePickupRequest,
+      };
+      if (!mergedPickupRequest.type) {
+        mergedPickupRequest.type = draftPickupRequest.type;
+      }
+      if (!mergedPickupRequest.scheduledTime) {
+        mergedPickupRequest.scheduledTime = draftPickupRequest.scheduledTime;
+      }
+      if (!mergedPickupRequest.displayTime) {
+        mergedPickupRequest.displayTime =
+          draftPickupRequest.displayTime ||
+          draftPickupRequest.summary ||
+          orderDraft?.customer?.pickupDisplayTime ||
+          orderDraft?.customer?.pickupTime ||
+          orderDraft?.pickupTime ||
+          responseOrder.pickupTime ||
+          responsePickupRequest.scheduledTime ||
+          responsePickupRequest.readyTime ||
+          undefined;
+      }
+      if (!mergedPickupRequest.readyTime) {
+        mergedPickupRequest.readyTime =
+          draftPickupRequest.readyTime ||
+          orderDraft?.customer?.pickupTime ||
+          orderDraft?.pickupTime ||
+          responseOrder.pickupTime ||
+          responsePickupRequest.scheduledTime ||
+          undefined;
+      }
+      if (!mergedPickupRequest.summary) {
+        mergedPickupRequest.summary = draftPickupRequest.summary || mergedPickupRequest.displayTime;
+      }
       clearCustomerOrderDraft();
       clearCustomerOrderVerification();
       persistVerifiedPhone(orderDraft?.customer?.phone, user);
@@ -372,6 +438,15 @@ export default function VerificationPage() {
             customerName: responseOrder.customer?.name || orderDraft.customerName,
             orderNumber: responseOrder.orderNumber || response?.automation?.confirmationNumber || orderDraft.orderNumber,
             items: responseOrder.items || orderDraft.items,
+            pickupRequest: mergedPickupRequest,
+            pickupTime:
+              responseOrder.pickupTime ||
+              mergedPickupRequest.scheduledTime ||
+              orderDraft?.customer?.pickupTime ||
+              orderDraft?.pickupTime ||
+              mergedPickupRequest.displayTime ||
+              mergedPickupRequest.summary ||
+              undefined,
           },
           customerName: responseOrder.customer?.name || customerName || undefined,
         },
@@ -581,6 +656,14 @@ function buildVerificationStartPayload(orderDraft, customerName, customerPhone, 
 
   const pickupTime =
     orderDraft?.pickupRequest?.scheduledTime ||
+    orderDraft?.pickupRequest?.readyTime ||
+    orderDraft?.customer?.pickupTime ||
+    orderDraft?.pickupTime ||
+    '';
+  const pickupDisplayTime =
+    orderDraft?.pickupRequest?.displayTime ||
+    orderDraft?.pickupRequest?.summary ||
+    orderDraft?.customer?.pickupDisplayTime ||
     orderDraft?.customer?.pickupTime ||
     orderDraft?.pickupTime ||
     '';
@@ -594,7 +677,16 @@ function buildVerificationStartPayload(orderDraft, customerName, customerPhone, 
       phone: normalizedPhone,
       email: orderDraft?.customer?.email || '',
       pickupTime: pickupTime || undefined,
+      pickupDisplayTime: pickupDisplayTime || undefined,
       notes: orderDraft?.customer?.notes || orderDraft?.pickupRequest?.summary || '',
+    },
+    pickupRequest: {
+      ...(orderDraft?.pickupRequest || {}),
+      displayTime: pickupDisplayTime || undefined,
+      summary: orderDraft?.pickupRequest?.summary || pickupDisplayTime || undefined,
+      scheduledTime: orderDraft?.pickupRequest?.scheduledTime || undefined,
+      readyTime: orderDraft?.pickupRequest?.readyTime || pickupTime || undefined,
+      type: orderDraft?.pickupRequest?.type || undefined,
     },
   };
 }
