@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import heroImage from '../assets/Go2Pik_Logo.png';
 import { fetchRestaurants } from '../api/restaurantsApi.js';
 import AsyncState from '../components/shared/AsyncState.jsx';
+import ContactSupportModal from '../components/shared/ContactSupportModal.jsx';
 import { useFetch } from '../hooks/useFetch.js';
 import { buildSupportMailtoHref } from '../utils/supportEmail.js';
 
@@ -40,6 +41,7 @@ const customerBenefits = [
 export default function LandingPage() {
   const navigate = useNavigate();
   const [retryKey, setRetryKey] = useState(0);
+  const [showContactModal, setShowContactModal] = useState(false);
   const { data: restaurants = [], loading, error, errorInfo } = useFetch(() => fetchRestaurants(), [retryKey]);
   const availableNow = useMemo(() => (restaurants || []).slice(0, 3), [restaurants]);
   const availabilityError = errorInfo?.kind === 'not_found'
@@ -62,10 +64,28 @@ export default function LandingPage() {
     setRetryKey((current) => current + 1);
   }
 
+  const supportEmail = 'no-reply@go2pik.com';
   const supportHref = buildSupportMailtoHref({
+    email: supportEmail,
     subject: 'Go2Pik support',
     body: 'Hi Go2Pik team, I need help with my order or account.',
   });
+
+  async function handleCopySupportEmail() {
+    try {
+      await navigator.clipboard.writeText(supportEmail);
+    } catch {
+      const tempInput = document.createElement('input');
+      tempInput.value = supportEmail;
+      tempInput.setAttribute('readonly', 'true');
+      tempInput.style.position = 'absolute';
+      tempInput.style.left = '-9999px';
+      document.body.appendChild(tempInput);
+      tempInput.select();
+      document.execCommand('copy');
+      document.body.removeChild(tempInput);
+    }
+  }
 
   return (
     <section className="landing hero-mode">
@@ -83,9 +103,9 @@ export default function LandingPage() {
             </button>
           </nav>
           <div className="hero-nav-right">
-            <a className="hero-contact" href={supportHref}>
+            <button type="button" className="hero-contact" onClick={() => setShowContactModal(true)}>
               Contact
-            </a>
+            </button>
             <button type="button" className="hero-nav-cta" onClick={handleStartOrdering}>
               Start Ordering
             </button>
@@ -218,11 +238,20 @@ export default function LandingPage() {
           <div className="hero-footer-links">
             <Link to="/privacy">Privacy</Link>
             <Link to="/terms">Terms</Link>
-            <a href={supportHref}>
+            <button type="button" className="hero-contact" onClick={() => setShowContactModal(true)}>
               Contact
-            </a>
+            </button>
           </div>
         </footer>
+
+        {showContactModal ? (
+          <ContactSupportModal
+            email={supportEmail}
+            mailtoHref={supportHref}
+            onClose={() => setShowContactModal(false)}
+            onCopyEmail={handleCopySupportEmail}
+          />
+        ) : null}
       </div>
     </section>
   );
