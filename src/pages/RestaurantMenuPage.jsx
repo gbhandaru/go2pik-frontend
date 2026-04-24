@@ -933,30 +933,6 @@ function formatWeekdayFromDate(value, timezone) {
   });
 }
 
-function formatConfirmationDateLabel(dateKey, timezone) {
-  const input = String(dateKey || '').trim();
-  if (!input) {
-    return '';
-  }
-
-  const match = input.match(/^(\d{4})-(\d{2})-(\d{2})$/);
-  if (!match) {
-    return '';
-  }
-
-  const year = Number(match[1]);
-  const month = Number(match[2]);
-  const day = Number(match[3]);
-  const date = new Date(Date.UTC(year, month - 1, day, 12, 0, 0));
-  return date.toLocaleDateString([], {
-    weekday: 'short',
-    month: 'short',
-    day: 'numeric',
-    year: 'numeric',
-    timeZone: timezone || defaultTimeZone(),
-  });
-}
-
 function formatPickupWindows(windows = [], timezone) {
   const normalized = normalizePickupWindows(windows);
   if (!normalized.length) {
@@ -1161,8 +1137,9 @@ function SchedulePickupModal({
   const activeGroup = findPickupScheduleGroup(scheduledPickupGroups, selectedDateKey) || scheduledPickupGroups[0] || null;
   const visibleGroups = scheduledPickupGroups.slice(0, 14);
   const visibleSlots = activeGroup?.slots || [];
-  const selectedDateLabel = formatConfirmationDateLabel(activeGroup?.key, timezone) || 'Select a date';
-  const selectedTimeLabel = activeGroup?.slots?.find((slot) => slot.value === selectedTime)?.label || 'Select a time';
+  const selectedDateLabel = activeGroup?.label || visibleGroups[0]?.label || 'Select a date';
+  const selectedTimeLabel =
+    activeGroup?.slots?.find((slot) => slot.value === selectedTime)?.label || visibleSlots[0]?.label || 'Select a time';
 
   useEffect(() => {
     if (!scheduledPickupGroups.length) {
