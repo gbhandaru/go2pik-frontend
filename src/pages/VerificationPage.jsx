@@ -344,16 +344,23 @@ export default function VerificationPage() {
     setSubmitting(true);
     setError('');
     try {
-    const response = await confirmOrderVerification({
+      const response = await confirmOrderVerification({
         verificationId: verification?.id,
         code: codeValue,
         customer: {
           ...(orderDraft.customer || {}),
           phone: resolvedPhone,
           pickupTime:
+            orderDraft?.pickupRequest?.scheduledTime ||
+            orderDraft?.pickupRequest?.readyTime ||
             orderDraft?.customer?.pickupTime ||
+            orderDraft?.pickupTime ||
+            undefined,
+          pickupDisplayTime:
             orderDraft?.pickupRequest?.displayTime ||
             orderDraft?.pickupRequest?.summary ||
+            orderDraft?.customer?.pickupDisplayTime ||
+            orderDraft?.customer?.pickupTime ||
             orderDraft?.pickupTime ||
             undefined,
           notes: orderDraft?.customer?.notes || orderDraft?.pickupRequest?.summary || '',
@@ -369,10 +376,16 @@ export default function VerificationPage() {
           displayTime:
             orderDraft?.pickupRequest?.displayTime ||
             orderDraft?.pickupRequest?.summary ||
+            orderDraft?.customer?.pickupDisplayTime ||
             orderDraft?.customer?.pickupTime ||
             orderDraft?.pickupTime ||
             undefined,
           summary: orderDraft?.pickupRequest?.summary || orderDraft?.pickupRequest?.displayTime || undefined,
+          readyTime:
+            orderDraft?.pickupRequest?.readyTime ||
+            orderDraft?.customer?.pickupTime ||
+            orderDraft?.pickupTime ||
+            undefined,
         },
       });
       const responseOrder = response?.order || {};
@@ -392,6 +405,17 @@ export default function VerificationPage() {
         mergedPickupRequest.displayTime =
           draftPickupRequest.displayTime ||
           draftPickupRequest.summary ||
+          orderDraft?.customer?.pickupDisplayTime ||
+          orderDraft?.customer?.pickupTime ||
+          orderDraft?.pickupTime ||
+          responseOrder.pickupTime ||
+          responsePickupRequest.scheduledTime ||
+          responsePickupRequest.readyTime ||
+          undefined;
+      }
+      if (!mergedPickupRequest.readyTime) {
+        mergedPickupRequest.readyTime =
+          draftPickupRequest.readyTime ||
           orderDraft?.customer?.pickupTime ||
           orderDraft?.pickupTime ||
           responseOrder.pickupTime ||
@@ -632,12 +656,14 @@ function buildVerificationStartPayload(orderDraft, customerName, customerPhone, 
 
   const pickupTime =
     orderDraft?.pickupRequest?.scheduledTime ||
+    orderDraft?.pickupRequest?.readyTime ||
     orderDraft?.customer?.pickupTime ||
     orderDraft?.pickupTime ||
     '';
   const pickupDisplayTime =
     orderDraft?.pickupRequest?.displayTime ||
     orderDraft?.pickupRequest?.summary ||
+    orderDraft?.customer?.pickupDisplayTime ||
     orderDraft?.customer?.pickupTime ||
     orderDraft?.pickupTime ||
     '';
@@ -659,6 +685,7 @@ function buildVerificationStartPayload(orderDraft, customerName, customerPhone, 
       displayTime: pickupDisplayTime || undefined,
       summary: orderDraft?.pickupRequest?.summary || pickupDisplayTime || undefined,
       scheduledTime: orderDraft?.pickupRequest?.scheduledTime || undefined,
+      readyTime: orderDraft?.pickupRequest?.readyTime || pickupTime || undefined,
       type: orderDraft?.pickupRequest?.type || undefined,
     },
   };

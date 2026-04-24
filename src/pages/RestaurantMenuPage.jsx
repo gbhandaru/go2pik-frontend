@@ -142,6 +142,7 @@ export default function RestaurantMenuPage() {
       ),
     [selectedPickupMode, scheduledPickupTime, asapReadyTime, pickupAvailability],
   );
+  const pickupReadyTime = useMemo(() => buildPickupTimestamp(asapReadyTime), [asapReadyTime]);
 
   const lastOrder = useMemo(() => {
     const sourceItems = normalizeOrderItems(data?.lastOrder);
@@ -356,6 +357,7 @@ export default function RestaurantMenuPage() {
       total,
       pickupSummary,
       pickupDisplayTime,
+      pickupReadyTime,
       user,
     });
     storeCustomerOrderDraft(draft);
@@ -387,6 +389,7 @@ export default function RestaurantMenuPage() {
       total,
       pickupSummary,
       pickupDisplayTime,
+      pickupReadyTime,
       user,
     });
 
@@ -560,6 +563,7 @@ function buildCustomerOrderDraft({
   total,
   pickupSummary,
   pickupDisplayTime,
+  pickupReadyTime,
   user,
 }) {
   const orderItems = cart.map((item) => ({
@@ -586,15 +590,17 @@ function buildCustomerOrderDraft({
       scheduledTime: pickupTime,
       summary: pickupSummary,
       displayTime: pickupDisplayTime || pickupSummary,
+      readyTime: selectedPickupMode === PICKUP_MODES.ASAP ? pickupReadyTime || undefined : undefined,
     },
     customer: {
       name: customerName || getCustomerDisplayName(user) || '',
       phone: customerPhone,
       email: user?.email || '',
       pickupTime:
-        selectedPickupMode === PICKUP_MODES.SCHEDULED
+          selectedPickupMode === PICKUP_MODES.SCHEDULED
           ? pickupTime
-          : pickupDisplayTime || pickupTime,
+          : pickupReadyTime || pickupTime,
+      pickupDisplayTime: pickupDisplayTime || pickupSummary || '',
       notes: pickupSummary || '',
     },
     customerName: customerName || undefined,
