@@ -34,7 +34,6 @@ export default function RestaurantMenuPage() {
   const [scheduledPickupTime, setScheduledPickupTime] = useState('');
   const [orderError, setOrderError] = useState('');
   const [customerPhoneInput, setCustomerPhoneInput] = useState(initialCustomerPhone);
-  const [smsConsentAccepted, setSmsConsentAccepted] = useState(false);
   const [showPhoneModal, setShowPhoneModal] = useState(false);
   const [retryKey, setRetryKey] = useState(0);
   const phoneInputRef = useRef(null);
@@ -84,7 +83,6 @@ export default function RestaurantMenuPage() {
 
   useEffect(() => {
     if (showPhoneModal) {
-      setSmsConsentAccepted(false);
       phoneInputRef.current?.focus();
     }
   }, [showPhoneModal]);
@@ -367,7 +365,6 @@ export default function RestaurantMenuPage() {
     });
     storeCustomerOrderDraft(draft);
     setCustomerPhoneInput(getCustomerPhone(user) || initialCustomerPhone);
-    setSmsConsentAccepted(false);
     setShowPhoneModal(true);
   };
 
@@ -401,7 +398,6 @@ export default function RestaurantMenuPage() {
     storeCustomerOrderDraft(payload);
     clearCustomerOrderVerification();
     setShowPhoneModal(false);
-    setSmsConsentAccepted(false);
     navigate('/verification', {
       state: {
         orderDraft: payload,
@@ -533,12 +529,10 @@ export default function RestaurantMenuPage() {
           <PhoneModal
             customerPhone={customerPhoneInput}
             error={phoneValidationMessage || orderError}
-            canSendCode={isCustomerPhoneValid && smsConsentAccepted}
-            smsConsentAccepted={smsConsentAccepted}
+            canSendCode={isCustomerPhoneValid}
             onClose={() => {
               setShowPhoneModal(false);
               setOrderError('');
-              setSmsConsentAccepted(false);
             }}
             onCustomerPhoneChange={(value) => {
               setCustomerPhoneInput(value);
@@ -546,7 +540,6 @@ export default function RestaurantMenuPage() {
                 setOrderError('');
               }
             }}
-            onSmsConsentChange={setSmsConsentAccepted}
             onSendOtp={handleSendOtp}
             phoneInputRef={phoneInputRef}
           />
@@ -1783,10 +1776,8 @@ function PhoneModal({
   customerPhone,
   error,
   canSendCode,
-  smsConsentAccepted,
   onClose,
   onCustomerPhoneChange,
-  onSmsConsentChange,
   onSendOtp,
   phoneInputRef,
 }) {
@@ -1821,14 +1812,6 @@ function PhoneModal({
             />
           </div>
         </label>
-        <label className="phone-modal__consent">
-          <input
-            type="checkbox"
-            checked={smsConsentAccepted}
-            onChange={(event) => onSmsConsentChange(event.target.checked)}
-          />
-          <span className="phone-modal__consent-copy">I agree to receive SMS messages from Go2Pik for order updates. Messages & data rates may apply.</span>
-        </label>
         {error ? <p className="error-text phone-modal__error">{error}</p> : null}
         <button
           type="button"
@@ -1839,7 +1822,7 @@ function PhoneModal({
           Send Code
         </button>
         <p className="phone-modal__legal">
-          By continuing, you agree to receive SMS messages related to your order. Message frequency may vary. Message and data rates may apply.
+          By continuing, you agree to receive SMS order updates. Message and data rates may apply.
         </p>
         <p className="phone-modal__helper">
           <span aria-hidden="true">✓</span>

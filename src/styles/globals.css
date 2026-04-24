@@ -2476,33 +2476,6 @@ textarea {
   margin-top: 0.9rem;
 }
 
-.phone-modal__consent {
-  width: min(410px, 100%);
-  display: flex;
-  align-items: flex-start;
-  gap: 0.55rem;
-  margin-top: 0.95rem;
-  text-align: left;
-  color: #374151;
-  font-size: 0.82rem;
-  line-height: 1.28;
-  box-sizing: border-box;
-  padding: 0.15rem 0;
-}
-
-.phone-modal__consent input {
-  margin-top: 0.15rem;
-  flex: 0 0 auto;
-}
-
-.phone-modal__consent-copy {
-  display: block;
-  flex: 1 1 auto;
-  min-width: 0;
-  max-width: 100%;
-  overflow-wrap: anywhere;
-}
-
 .phone-modal__submit {
   margin-top: 1.15rem;
   min-width: 235px;
