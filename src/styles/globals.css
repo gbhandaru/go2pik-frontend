@@ -2476,6 +2476,33 @@ textarea {
   margin-top: 0.9rem;
 }
 
+.phone-modal__consent {
+  width: min(410px, 100%);
+  display: flex;
+  align-items: flex-start;
+  gap: 0.55rem;
+  margin-top: 0.9rem;
+  text-align: left;
+  color: #374151;
+  font-size: 0.82rem;
+  line-height: 1.28;
+}
+
+.phone-modal__consent input {
+  margin-top: 0.15rem;
+  flex: 0 0 auto;
+}
+
+.phone-modal__consent-copy {
+  display: grid;
+  gap: 0.1rem;
+  min-width: 0;
+}
+
+.phone-modal__consent-line {
+  display: block;
+}
+
 .phone-modal__submit {
   margin-top: 1.15rem;
   min-width: 235px;
