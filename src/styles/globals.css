@@ -3596,6 +3596,16 @@ hr {
   gap: 1rem;
 }
 
+.hero-footer-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+
+.hero-footer-copy p {
+  margin: 0;
+}
+
 .hero-footer-links {
   display: flex;
   align-items: center;

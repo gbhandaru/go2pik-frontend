@@ -234,7 +234,10 @@ export default function LandingPage() {
         </section>
 
         <footer className="hero-footer">
-          <p>© {new Date().getFullYear()} Go2Pik. All rights reserved.</p>
+          <div className="hero-footer-copy">
+            <p>© {new Date().getFullYear()} Go2Pik. All rights reserved.</p>
+            <p>Go2Pik is a service provided by EHA Technologies.</p>
+          </div>
           <div className="hero-footer-links">
             <Link to="/privacy">Privacy</Link>
             <Link to="/terms">Terms</Link>
