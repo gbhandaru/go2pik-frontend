@@ -538,7 +538,6 @@ export default function RestaurantMenuPage() {
             onClose={() => {
               setShowPhoneModal(false);
               setOrderError('');
-              setSmsConsentAccepted(false);
             }}
             onCustomerPhoneChange={(value) => {
               setCustomerPhoneInput(value);
@@ -1827,8 +1826,11 @@ function PhoneModal({
             checked={smsConsentAccepted}
             onChange={(event) => onSmsConsentChange(event.target.checked)}
           />
-          <span className="phone-modal__consent-copy">
-            I agree to receive SMS messages from Go2Pik for order updates(confirmation, status, pickup alerts). Messages & data rates may apply. Reply STOP to opt out, HELP for help.
+          <span className="phone-modal__consent-copy" aria-label="SMS consent">
+            <span className="phone-modal__consent-line">I agree to receive SMS messages from Go2Pik for order updates.</span>
+            <span className="phone-modal__consent-line">Message &amp; data rates apply.</span>
+            <span className="phone-modal__consent-line">Reply STOP to opt out, HELP for help.</span>
+            <span className="phone-modal__consent-line">Consent is not a condition of purchase.</span>
           </span>
         </label>
         {error ? <p className="error-text phone-modal__error">{error}</p> : null}
@@ -1841,7 +1843,7 @@ function PhoneModal({
           Send Code
         </button>
         <p className="phone-modal__legal">
-          By continuing, you agree to receive SMS messages related to your order. Message frequency may vary. Message and data rates may apply.
+          By continuing, you agree to receive SMS order updates. Message and data rates may apply.
         </p>
         <p className="phone-modal__helper">
           <span aria-hidden="true">✓</span>

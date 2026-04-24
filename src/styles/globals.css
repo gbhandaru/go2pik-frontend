@@ -2478,10 +2478,11 @@ textarea {
 
 .phone-modal__consent {
   width: min(410px, 100%);
-  display: flex;
-  align-items: flex-start;
-  gap: 0.55rem;
-  margin-top: 0.95rem;
+  display: grid;
+  grid-template-columns: 1rem 1fr;
+  column-gap: 0.55rem;
+  align-items: start;
+  margin-top: 0.9rem;
   text-align: left;
   color: #374151;
   font-size: 0.82rem;
@@ -2489,13 +2490,19 @@ textarea {
 }
 
 .phone-modal__consent input {
-  margin-top: 0.15rem;
-  flex: 0 0 auto;
+  margin-top: 0.2rem;
 }
 
 .phone-modal__consent-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+  min-width: 0;
+  text-align: left;
+}
+
+.phone-modal__consent-line {
   display: block;
-  max-width: 33ch;
 }
 
 .phone-modal__submit {
@@ -2521,6 +2528,7 @@ textarea {
 
 .phone-modal__helper {
   margin: 0.7rem 0 0;
+  width: min(410px, 100%);
   font-size: 0.88rem;
   color: #5e5e5e;
   display: flex;
@@ -2536,10 +2544,11 @@ textarea {
 
 .phone-modal__legal {
   margin: 0.65rem 0 0;
-  max-width: 33ch;
+  width: min(410px, 100%);
   font-size: 0.72rem;
   line-height: 1.3;
   color: #8a8a8a;
+  overflow-wrap: anywhere;
 }
 
 .customer-partial-modal-backdrop {
