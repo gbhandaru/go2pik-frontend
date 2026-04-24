@@ -847,6 +847,13 @@ img {
   text-decoration: underline;
 }
 
+button.text-link {
+  border: none;
+  background: none;
+  padding: 0;
+  font: inherit;
+}
+
 input,
 select,
 textarea {

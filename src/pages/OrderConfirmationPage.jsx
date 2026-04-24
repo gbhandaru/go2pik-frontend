@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { acceptUpdatedCustomerOrder, cancelCustomerOrder, fetchOrderById } from '../api/ordersApi.js';
+import ContactSupportModal from '../components/shared/ContactSupportModal.jsx';
 import CustomerPartialOrderModal from '../components/shared/CustomerPartialOrderModal.jsx';
 import { useAuth } from '../hooks/useAuth.jsx';
 import { formatCurrency } from '../utils/formatCurrency.js';
@@ -326,6 +327,7 @@ export default function OrderConfirmationPage() {
   const [showPartialOrderModal, setShowPartialOrderModal] = useState(() => isPendingPartialCustomerAction(location.state?.order));
   const [partialOrderSubmitting, setPartialOrderSubmitting] = useState(false);
   const [partialOrderError, setPartialOrderError] = useState('');
+  const [showContactModal, setShowContactModal] = useState(false);
 
   useEffect(() => {
     if (location.state?.order) {
@@ -395,10 +397,28 @@ export default function OrderConfirmationPage() {
   const customerName = fallbackCustomerName || resolvedCustomerName;
   const total = resolveOrderTotal(order, items);
   const browseMenuPath = getBrowseMenuPath(order);
+  const supportEmail = 'orders@go2pik.com';
   const supportHref = buildSupportMailtoHref({
+    email: supportEmail,
     subject: `Go2Pik support - Order ${confirmationNumber}`,
     body: `Hi Go2Pik team,\n\nI need help with order #${confirmationNumber}.`,
   });
+
+  async function handleCopySupportEmail() {
+    try {
+      await navigator.clipboard.writeText(supportEmail);
+    } catch {
+      const tempInput = document.createElement('input');
+      tempInput.value = supportEmail;
+      tempInput.setAttribute('readonly', 'true');
+      tempInput.style.position = 'absolute';
+      tempInput.style.left = '-9999px';
+      document.body.appendChild(tempInput);
+      tempInput.select();
+      document.execCommand('copy');
+      document.body.removeChild(tempInput);
+    }
+  }
 
   const heroSubtitle = customerName
     ? `Thank you, ${customerName}! Your order is being prepared.`
@@ -536,11 +556,21 @@ export default function OrderConfirmationPage() {
 
         <p className="support-text">
           Need help?{' '}
-          <a href={supportHref} className="text-link">
+          <button type="button" className="text-link" onClick={() => setShowContactModal(true)}>
             Contact support
-          </a>
+          </button>
         </p>
       </section>
+      {showContactModal ? (
+        <ContactSupportModal
+          email={supportEmail}
+          mailtoHref={supportHref}
+          title="Need help with your order?"
+          description="Use the email below for pickup, billing, or order questions."
+          onClose={() => setShowContactModal(false)}
+          onCopyEmail={handleCopySupportEmail}
+        />
+      ) : null}
       {showPartialOrderModal && isPendingPartialCustomerAction(order) ? (
         <CustomerPartialOrderModal
           order={order}

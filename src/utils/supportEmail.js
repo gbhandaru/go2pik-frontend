@@ -1,6 +1,6 @@
 const SUPPORT_EMAIL = 'support@go2pik.com';
 
-export function buildSupportMailtoHref({ subject = '', body = '' } = {}) {
+export function buildSupportMailtoHref({ email = SUPPORT_EMAIL, subject = '', body = '' } = {}) {
   const params = new URLSearchParams();
   if (subject) {
     params.set('subject', subject);
@@ -10,6 +10,5 @@ export function buildSupportMailtoHref({ subject = '', body = '' } = {}) {
   }
 
   const query = params.toString();
-  return query ? `mailto:${SUPPORT_EMAIL}?${query}` : `mailto:${SUPPORT_EMAIL}`;
+  return query ? `mailto:${email}?${query}` : `mailto:${email}`;
 }
-
