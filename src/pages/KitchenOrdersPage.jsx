@@ -18,7 +18,6 @@ const STATUS_FLOW = {
 
 const NEW_TAB_ACTIONS = [
   { label: 'Accept', status: 'accepted', variant: 'emphasis' },
-  { label: 'Partially Accept', status: 'partially_accepted', variant: 'warning' },
   { label: 'Reject', status: 'rejected', variant: 'danger' },
 ];
 
