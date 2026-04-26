@@ -95,11 +95,6 @@ export default function KitchenOrderCard({
                 {waitLabel}
               </span>
             )}
-            {isPartialAcceptance ? (
-              <span className="kitchen-order-card__badge kitchen-order-card__badge--partial">
-                Partially Accepted
-              </span>
-            ) : null}
           </div>
         </div>
         <div className="kitchen-order-card__pickup">
