@@ -777,6 +777,39 @@ img {
   pointer-events: none;
 }
 
+.restaurant-empty-card {
+  min-height: 100%;
+  background: #fff;
+  border-radius: 2rem;
+  padding: 1.75rem 1.5rem;
+  border: 1px solid rgba(226, 232, 240, 0.9);
+  box-shadow: 0 18px 35px rgba(15, 23, 42, 0.06);
+  display: flex;
+  align-items: flex-start;
+  justify-content: flex-start;
+}
+
+.restaurant-empty-card__text {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  width: fit-content;
+  color: #94a3b8;
+  opacity: 0.55;
+  font-size: clamp(2rem, 5vw, 3.35rem);
+  font-weight: 800;
+  line-height: 0.92;
+  letter-spacing: -0.06em;
+}
+
+.restaurant-empty-card__line {
+  display: block;
+}
+
+.restaurant-empty-card__line--bottom {
+  margin-left: 2.35ch;
+}
+
 .card-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));

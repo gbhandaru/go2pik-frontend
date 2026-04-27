@@ -13,6 +13,8 @@ export default function HomePage() {
   const [retryKey, setRetryKey] = useState(0);
   const { data: restaurants, loading, error, errorInfo } = useFetch(() => fetchRestaurants(), [retryKey]);
   const canBrowseMenu = canAccessCustomerFlow;
+  const restaurantCount = restaurants?.length || 0;
+  const showEmptyRestaurantSection = !loading && !error && restaurantCount < 4;
   const restaurantListError =
     errorInfo?.offline
       ? 'You appear to be offline. Check your connection and try again.'
@@ -53,36 +55,44 @@ export default function HomePage() {
         />
       ) : null}
 
-      {!loading && !error && restaurants?.length > 0 && (
+      {!loading && !error && showEmptyRestaurantSection && (
         <section className="card-grid">
-          {restaurants.map((restaurant) => (
-            <Link
-              key={restaurant.id}
-              className="restaurant-card-link"
-              to={getRestaurantMenuPath(restaurant)}
-              onClick={(event) => handleViewMenu(restaurant, event)}
-            >
-              <article className="card restaurant-card">
-                {restaurant.heroImage && (
-                  <div className="restaurant-card__image-wrap">
-                    <img src={restaurant.heroImage} alt={restaurant.name} className="restaurant-card__image" />
-                  </div>
-                )}
-                <div className="restaurant-card__body">
-                  <div className="restaurant-card__heading">
-                    <p className="restaurant-card__tag">Restaurant</p>
-                    <h2>{restaurant.name}</h2>
-                  </div>
-                  <div className="restaurant-card__meta">
-                    <p className="restaurant-card__pickup">{restaurant.eta || 'Pickup in 15–20 mins'}</p>
-                    <p className="restaurant-card__address">{renderRestaurantAddress(restaurant)}</p>
-                  </div>
-                  <p className="restaurant-card__details">{restaurant.cuisine}</p>
-                  <span className="primary-btn restaurant-card__cta">View Menu</span>
-                </div>
-              </article>
-            </Link>
-          ))}
+          {restaurantCount > 0
+            ? restaurants.map((restaurant) => (
+                <Link
+                  key={restaurant.id}
+                  className="restaurant-card-link"
+                  to={getRestaurantMenuPath(restaurant)}
+                  onClick={(event) => handleViewMenu(restaurant, event)}
+                >
+                  <article className="card restaurant-card">
+                    {restaurant.heroImage && (
+                      <div className="restaurant-card__image-wrap">
+                        <img src={restaurant.heroImage} alt={restaurant.name} className="restaurant-card__image" />
+                      </div>
+                    )}
+                    <div className="restaurant-card__body">
+                      <div className="restaurant-card__heading">
+                        <p className="restaurant-card__tag">Restaurant</p>
+                        <h2>{restaurant.name}</h2>
+                      </div>
+                      <div className="restaurant-card__meta">
+                        <p className="restaurant-card__pickup">{restaurant.eta || 'Pickup in 15–20 mins'}</p>
+                        <p className="restaurant-card__address">{renderRestaurantAddress(restaurant)}</p>
+                      </div>
+                      <p className="restaurant-card__details">{restaurant.cuisine}</p>
+                      <span className="primary-btn restaurant-card__cta">View Menu</span>
+                    </div>
+                  </article>
+                </Link>
+              ))
+            : null}
+          <article className="restaurant-empty-card" aria-label="More restaurants coming soon">
+            <div className="restaurant-empty-card__text">
+              <span className="restaurant-empty-card__line restaurant-empty-card__line--top">More</span>
+              <span className="restaurant-empty-card__line restaurant-empty-card__line--bottom">Coming Soon</span>
+            </div>
+          </article>
         </section>
       )}
     </main>
