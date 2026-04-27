@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { Navigate, useNavigate, useParams } from 'react-router-dom';
 import { fetchRestaurantMenu } from '../api/restaurantsApi.js';
 import { fetchCustomerOrders } from '../api/customersApi.js';
+import { validatePromotion } from '../api/promotionsApi.js';
 import AsyncState from '../components/shared/AsyncState.jsx';
 import { useFetch } from '../hooks/useFetch.js';
 import { formatCurrency } from '../utils/formatCurrency.js';
@@ -10,7 +11,7 @@ import { getRestaurantAddressLines } from '../utils/formatRestaurantAddress.js';
 import { getRestaurantMenuPath, matchesRestaurantRouteKey, resolveRestaurantRouteKey } from '../utils/restaurantRoutes.js';
 import { useAuth } from '../hooks/useAuth.jsx';
 import { buildCustomerLoginState, getCustomerHomePath } from '../utils/customerFlow.js';
-import { clearCustomerOrderVerification, getCustomerOrderDraft, getVerifiedCustomerPhone, storeCustomerOrderDraft } from '../services/authStorage.js';
+import { clearCustomerOrderVerification, getCustomerOrderDraft, storeCustomerOrderDraft } from '../services/authStorage.js';
 import { getCustomerId, getCustomerPhone } from '../utils/customerIdentity.js';
 
 const PICKUP_MODES = {
@@ -38,6 +39,15 @@ export default function RestaurantMenuPage() {
   const [scheduledPickupDraftTime, setScheduledPickupDraftTime] = useState('');
   const [orderError, setOrderError] = useState('');
   const [customerPhoneInput, setCustomerPhoneInput] = useState(initialCustomerPhone);
+  const [promoCodeInput, setPromoCodeInput] = useState('');
+  const [pendingPromoCode, setPendingPromoCode] = useState('');
+  const [appliedPromo, setAppliedPromo] = useState(null);
+  const [discountAmount, setDiscountAmount] = useState(0);
+  const [finalAmount, setFinalAmount] = useState(0);
+  const [promoMessage, setPromoMessage] = useState('');
+  const [promoError, setPromoError] = useState('');
+  const [promoSubmitting, setPromoSubmitting] = useState(false);
+  const [showManualPromoInput, setShowManualPromoInput] = useState(false);
   const [smsConsentAccepted, setSmsConsentAccepted] = useState(false);
   const [showPhoneModal, setShowPhoneModal] = useState(false);
   const [retryKey, setRetryKey] = useState(0);
@@ -74,12 +84,33 @@ export default function RestaurantMenuPage() {
       setSelectedPickupMode(storedDraft?.pickupRequest?.type === PICKUP_MODES.SCHEDULED ? PICKUP_MODES.SCHEDULED : PICKUP_MODES.ASAP);
       setScheduledPickupTime(storedDraft?.pickupRequest?.scheduledTime || '');
       setCustomerPhoneInput(storedDraft?.customer?.phone || storedDraft?.customerPhone || initialCustomerPhone);
+      setPromoCodeInput(storedDraft?.promoCodeInput || storedDraft?.pendingPromoCode || storedDraft?.promoCode || '');
+      setPendingPromoCode(storedDraft?.pendingPromoCode || '');
+      setAppliedPromo(storedDraft?.appliedPromo || null);
+      setDiscountAmount(Number(storedDraft?.appliedPromo?.discountAmount ?? 0) || 0);
+      setFinalAmount(Number(storedDraft?.appliedPromo?.finalAmount ?? storedDraft?.subtotal ?? 0) || 0);
+      setPromoMessage(
+        storedDraft?.appliedPromo?.valid
+          ? `${storedDraft.appliedPromo.promoCode || storedDraft.appliedPromo.code} applied — You saved ${formatCurrency(Number(storedDraft?.appliedPromo?.discountAmount ?? 0) || 0)}`
+          : storedDraft?.pendingPromoCode
+            ? 'Promo will be applied after phone verification'
+            : '',
+      );
+      setPromoError('');
       return;
     }
 
     setCart([]);
     setSelectedPickupMode(PICKUP_MODES.ASAP);
     setScheduledPickupTime('');
+    setPromoCodeInput('');
+    setPendingPromoCode('');
+    setAppliedPromo(null);
+    setDiscountAmount(0);
+    setFinalAmount(0);
+    setPromoMessage('');
+    setPromoError('');
+    setShowManualPromoInput(false);
   }, [data?.restaurant?.id, routeKey, initialCustomerPhone]);
 
   useEffect(() => {
@@ -102,7 +133,7 @@ export default function RestaurantMenuPage() {
     customerPhoneInput.trim() && !isCustomerPhoneValid ? 'Please enter a valid US phone number' : '';
 
   const totalItems = useMemo(() => cart.reduce((sum, item) => sum + item.quantity, 0), [cart]);
-  const total = useMemo(() => cart.reduce((sum, item) => sum + item.price * item.quantity, 0), [cart]);
+  const subtotal = useMemo(() => cart.reduce((sum, item) => sum + item.price * item.quantity, 0), [cart]);
   const quantityById = useMemo(
     () =>
       cart.reduce((acc, item) => {
@@ -119,6 +150,11 @@ export default function RestaurantMenuPage() {
       }, {}),
     [cart],
   );
+  const finalTotal = useMemo(
+    () => (appliedPromo?.valid ? finalAmount : subtotal),
+    [appliedPromo?.valid, finalAmount, subtotal],
+  );
+  const restaurantIdForPromo = restaurant?.id || routeKey || '';
 
   const menu = data?.menu || [];
   const categories = data?.categories || data?.menuCategories || data?.menu_categories || [];
@@ -358,6 +394,81 @@ export default function RestaurantMenuPage() {
     setRetryKey((current) => current + 1);
   };
 
+  const applyPromoCode = async (nextPromoCode) => {
+    const normalizedPromoCode = normalizePromoCode(nextPromoCode);
+    setPromoError('');
+    setPromoMessage('');
+
+    if (!normalizedPromoCode) {
+      setPromoError('Enter a promo code to apply.');
+      return;
+    }
+
+    if (!isCustomerPhoneValid) {
+      setPendingPromoCode(normalizedPromoCode);
+      setAppliedPromo(null);
+      setDiscountAmount(0);
+      setFinalAmount(subtotal);
+      setPromoMessage('Promo will be applied after phone verification');
+      return;
+    }
+
+    setPromoSubmitting(true);
+    try {
+      const response = await validatePromotion({
+        promoCode: normalizedPromoCode,
+        customerPhone: normalizedCustomerPhone,
+        orderAmount: subtotal,
+        restaurantId: restaurantIdForPromo,
+      });
+      const validation = normalizePromotionValidationResponse(response, subtotal, normalizedPromoCode);
+      if (validation.valid) {
+        setAppliedPromo(validation);
+        setPendingPromoCode('');
+        setDiscountAmount(validation.discountAmount);
+        setFinalAmount(validation.finalAmount);
+        setPromoMessage(`${validation.promoCode} applied — You saved ${formatCurrency(validation.discountAmount)}`);
+        setPromoError('');
+        return;
+      }
+
+      setAppliedPromo(null);
+      setPendingPromoCode('');
+      setDiscountAmount(0);
+      setFinalAmount(subtotal);
+      setPromoMessage('');
+      setPromoError(validation.message || 'Promo code is invalid or already used');
+    } catch (error) {
+      setAppliedPromo(null);
+      setPendingPromoCode('');
+      setDiscountAmount(0);
+      setFinalAmount(subtotal);
+      setPromoError(error?.message || 'Unable to validate promo code right now.');
+    } finally {
+      setPromoSubmitting(false);
+    }
+  };
+
+  const handleLaunchOfferApply = () => {
+    setPromoCodeInput('GO2PIK2');
+    void applyPromoCode('GO2PIK2');
+  };
+
+  const handlePromoApply = async () => {
+    void applyPromoCode(promoCodeInput);
+  };
+
+  const handleRemovePromo = () => {
+    setPromoCodeInput('');
+    setPendingPromoCode('');
+    setAppliedPromo(null);
+    setDiscountAmount(0);
+    setFinalAmount(subtotal);
+    setPromoMessage('');
+    setPromoError('');
+    setShowManualPromoInput(false);
+  };
+
   const handlePlaceOrder = async () => {
     setOrderError('');
     if (!cart.length || !restaurant) {
@@ -380,11 +491,14 @@ export default function RestaurantMenuPage() {
       cartItemById,
       customerName,
       customerPhone: getCustomerPhone(user) || initialCustomerPhone,
+      promoCodeInput,
+      pendingPromoCode,
+      promoCode: appliedPromo?.valid ? appliedPromo.promoCode : '',
       restaurantRouteKey: restaurantId,
       restaurant,
       scheduledPickupTime,
       selectedPickupMode,
-      total,
+      subtotal,
       pickupSummary,
       pickupDisplayTime,
       pickupReadyTime,
@@ -412,11 +526,14 @@ export default function RestaurantMenuPage() {
       cartItemById,
       customerName,
       customerPhone,
+      promoCodeInput,
+      pendingPromoCode,
+      promoCode: appliedPromo?.valid ? appliedPromo.promoCode : '',
       restaurantRouteKey: restaurantId,
       restaurant,
       scheduledPickupTime,
       selectedPickupMode,
-      total,
+      subtotal,
       pickupSummary,
       pickupDisplayTime,
       pickupReadyTime,
@@ -534,12 +651,22 @@ export default function RestaurantMenuPage() {
 
         <CartSummary
           cart={cart}
-        total={total}
+          subtotal={subtotal}
+          finalTotal={finalTotal}
         totalItems={totalItems}
         pickupSummary={pickupSummary}
         paymentMessage="No online payment required"
           disabled={!cart.length || missingScheduledTime || closedAsapBlocked}
           orderError={orderError}
+          promoCodeInput={promoCodeInput}
+          pendingPromoCode={pendingPromoCode}
+          promoMessage={promoMessage}
+          promoError={promoError}
+          promoSubmitting={promoSubmitting}
+          appliedPromo={appliedPromo}
+          discountAmount={discountAmount}
+          finalAmount={finalTotal}
+          showManualPromoInput={showManualPromoInput}
           statusMessage={
             closedAsapBlocked
               ? 'Restaurant is closed right now, place your order during restaurant open hours.'
@@ -547,6 +674,28 @@ export default function RestaurantMenuPage() {
                 ? 'Choose a pickup time from the available hours.'
                 : ''
           }
+          onPromoCodeInputChange={(value) => {
+            setPromoCodeInput(value);
+            if (promoError) {
+              setPromoError('');
+            }
+            const normalizedValue = normalizePromoCode(value);
+            if (appliedPromo?.valid && normalizedValue !== appliedPromo.promoCode) {
+              setAppliedPromo(null);
+              setDiscountAmount(0);
+              setFinalAmount(subtotal);
+              setPromoMessage('');
+              setPendingPromoCode('');
+            }
+            if (promoMessage && pendingPromoCode && normalizePromoCode(value) !== pendingPromoCode) {
+              setPromoMessage('');
+              setPendingPromoCode('');
+            }
+          }}
+          onToggleManualPromoInput={() => setShowManualPromoInput((current) => !current)}
+          onLaunchOfferApply={handleLaunchOfferApply}
+          onApplyPromo={handlePromoApply}
+          onRemovePromo={handleRemovePromo}
           onUpdateQuantity={updateQuantity}
           onPlaceOrder={handlePlaceOrder}
         />
@@ -595,11 +744,14 @@ function buildCustomerOrderDraft({
   cartItemById,
   customerName,
   customerPhone,
+  promoCodeInput,
+  pendingPromoCode,
+  promoCode,
   restaurantRouteKey,
   restaurant,
   scheduledPickupTime,
   selectedPickupMode,
-  total,
+  subtotal,
   pickupSummary,
   pickupDisplayTime,
   pickupReadyTime,
@@ -622,8 +774,11 @@ function buildCustomerOrderDraft({
     restaurantRouteKey: restaurantRouteKey || resolveRestaurantRouteKey(restaurant),
     restaurant,
     items: orderItems,
-    subtotal: total,
-    total,
+    subtotal,
+    total: subtotal,
+    promoCodeInput: promoCodeInput || '',
+    pendingPromoCode: pendingPromoCode || '',
+    promoCode: promoCode || '',
     pickupRequest: {
       type: selectedPickupMode,
       scheduledTime: pickupTime,
@@ -643,6 +798,28 @@ function buildCustomerOrderDraft({
       notes: pickupSummary || '',
     },
     customerName: customerName || undefined,
+  };
+}
+
+function normalizePromoCode(value) {
+  return String(value || '').trim().toUpperCase();
+}
+
+function normalizePromotionValidationResponse(response, orderAmount, promoCode) {
+  const valid = Boolean(response?.valid);
+  const promoCodeValue = normalizePromoCode(response?.promoCode || promoCode);
+  const discountAmount = Number(response?.discountAmount);
+  const finalAmount = Number(response?.finalAmount);
+  const message = String(response?.message || '').trim();
+
+  return {
+    valid,
+    promotionId: response?.promotionId ?? null,
+    promoCode: promoCodeValue,
+    discountAmount: Number.isFinite(discountAmount) ? discountAmount : valid ? 0 : 0,
+    finalAmount: Number.isFinite(finalAmount) ? finalAmount : Number(orderAmount) || 0,
+    message,
+    raw: response,
   };
 }
 
@@ -1839,7 +2016,8 @@ function sortMenuItems(items = []) {
 // Cart summary mirrors pickup choice and keeps the place order action focused.
 function CartSummary({
   cart,
-  total,
+  subtotal,
+  finalTotal,
   totalItems,
   pickupSummary,
   paymentMessage,
@@ -1847,11 +2025,27 @@ function CartSummary({
   orderError,
   disabled,
   statusMessage,
+  promoCodeInput,
+  pendingPromoCode,
+  promoMessage,
+  promoError,
+  promoSubmitting,
+  appliedPromo,
+  discountAmount,
+  finalAmount,
+  showManualPromoInput,
+  onPromoCodeInputChange,
+  onToggleManualPromoInput,
+  onLaunchOfferApply,
+  onApplyPromo,
+  onRemovePromo,
   onUpdateQuantity,
   onPlaceOrder,
 }) {
-  const grandTotal = resolveMoneyDisplay(null, total);
+  const grandTotal = resolveMoneyDisplay(null, finalAmount ?? finalTotal ?? subtotal);
+  const discountLine = Number(discountAmount) || 0;
   const isCartEmpty = cart.length === 0;
+  const isPromoActive = Boolean(appliedPromo?.valid || pendingPromoCode);
 
   return (
     <aside className="card cart-panel cart-summary cart-wireframe">
@@ -1907,7 +2101,70 @@ function CartSummary({
               </li>
             ))}
           </ul>
+          <div className="cart-promo">
+            <div className="cart-promo__launch">
+              <div className="cart-promo__launch-copy">
+                <p className="eyebrow">Launch Offer 🎉</p>
+                <strong>GO2PIK2 — Get $2 off your first pickup order</strong>
+                {promoMessage ? <p className="cart-promo__message">{promoMessage}</p> : null}
+                {promoError ? <p className="error-text cart-promo__error">{promoError}</p> : null}
+                {appliedPromo?.valid && discountLine > 0 ? (
+                  <p className="cart-promo__applied-copy">
+                    {appliedPromo.promoCode} applied — You saved {resolveMoneyDisplay(null, discountLine)}
+                  </p>
+                ) : null}
+              </div>
+              <div className="cart-promo__launch-actions">
+                {isPromoActive ? (
+                  <button type="button" className="cart-promo__apply" onClick={onRemovePromo}>
+                    Remove promo
+                  </button>
+                ) : (
+                  <button type="button" className="cart-promo__apply" onClick={onLaunchOfferApply} disabled={promoSubmitting}>
+                    {promoSubmitting ? 'Applying…' : 'Apply'}
+                  </button>
+                )}
+              </div>
+            </div>
+            <button type="button" className="cart-promo__link" onClick={onToggleManualPromoInput}>
+              Have another promo code?
+            </button>
+            {showManualPromoInput ? (
+              <div className="cart-promo__manual">
+                <div className="cart-promo__row">
+                  <input
+                    className="cart-promo__input"
+                    type="text"
+                    value={promoCodeInput}
+                    onChange={(event) => onPromoCodeInputChange(event.target.value)}
+                    placeholder="Enter code"
+                    autoComplete="off"
+                  />
+                  <button
+                    type="button"
+                    className="cart-promo__apply"
+                    onClick={onApplyPromo}
+                    disabled={promoSubmitting || !promoCodeInput.trim()}
+                  >
+                    {promoSubmitting ? 'Applying…' : 'Apply'}
+                  </button>
+                </div>
+              </div>
+            ) : null}
+          </div>
           <div className="cart-preview-totals">
+            {discountLine > 0 ? (
+              <div className="cart-preview-totals-row">
+                <span>Subtotal</span>
+                <strong>{resolveMoneyDisplay(null, subtotal)}</strong>
+              </div>
+            ) : null}
+            {discountLine > 0 ? (
+              <div className="cart-preview-totals-row cart-preview-totals-row--discount">
+                <span>Promo</span>
+                <strong>-{resolveMoneyDisplay(null, discountLine)}</strong>
+              </div>
+            ) : null}
             <div className="cart-preview-totals-grand">
               <span>Estimated Total</span>
               <strong>{grandTotal}</strong>

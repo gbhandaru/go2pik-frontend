@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
+import { validatePromotion } from '../api/promotionsApi.js';
 import AsyncState from '../components/shared/AsyncState.jsx';
 import { fetchTwilioVerifyHealth } from '../api/healthApi.js';
 import { confirmOrderVerification, resendOrderVerification, startOrderVerification } from '../api/ordersApi.js';
@@ -356,6 +357,26 @@ export default function VerificationPage() {
       return;
     }
 
+    let orderDraftForSubmit = orderDraft;
+    const promoResolution = await resolvePromoDraftForVerification({
+      orderDraft,
+      customerPhone: resolvedPhone,
+      restaurantId: resolvedRestaurantId,
+    });
+    if (promoResolution.error) {
+      if (promoResolution.orderDraft) {
+        setOrderDraft(promoResolution.orderDraft);
+        storeCustomerOrderDraft(promoResolution.orderDraft);
+      }
+      setError(promoResolution.error);
+      return;
+    }
+    orderDraftForSubmit = promoResolution.orderDraft;
+    if (promoResolution.updated) {
+      setOrderDraft(orderDraftForSubmit);
+      storeCustomerOrderDraft(orderDraftForSubmit);
+    }
+
     lastAutoSubmittedCodeRef.current = codeValue;
     setSubmitting(true);
     setError('');
@@ -364,49 +385,50 @@ export default function VerificationPage() {
         verificationId: verification?.id,
         code: codeValue,
         customer: {
-          ...(orderDraft.customer || {}),
+          ...(orderDraftForSubmit.customer || {}),
           phone: resolvedPhone,
           pickupTime:
-            orderDraft?.pickupRequest?.scheduledTime ||
-            orderDraft?.pickupRequest?.readyTime ||
-            orderDraft?.customer?.pickupTime ||
-            orderDraft?.pickupTime ||
+            orderDraftForSubmit?.pickupRequest?.scheduledTime ||
+            orderDraftForSubmit?.pickupRequest?.readyTime ||
+            orderDraftForSubmit?.customer?.pickupTime ||
+            orderDraftForSubmit?.pickupTime ||
             undefined,
           pickupDisplayTime:
-            orderDraft?.pickupRequest?.displayTime ||
-            orderDraft?.pickupRequest?.summary ||
-            orderDraft?.customer?.pickupDisplayTime ||
-            orderDraft?.customer?.pickupTime ||
-            orderDraft?.pickupTime ||
+            orderDraftForSubmit?.pickupRequest?.displayTime ||
+            orderDraftForSubmit?.pickupRequest?.summary ||
+            orderDraftForSubmit?.customer?.pickupDisplayTime ||
+            orderDraftForSubmit?.customer?.pickupTime ||
+            orderDraftForSubmit?.pickupTime ||
             undefined,
-          notes: orderDraft?.customer?.notes || orderDraft?.pickupRequest?.summary || '',
+          notes: orderDraftForSubmit?.customer?.notes || orderDraftForSubmit?.pickupRequest?.summary || '',
         },
-        customerName: orderDraft.customerName,
+        customerName: orderDraftForSubmit.customerName,
         restaurantId: resolvedRestaurantId,
-        restaurant: orderDraft.restaurant,
-        items: orderDraft.items,
-        subtotal: orderDraft.subtotal,
-        total: orderDraft.total,
+        restaurant: orderDraftForSubmit.restaurant,
+        items: orderDraftForSubmit.items,
+        subtotal: orderDraftForSubmit.subtotal,
+        total: orderDraftForSubmit.subtotal,
+        promoCode: orderDraftForSubmit.promoCode || undefined,
         pickupRequest: {
-          ...(orderDraft.pickupRequest || {}),
+          ...(orderDraftForSubmit.pickupRequest || {}),
           displayTime:
-            orderDraft?.pickupRequest?.displayTime ||
-            orderDraft?.pickupRequest?.summary ||
-            orderDraft?.customer?.pickupDisplayTime ||
-            orderDraft?.customer?.pickupTime ||
-            orderDraft?.pickupTime ||
+            orderDraftForSubmit?.pickupRequest?.displayTime ||
+            orderDraftForSubmit?.pickupRequest?.summary ||
+            orderDraftForSubmit?.customer?.pickupDisplayTime ||
+            orderDraftForSubmit?.customer?.pickupTime ||
+            orderDraftForSubmit?.pickupTime ||
             undefined,
-          summary: orderDraft?.pickupRequest?.summary || orderDraft?.pickupRequest?.displayTime || undefined,
+          summary: orderDraftForSubmit?.pickupRequest?.summary || orderDraftForSubmit?.pickupRequest?.displayTime || undefined,
           readyTime:
-            orderDraft?.pickupRequest?.readyTime ||
-            orderDraft?.customer?.pickupTime ||
-            orderDraft?.pickupTime ||
+            orderDraftForSubmit?.pickupRequest?.readyTime ||
+            orderDraftForSubmit?.customer?.pickupTime ||
+            orderDraftForSubmit?.pickupTime ||
             undefined,
         },
       });
       const responseOrder = response?.order || {};
       const responsePickupRequest = responseOrder.pickupRequest || {};
-      const draftPickupRequest = orderDraft?.pickupRequest || {};
+      const draftPickupRequest = orderDraftForSubmit?.pickupRequest || {};
       const mergedPickupRequest = {
         ...draftPickupRequest,
         ...responsePickupRequest,
@@ -443,26 +465,29 @@ export default function VerificationPage() {
       }
       clearCustomerOrderDraft();
       clearCustomerOrderVerification();
-      persistVerifiedPhone(orderDraft?.customer?.phone, user);
+      persistVerifiedPhone(orderDraftForSubmit?.customer?.phone, user);
       navigate('/order-confirmation', {
         replace: true,
         state: {
           order: {
             ...response,
             ...responseOrder,
-            customer: responseOrder.customer || orderDraft.customer,
-            customerName: responseOrder.customer?.name || orderDraft.customerName,
-            orderNumber: responseOrder.orderNumber || response?.automation?.confirmationNumber || orderDraft.orderNumber,
-            items: responseOrder.items || orderDraft.items,
+            customer: responseOrder.customer || orderDraftForSubmit.customer,
+            customerName: responseOrder.customer?.name || orderDraftForSubmit.customerName,
+            orderNumber: responseOrder.orderNumber || response?.automation?.confirmationNumber || orderDraftForSubmit.orderNumber,
+            items: responseOrder.items || orderDraftForSubmit.items,
             pickupRequest: mergedPickupRequest,
             pickupTime:
               responseOrder.pickupTime ||
               mergedPickupRequest.scheduledTime ||
-              orderDraft?.customer?.pickupTime ||
-              orderDraft?.pickupTime ||
+              orderDraftForSubmit?.customer?.pickupTime ||
+              orderDraftForSubmit?.pickupTime ||
               mergedPickupRequest.displayTime ||
               mergedPickupRequest.summary ||
               undefined,
+            subtotal: responseOrder.subtotal ?? orderDraftForSubmit.subtotal,
+            total: responseOrder.total ?? orderDraftForSubmit.subtotal,
+            promoCode: responseOrder.promoCode ?? orderDraftForSubmit.promoCode ?? undefined,
           },
           customerName: responseOrder.customer?.name || customerName || undefined,
         },
@@ -704,6 +729,90 @@ function buildVerificationStartPayload(orderDraft, customerName, customerPhone, 
       readyTime: orderDraft?.pickupRequest?.readyTime || pickupTime || undefined,
       type: orderDraft?.pickupRequest?.type || undefined,
     },
+  };
+}
+
+async function resolvePromoDraftForVerification({ orderDraft, customerPhone, restaurantId }) {
+  if (!orderDraft) {
+    return { orderDraft: null, updated: false, error: 'Order draft unavailable.' };
+  }
+
+  const subtotal = Number(orderDraft?.subtotal ?? orderDraft?.total ?? 0);
+  const normalizedSubtotal = Number.isFinite(subtotal) ? subtotal : 0;
+  const pendingPromoCode = normalizePromoCode(
+    orderDraft?.pendingPromoCode || (!orderDraft?.promoCode ? orderDraft?.promoCodeInput : '') || '',
+  );
+  const existingPromoCode = normalizePromoCode(orderDraft?.promoCode || '');
+
+  if (existingPromoCode && !pendingPromoCode) {
+    return {
+      orderDraft: {
+        ...orderDraft,
+        promoCode: existingPromoCode,
+      },
+      updated: false,
+    };
+  }
+
+  if (!pendingPromoCode) {
+    return {
+      orderDraft: {
+        ...orderDraft,
+      },
+      updated: false,
+    };
+  }
+
+  try {
+    const response = await validatePromotion({
+      promoCode: pendingPromoCode,
+      customerPhone,
+      orderAmount: normalizedSubtotal,
+      restaurantId,
+    });
+    const validation = normalizePromotionValidationResponse(response, normalizedSubtotal, pendingPromoCode);
+    return {
+      orderDraft: {
+        ...orderDraft,
+        promoCodeInput: orderDraft?.promoCodeInput || pendingPromoCode,
+        pendingPromoCode: '',
+        promoCode: validation.valid ? validation.promoCode : '',
+        appliedPromo: validation.valid ? validation : null,
+      },
+      updated: validation.valid,
+    };
+  } catch (error) {
+    return {
+      orderDraft: {
+        ...orderDraft,
+        pendingPromoCode: '',
+        promoCode: '',
+        appliedPromo: null,
+      },
+      error: error?.message || 'Unable to validate promo code right now.',
+      updated: false,
+    };
+  }
+}
+
+function normalizePromoCode(value) {
+  return String(value || '').trim().toUpperCase();
+}
+
+function normalizePromotionValidationResponse(response, orderAmount, promoCode) {
+  const valid = Boolean(response?.valid);
+  const discountAmount = Number(response?.discountAmount);
+  const finalAmount = Number(response?.finalAmount);
+  const message = String(response?.message || '').trim();
+
+  return {
+    valid,
+    promotionId: response?.promotionId ?? null,
+    promoCode: normalizePromoCode(response?.promoCode || promoCode),
+    discountAmount: Number.isFinite(discountAmount) ? discountAmount : 0,
+    finalAmount: Number.isFinite(finalAmount) ? finalAmount : Number(orderAmount) || 0,
+    message,
+    raw: response,
   };
 }
 
