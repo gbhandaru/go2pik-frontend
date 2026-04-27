@@ -12,7 +12,6 @@ export default function HomePage() {
   const { canAccessCustomerFlow } = useAuth();
   const [retryKey, setRetryKey] = useState(0);
   const { data: restaurants, loading, error, errorInfo } = useFetch(() => fetchRestaurants(), [retryKey]);
-  const canBrowseMenu = canAccessCustomerFlow;
   const restaurantCount = restaurants?.length || 0;
   const showEmptyRestaurantSection = !loading && !error && restaurantCount < 4;
   const restaurantListError =
@@ -21,7 +20,7 @@ export default function HomePage() {
       : 'We’re having trouble loading restaurants right now. Please try again.';
 
   const handleViewMenu = (restaurant, event) => {
-    if (canBrowseMenu) {
+    if (canAccessCustomerFlow) {
       return;
     }
 

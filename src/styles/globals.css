@@ -87,6 +87,13 @@ img {
   background: transparent;
 }
 
+.customer-profile-trigger__label {
+  font-size: 0.92rem;
+  font-weight: 700;
+  white-space: nowrap;
+  padding-right: 0.2rem;
+}
+
 .customer-profile-trigger__avatar {
   width: 2.15rem;
   height: 2.15rem;
@@ -145,6 +152,11 @@ img {
   padding: 0.55rem 0.65rem;
   border-radius: 0.7rem;
   font-size: 0.92rem;
+}
+
+.customer-profile-menu__identity--compact {
+  padding-bottom: 0.45rem;
+  margin-bottom: 0.3rem;
 }
 
 .customer-profile-menu__identity {
@@ -796,10 +808,10 @@ img {
   width: fit-content;
   color: #94a3b8;
   opacity: 0.55;
-  font-size: clamp(2rem, 5vw, 3.35rem);
+  font-size: clamp(1.4rem, 3.8vw, 2.4rem);
   font-weight: 800;
   line-height: 0.92;
-  letter-spacing: -0.06em;
+  letter-spacing: -0.03em;
 }
 
 .restaurant-empty-card__line {
@@ -807,7 +819,10 @@ img {
 }
 
 .restaurant-empty-card__line--bottom {
-  margin-left: 2.35ch;
+  margin-left: 2.05ch;
+  white-space: nowrap;
+  word-break: keep-all;
+  overflow-wrap: normal;
 }
 
 .card-grid {
