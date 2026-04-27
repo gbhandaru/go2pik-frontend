@@ -590,7 +590,7 @@ export default function OrderConfirmationPage() {
                 </div>
               ) : null}
               <div className="order-totals-grand-label">
-                <strong>Total</strong>
+                <strong>Estimated Total</strong>
                 <strong>{total}</strong>
               </div>
             </div>
