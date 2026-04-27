@@ -9,6 +9,7 @@ import { resolveMoneyDisplay } from '../utils/orderMoney.js';
 import { getRestaurantAddressLines } from '../utils/formatRestaurantAddress.js';
 import { getRestaurantMenuPath, matchesRestaurantRouteKey, resolveRestaurantRouteKey } from '../utils/restaurantRoutes.js';
 import { useAuth } from '../hooks/useAuth.jsx';
+import { buildCustomerLoginState, getCustomerHomePath } from '../utils/customerFlow.js';
 import { clearCustomerOrderVerification, getCustomerOrderDraft, getVerifiedCustomerPhone, storeCustomerOrderDraft } from '../services/authStorage.js';
 import { getCustomerId, getCustomerPhone } from '../utils/customerIdentity.js';
 
@@ -449,7 +450,7 @@ export default function RestaurantMenuPage() {
       <Navigate
         to="/login"
         replace
-        state={{ from: { pathname: getRestaurantMenuPath(routeKey) } }}
+        state={buildCustomerLoginState(getRestaurantMenuPath(routeKey), getCustomerHomePath())}
       />
     );
   }
@@ -471,7 +472,7 @@ export default function RestaurantMenuPage() {
           primaryActionLabel="Retry"
           onPrimaryAction={handleRetryMenu}
           secondaryActionLabel="Back to restaurant list"
-          onSecondaryAction={() => navigate('/home')}
+          onSecondaryAction={() => navigate(getCustomerHomePath())}
         />
       </main>
     );
@@ -481,7 +482,7 @@ export default function RestaurantMenuPage() {
     <main className="page-section">
       <section className="menu-shell">
         <div className="card menu-panel">
-          <button type="button" className="menu-back-link" onClick={() => navigate('/home')}>
+          <button type="button" className="menu-back-link" onClick={() => navigate(getCustomerHomePath())}>
             <span aria-hidden="true">←</span>
             <span>Back to restaurant list</span>
           </button>
@@ -526,7 +527,7 @@ export default function RestaurantMenuPage() {
               primaryActionLabel="Retry"
               onPrimaryAction={handleRetryMenu}
               secondaryActionLabel="Back to restaurant list"
-              onSecondaryAction={() => navigate('/home')}
+              onSecondaryAction={() => navigate(getCustomerHomePath())}
             />
           )}
         </div>

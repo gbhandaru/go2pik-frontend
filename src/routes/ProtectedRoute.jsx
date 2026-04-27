@@ -1,5 +1,6 @@
 import { Navigate, Outlet, useLocation } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth.jsx';
+import { buildCustomerLoginState } from '../utils/customerFlow.js';
 
 export default function ProtectedRoute({ children, allowGuest = true }) {
   const location = useLocation();
@@ -14,7 +15,7 @@ export default function ProtectedRoute({ children, allowGuest = true }) {
   }
 
   if (!isAuthenticated && !(allowGuest && isGuest)) {
-    return <Navigate to="/login" replace state={{ from: { pathname: location.pathname } }} />;
+    return <Navigate to="/login" replace state={buildCustomerLoginState(location.pathname, '/home')} />;
   }
 
   return children || <Outlet />;

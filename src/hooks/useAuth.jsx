@@ -87,7 +87,24 @@ function notifyWelcomeEmail(payload) {
 }
 
 function resolveCustomerProfile(response) {
-  return response?.user || response?.customer || response?.profile || null;
+  if (!response || typeof response !== 'object') {
+    return null;
+  }
+
+  const directProfile = response.user || response.customer || response.profile;
+  if (directProfile) {
+    return directProfile;
+  }
+
+  const nestedKeys = ['data', 'attributes', 'result', 'payload', 'details'];
+  for (const key of nestedKeys) {
+    const nestedProfile = resolveCustomerProfile(response[key]);
+    if (nestedProfile) {
+      return nestedProfile;
+    }
+  }
+
+  return null;
 }
 
 export function AuthProvider({ children }) {

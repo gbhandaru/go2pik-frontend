@@ -4,7 +4,9 @@ import heroImage from '../assets/Go2Pik_Logo.png';
 import { fetchRestaurants } from '../api/restaurantsApi.js';
 import AsyncState from '../components/shared/AsyncState.jsx';
 import ContactSupportModal from '../components/shared/ContactSupportModal.jsx';
+import { useAuth } from '../hooks/useAuth.jsx';
 import { useFetch } from '../hooks/useFetch.js';
+import { buildCustomerLoginState, getCustomerHomePath, getCustomerOrdersPath } from '../utils/customerFlow.js';
 import { buildSupportMailtoHref } from '../utils/supportEmail.js';
 
 const heroPerks = [
@@ -40,6 +42,7 @@ const customerBenefits = [
 
 export default function LandingPage() {
   const navigate = useNavigate();
+  const { isAuthenticated } = useAuth();
   const [retryKey, setRetryKey] = useState(0);
   const [showContactModal, setShowContactModal] = useState(false);
   const { data: restaurants = [], loading, error, errorInfo } = useFetch(() => fetchRestaurants(), [retryKey]);
@@ -49,7 +52,9 @@ export default function LandingPage() {
     : 'Restaurants are temporarily unavailable. Please try again.';
 
   function handleStartOrdering() {
-    navigate('/login');
+    navigate(isAuthenticated ? getCustomerHomePath() : '/login', {
+      state: isAuthenticated ? undefined : buildCustomerLoginState(getCustomerHomePath()),
+    });
   }
 
   function handleCreateAccount() {
@@ -57,7 +62,15 @@ export default function LandingPage() {
   }
 
   function handleBrowse() {
-    navigate('/home');
+    navigate(isAuthenticated ? getCustomerHomePath() : '/login', {
+      state: isAuthenticated ? undefined : buildCustomerLoginState(getCustomerHomePath()),
+    });
+  }
+
+  function handleTrackOrders() {
+    navigate(isAuthenticated ? getCustomerOrdersPath() : '/login', {
+      state: isAuthenticated ? undefined : buildCustomerLoginState(getCustomerOrdersPath(), getCustomerHomePath()),
+    });
   }
 
   function handleRetryRestaurants() {
@@ -98,7 +111,7 @@ export default function LandingPage() {
             <button type="button" onClick={handleBrowse}>
               Browse Restaurants
             </button>
-            <button type="button" onClick={() => navigate('/orders')}>
+            <button type="button" onClick={handleTrackOrders}>
               Track Orders
             </button>
           </nav>

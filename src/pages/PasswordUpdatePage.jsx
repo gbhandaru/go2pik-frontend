@@ -1,6 +1,7 @@
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useState } from 'react';
 import { updateCustomerPassword } from '../api/authApi.js';
+import { buildCustomerLoginState, getCustomerHomePath } from '../utils/customerFlow.js';
 
 export default function PasswordUpdatePage() {
   const location = useLocation();
@@ -46,7 +47,12 @@ export default function PasswordUpdatePage() {
   };
 
   const handleBackToLogin = () => {
-    navigate('/login', { state: { email: form.email } });
+    navigate('/login', {
+      state: {
+        email: form.email,
+        ...buildCustomerLoginState(getCustomerHomePath()),
+      },
+    });
   };
 
   return (
