@@ -2107,11 +2107,6 @@ function CartSummary({
                 <strong>GO2PIK2 — Get $2 off your first pickup order</strong>
                 {promoMessage ? <p className="cart-promo__message">{promoMessage}</p> : null}
                 {promoError ? <p className="error-text cart-promo__error">{promoError}</p> : null}
-                {appliedPromo?.valid && discountLine > 0 ? (
-                  <p className="cart-promo__applied-copy">
-                    {appliedPromo.promoCode} applied — You saved {resolveMoneyDisplay(null, discountLine)}
-                  </p>
-                ) : null}
               </div>
               <div className="cart-promo__launch-actions">
                 {isPromoActive ? (

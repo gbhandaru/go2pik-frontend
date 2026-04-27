@@ -466,6 +466,20 @@ export default function VerificationPage() {
       clearCustomerOrderDraft();
       clearCustomerOrderVerification();
       persistVerifiedPhone(orderDraftForSubmit?.customer?.phone, user);
+      const promoDiscountAmount = Number(
+          orderDraftForSubmit?.appliedPromo?.discountAmount ??
+          orderDraftForSubmit?.appliedPromo?.discount_amount ??
+          responseOrder.discountAmount ??
+          responseOrder.discount_amount ??
+          0,
+      );
+      const promoFinalAmount = Number(
+          orderDraftForSubmit?.appliedPromo?.finalAmount ??
+          orderDraftForSubmit?.appliedPromo?.final_amount ??
+          responseOrder.finalAmount ??
+          responseOrder.final_amount ??
+          orderDraftForSubmit.subtotal,
+      );
       navigate('/order-confirmation', {
         replace: true,
         state: {
@@ -486,7 +500,27 @@ export default function VerificationPage() {
               mergedPickupRequest.summary ||
               undefined,
             subtotal: responseOrder.subtotal ?? orderDraftForSubmit.subtotal,
-            total: responseOrder.total ?? orderDraftForSubmit.subtotal,
+            discountAmount: Number.isFinite(promoDiscountAmount) ? promoDiscountAmount : undefined,
+            finalAmount: Number.isFinite(promoFinalAmount) ? promoFinalAmount : undefined,
+            total: Number.isFinite(promoFinalAmount) ? promoFinalAmount : responseOrder.total ?? orderDraftForSubmit.subtotal,
+            appliedPromo: orderDraftForSubmit.appliedPromo
+              ? {
+                  ...orderDraftForSubmit.appliedPromo,
+                  promoCode:
+                    orderDraftForSubmit.appliedPromo.promoCode ||
+                    orderDraftForSubmit.appliedPromo.code ||
+                    responseOrder.promotionCode ||
+                    responseOrder.promoCode ||
+                    orderDraftForSubmit.promoCode ||
+                    undefined,
+                  discountAmount: Number.isFinite(promoDiscountAmount)
+                    ? promoDiscountAmount
+                    : orderDraftForSubmit.appliedPromo.discountAmount,
+                  finalAmount: Number.isFinite(promoFinalAmount)
+                    ? promoFinalAmount
+                    : orderDraftForSubmit.appliedPromo.finalAmount,
+                }
+              : null,
             promotionCode:
               responseOrder.promotionCode ?? responseOrder.promoCode ?? orderDraftForSubmit.promoCode ?? undefined,
             promoCode: responseOrder.promoCode ?? responseOrder.promotionCode ?? orderDraftForSubmit.promoCode ?? undefined,
@@ -751,6 +785,7 @@ async function resolvePromoDraftForVerification({ orderDraft, customerPhone, res
       orderDraft: {
         ...orderDraft,
         promoCode: existingPromoCode,
+        appliedPromo: orderDraft?.appliedPromo || null,
       },
       updated: false,
     };
