@@ -150,15 +150,14 @@ export default function RestaurantMenuPage() {
       }, {}),
     [cart],
   );
+  const menu = data?.menu || [];
+  const categories = data?.categories || data?.menuCategories || data?.menu_categories || [];
+  const restaurant = data?.restaurant;
   const finalTotal = useMemo(
     () => (appliedPromo?.valid ? finalAmount : subtotal),
     [appliedPromo?.valid, finalAmount, subtotal],
   );
   const restaurantIdForPromo = restaurant?.id || routeKey || '';
-
-  const menu = data?.menu || [];
-  const categories = data?.categories || data?.menuCategories || data?.menu_categories || [];
-  const restaurant = data?.restaurant;
   const restaurantHistoryKey = restaurant?.id || routeKey;
   const pickupAvailability = useMemo(
     () => resolvePickupAvailability(data, restaurant),
