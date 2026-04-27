@@ -4,6 +4,7 @@ import AsyncState from '../components/shared/AsyncState.jsx';
 import { useAuth } from '../hooks/useAuth.jsx';
 import { fetchRestaurants } from '../api/restaurantsApi.js';
 import { useFetch } from '../hooks/useFetch.js';
+import { buildCustomerLoginState, getCustomerHomePath } from '../utils/customerFlow.js';
 import { getRestaurantAddressLines } from '../utils/formatRestaurantAddress.js';
 import { getRestaurantMenuPath } from '../utils/restaurantRoutes.js';
 
@@ -26,9 +27,7 @@ export default function HomePage() {
 
     event.preventDefault();
     navigate('/login', {
-      state: {
-        from: { pathname: getRestaurantMenuPath(restaurant) },
-      },
+      state: buildCustomerLoginState(getRestaurantMenuPath(restaurant), getCustomerHomePath()),
     });
   };
 

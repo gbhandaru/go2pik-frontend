@@ -2,11 +2,12 @@ import { useEffect, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth.jsx';
 import { consumeAuthNotice } from '../services/authStorage.js';
+import { resolveCustomerGuestPath, resolveCustomerPostLoginPath } from '../utils/customerFlow.js';
 
 export default function LoginPage() {
   const navigate = useNavigate();
   const location = useLocation();
-  const { login, continueAsGuest, error, loading, isAuthenticated, isGuest } = useAuth();
+  const { login, continueAsGuest, error, loading, isAuthenticated } = useAuth();
   const [form, setForm] = useState(() => ({ email: location.state?.email || '', password: '' }));
   const [localError, setLocalError] = useState(null);
   const [sessionNotice, setSessionNotice] = useState('');
@@ -16,10 +17,10 @@ export default function LoginPage() {
   }, []);
 
   useEffect(() => {
-    if (!loading && (isAuthenticated || isGuest)) {
-      navigate(location.state?.from?.pathname || '/home', { replace: true });
+    if (!loading && isAuthenticated) {
+      navigate(resolveCustomerPostLoginPath(location.state?.from?.pathname), { replace: true });
     }
-  }, [isAuthenticated, isGuest, loading, location.state, navigate]);
+  }, [isAuthenticated, loading, location.state, navigate]);
 
   const handleChange = (event) => {
     const { name, value } = event.target;
@@ -70,7 +71,7 @@ export default function LoginPage() {
         </button>
         <button type="button" className="guest-link" onClick={() => {
           continueAsGuest();
-          navigate(location.state?.from?.pathname || '/home', { replace: true });
+          navigate(resolveCustomerGuestPath(location.state?.guestTo?.pathname), { replace: true });
         }}>
           Continue as guest
         </button>

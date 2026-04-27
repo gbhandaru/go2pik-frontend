@@ -1,10 +1,10 @@
 import { useEffect, useRef, useState } from 'react';
-import { Link, useLocation } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth.jsx';
+import { buildCustomerLoginState, getCustomerOrdersPath } from '../../utils/customerFlow.js';
 import { getCustomerDisplayName, getCustomerInitial } from '../../utils/customerIdentity.js';
 
 export default function CustomerProfileMenu() {
-  const location = useLocation();
   const { user, loading, isGuest, isAuthenticated } = useAuth();
   const menuRef = useRef(null);
   const [open, setOpen] = useState(false);
@@ -83,7 +83,7 @@ export default function CustomerProfileMenu() {
 
           {isAuthenticated ? (
             <>
-              <Link className="customer-profile-menu__item" to="/orders" role="menuitem" onClick={() => setOpen(false)}>
+              <Link className="customer-profile-menu__item" to={getCustomerOrdersPath()} role="menuitem" onClick={() => setOpen(false)}>
                 My Orders
               </Link>
               <Link className="customer-profile-menu__item" to="/privacy" role="menuitem" onClick={() => setOpen(false)}>
@@ -99,7 +99,7 @@ export default function CustomerProfileMenu() {
                 className="customer-profile-menu__item"
                 to="/login"
                 role="menuitem"
-                state={{ from: { pathname: location.pathname } }}
+                state={buildCustomerLoginState('/home')}
                 onClick={() => setOpen(false)}
               >
                 Sign in

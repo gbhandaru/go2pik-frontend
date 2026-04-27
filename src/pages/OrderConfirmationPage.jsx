@@ -6,6 +6,7 @@ import CustomerPartialOrderModal from '../components/shared/CustomerPartialOrder
 import { useAuth } from '../hooks/useAuth.jsx';
 import { formatCurrency } from '../utils/formatCurrency.js';
 import { formatRestaurantAddress, getRestaurantAddressLines } from '../utils/formatRestaurantAddress.js';
+import { getCustomerHomePath, getCustomerOrdersPath } from '../utils/customerFlow.js';
 import { buildSupportMailtoHref } from '../utils/supportEmail.js';
 import { getRestaurantMenuPath } from '../utils/restaurantRoutes.js';
 
@@ -374,7 +375,7 @@ export default function OrderConfirmationPage() {
         <div className="page-empty-state">
           <h2>Order complete</h2>
           <p>We could not find the confirmation details, but your order was submitted.</p>
-          <button type="button" className="primary-btn" onClick={() => navigate('/home')}>
+          <button type="button" className="primary-btn" onClick={() => navigate(getCustomerHomePath())}>
             Back to restaurant list
           </button>
         </div>
@@ -425,7 +426,7 @@ export default function OrderConfirmationPage() {
     : 'Thank you! Your order is being prepared.';
 
   const handleBrowseMenu = () => navigate(browseMenuPath);
-  const handleBrowseRestaurants = () => navigate('/home');
+  const handleBrowseRestaurants = () => navigate(getCustomerHomePath());
   const handleAcceptUpdatedOrder = async () => {
     if (!order?.id || partialOrderSubmitting) {
       return;
@@ -457,7 +458,7 @@ export default function OrderConfirmationPage() {
       setCurrentOrder(updatedOrder);
       setShowPartialOrderModal(false);
       setPartialOrderError('');
-      navigate('/orders', { replace: true });
+      navigate(getCustomerOrdersPath(), { replace: true });
     } catch (error) {
       setPartialOrderError(error?.message || 'Unable to cancel the updated order right now.');
     } finally {

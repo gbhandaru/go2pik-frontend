@@ -6,6 +6,7 @@ import CustomerPartialOrderModal from '../components/shared/CustomerPartialOrder
 import AsyncState from '../components/shared/AsyncState.jsx';
 import { useAuth } from '../hooks/useAuth.jsx';
 import { useFetch } from '../hooks/useFetch.js';
+import { getCustomerHomePath } from '../utils/customerFlow.js';
 import { formatCurrency } from '../utils/formatCurrency.js';
 import { getCustomerDisplayName, getCustomerId } from '../utils/customerIdentity.js';
 import { getRestaurantMenuPath } from '../utils/restaurantRoutes.js';
@@ -172,7 +173,7 @@ export default function OrdersPage() {
           primaryActionLabel="Retry"
           onPrimaryAction={handleRetryOrders}
           secondaryActionLabel="Back to restaurant list"
-          onSecondaryAction={() => navigate('/home')}
+          onSecondaryAction={() => navigate(getCustomerHomePath())}
         />
       </main>
     );
@@ -196,7 +197,7 @@ export default function OrdersPage() {
               </span>
               My Orders
             </button>
-            <button type="button" className="customer-orders-nav__item" onClick={() => navigate('/home')}>
+            <button type="button" className="customer-orders-nav__item" onClick={() => navigate(getCustomerHomePath())}>
               <span className="customer-orders-nav__icon" aria-hidden="true">
                 <RestaurantIcon />
               </span>
@@ -207,7 +208,7 @@ export default function OrdersPage() {
 
         <section className="customer-orders-main">
           <header className="customer-orders-topbar card">
-            <button type="button" className="customer-orders-back" onClick={() => navigate('/home')}>
+            <button type="button" className="customer-orders-back" onClick={() => navigate(getCustomerHomePath())}>
               <span aria-hidden="true">←</span>
               <span>Back to restaurant list</span>
             </button>

@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth.jsx';
+import { buildCustomerLoginState, getCustomerHomePath } from '../utils/customerFlow.js';
 
 export default function SignupPage() {
   const { signup, loading, error } = useAuth();
@@ -30,14 +31,19 @@ export default function SignupPage() {
         ...(form.phone ? { phone: form.phone } : {}),
       };
       await signup(payload);
-      navigate('/home', { replace: true });
+      navigate(getCustomerHomePath(), { replace: true });
     } catch (err) {
       setLocalError(err.message);
     }
   };
 
   const handleBackToLogin = () => {
-    navigate('/login', { state: { email: form.email } });
+    navigate('/login', {
+      state: {
+        email: form.email,
+        ...buildCustomerLoginState(getCustomerHomePath()),
+      },
+    });
   };
 
   return (
@@ -96,7 +102,14 @@ export default function SignupPage() {
           <button type="button" className="primary-btn ghost" onClick={handleBackToLogin}>
             Back to login
           </button>
-          <Link className="text-link" to="/login" state={{ email: form.email }}>
+          <Link
+            className="text-link"
+            to="/login"
+            state={{
+              email: form.email,
+              ...buildCustomerLoginState(getCustomerHomePath()),
+            }}
+          >
             Already have an account?
           </Link>
         </div>

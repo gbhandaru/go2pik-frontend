@@ -6,6 +6,7 @@ import { confirmOrderVerification, resendOrderVerification, startOrderVerificati
 import { updateCustomerPhone } from '../api/authApi.js';
 import { ENV } from '../config/env.js';
 import { useAuth } from '../hooks/useAuth.jsx';
+import { getCustomerHomePath } from '../utils/customerFlow.js';
 import {
   clearCustomerOrderDraft,
   clearCustomerOrderVerification,
@@ -233,7 +234,7 @@ export default function VerificationPage() {
       return;
     }
 
-    navigate('/home', { replace: true });
+    navigate(getCustomerHomePath(), { replace: true });
   };
 
   if (!orderDraft) {
@@ -245,7 +246,7 @@ export default function VerificationPage() {
           primaryActionLabel="Retry"
           onPrimaryAction={handleRetryDraft}
           secondaryActionLabel="Back to restaurant list"
-          onSecondaryAction={() => navigate('/home')}
+          onSecondaryAction={() => navigate(getCustomerHomePath())}
         />
       </main>
     );
