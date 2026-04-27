@@ -487,7 +487,9 @@ export default function VerificationPage() {
               undefined,
             subtotal: responseOrder.subtotal ?? orderDraftForSubmit.subtotal,
             total: responseOrder.total ?? orderDraftForSubmit.subtotal,
-            promoCode: responseOrder.promoCode ?? orderDraftForSubmit.promoCode ?? undefined,
+            promotionCode:
+              responseOrder.promotionCode ?? responseOrder.promoCode ?? orderDraftForSubmit.promoCode ?? undefined,
+            promoCode: responseOrder.promoCode ?? responseOrder.promotionCode ?? orderDraftForSubmit.promoCode ?? undefined,
           },
           customerName: responseOrder.customer?.name || customerName || undefined,
         },
@@ -789,7 +791,7 @@ async function resolvePromoDraftForVerification({ orderDraft, customerPhone, res
         promoCode: '',
         appliedPromo: null,
       },
-      error: error?.message || 'Unable to validate promo code right now.',
+      error: String(error?.message || '').trim() || 'Unable to validate promo code right now.',
       updated: false,
     };
   }

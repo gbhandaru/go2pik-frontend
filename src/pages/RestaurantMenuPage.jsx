@@ -442,7 +442,7 @@ export default function RestaurantMenuPage() {
       setPendingPromoCode('');
       setDiscountAmount(0);
       setFinalAmount(subtotal);
-      setPromoError(error?.message || 'Unable to validate promo code right now.');
+      setPromoError(String(error?.message || '').trim() || 'Unable to validate promo code right now.');
     } finally {
       setPromoSubmitting(false);
     }
