@@ -5,7 +5,7 @@ import { getCustomerInitial } from '../../utils/customerIdentity.js';
 
 export default function CustomerProfileMenu() {
   const location = useLocation();
-  const { user, loading, isGuest } = useAuth();
+  const { user, loading, isGuest, isAuthenticated } = useAuth();
   const menuRef = useRef(null);
   const [open, setOpen] = useState(false);
 
@@ -40,7 +40,7 @@ export default function CustomerProfileMenu() {
 
       {open ? (
         <div className="customer-profile-menu customer-profile-menu--compact" role="menu" aria-label="Customer menu">
-          {user && !isGuest ? (
+          {isAuthenticated ? (
             <>
               <Link className="customer-profile-menu__item" to="/orders" role="menuitem" onClick={() => setOpen(false)}>
                 My Orders
