@@ -276,6 +276,12 @@ function resolveOrderSubtotal(order, items) {
 }
 
 function resolveOrderTotal(order, items) {
+  const appliedPromo = order?.appliedPromo;
+  const promoFinalAmount = Number(appliedPromo?.finalAmount ?? appliedPromo?.final_amount);
+  if (Number.isFinite(promoFinalAmount)) {
+    return formatCurrency(promoFinalAmount);
+  }
+
   const totalDisplay =
     order?.totalDisplay ||
     order?.finalAmountDisplay ||
@@ -307,6 +313,12 @@ function resolveOrderTotal(order, items) {
 }
 
 function resolveOrderDiscount(order, subtotal) {
+  const appliedPromo = order?.appliedPromo;
+  const promoDiscountAmount = Number(appliedPromo?.discountAmount ?? appliedPromo?.discount_amount);
+  if (Number.isFinite(promoDiscountAmount)) {
+    return Math.min(Math.max(promoDiscountAmount, 0), subtotal);
+  }
+
   const direct =
     order?.discountAmount ??
     order?.discount_amount ??

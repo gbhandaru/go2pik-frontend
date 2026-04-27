@@ -503,6 +503,24 @@ export default function VerificationPage() {
             discountAmount: Number.isFinite(promoDiscountAmount) ? promoDiscountAmount : undefined,
             finalAmount: Number.isFinite(promoFinalAmount) ? promoFinalAmount : undefined,
             total: Number.isFinite(promoFinalAmount) ? promoFinalAmount : responseOrder.total ?? orderDraftForSubmit.subtotal,
+            appliedPromo: orderDraftForSubmit.appliedPromo
+              ? {
+                  ...orderDraftForSubmit.appliedPromo,
+                  promoCode:
+                    orderDraftForSubmit.appliedPromo.promoCode ||
+                    orderDraftForSubmit.appliedPromo.code ||
+                    responseOrder.promotionCode ||
+                    responseOrder.promoCode ||
+                    orderDraftForSubmit.promoCode ||
+                    undefined,
+                  discountAmount: Number.isFinite(promoDiscountAmount)
+                    ? promoDiscountAmount
+                    : orderDraftForSubmit.appliedPromo.discountAmount,
+                  finalAmount: Number.isFinite(promoFinalAmount)
+                    ? promoFinalAmount
+                    : orderDraftForSubmit.appliedPromo.finalAmount,
+                }
+              : null,
             promotionCode:
               responseOrder.promotionCode ?? responseOrder.promoCode ?? orderDraftForSubmit.promoCode ?? undefined,
             promoCode: responseOrder.promoCode ?? responseOrder.promotionCode ?? orderDraftForSubmit.promoCode ?? undefined,
@@ -767,6 +785,7 @@ async function resolvePromoDraftForVerification({ orderDraft, customerPhone, res
       orderDraft: {
         ...orderDraft,
         promoCode: existingPromoCode,
+        appliedPromo: orderDraft?.appliedPromo || null,
       },
       updated: false,
     };
