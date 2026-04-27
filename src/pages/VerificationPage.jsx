@@ -480,54 +480,19 @@ export default function VerificationPage() {
           responseOrder.final_amount ??
           orderDraftForSubmit.subtotal,
       );
-      navigate('/order-confirmation', {
-        replace: true,
-        state: {
-          order: {
-            ...response,
-            ...responseOrder,
-            customer: responseOrder.customer || orderDraftForSubmit.customer,
-            customerName: responseOrder.customer?.name || orderDraftForSubmit.customerName,
-            orderNumber: responseOrder.orderNumber || response?.automation?.confirmationNumber || orderDraftForSubmit.orderNumber,
-            items: responseOrder.items || orderDraftForSubmit.items,
-            pickupRequest: mergedPickupRequest,
-            pickupTime:
-              responseOrder.pickupTime ||
-              mergedPickupRequest.scheduledTime ||
-              orderDraftForSubmit?.customer?.pickupTime ||
-              orderDraftForSubmit?.pickupTime ||
-              mergedPickupRequest.displayTime ||
-              mergedPickupRequest.summary ||
-              undefined,
-            subtotal: responseOrder.subtotal ?? orderDraftForSubmit.subtotal,
-            discountAmount: Number.isFinite(promoDiscountAmount) ? promoDiscountAmount : undefined,
-            finalAmount: Number.isFinite(promoFinalAmount) ? promoFinalAmount : undefined,
-            total: Number.isFinite(promoFinalAmount) ? promoFinalAmount : responseOrder.total ?? orderDraftForSubmit.subtotal,
-            appliedPromo: orderDraftForSubmit.appliedPromo
-              ? {
-                  ...orderDraftForSubmit.appliedPromo,
-                  promoCode:
-                    orderDraftForSubmit.appliedPromo.promoCode ||
-                    orderDraftForSubmit.appliedPromo.code ||
-                    responseOrder.promotionCode ||
-                    responseOrder.promoCode ||
-                    orderDraftForSubmit.promoCode ||
-                    undefined,
-                  discountAmount: Number.isFinite(promoDiscountAmount)
-                    ? promoDiscountAmount
-                    : orderDraftForSubmit.appliedPromo.discountAmount,
-                  finalAmount: Number.isFinite(promoFinalAmount)
-                    ? promoFinalAmount
-                    : orderDraftForSubmit.appliedPromo.finalAmount,
-                }
-              : null,
-            promotionCode:
-              responseOrder.promotionCode ?? responseOrder.promoCode ?? orderDraftForSubmit.promoCode ?? undefined,
-            promoCode: responseOrder.promoCode ?? responseOrder.promotionCode ?? orderDraftForSubmit.promoCode ?? undefined,
-          },
-          customerName: responseOrder.customer?.name || customerName || undefined,
+      const confirmationOrderId = responseOrder.id || response?.order?.id || response?.id;
+      navigate(
+        {
+          pathname: '/order-confirmation',
+          search: confirmationOrderId ? `?orderId=${encodeURIComponent(confirmationOrderId)}` : '',
         },
-      });
+        {
+          replace: true,
+          state: {
+            customerName: responseOrder.customer?.name || customerName || undefined,
+          },
+        },
+      );
     } catch (err) {
       setError(getPickupValidationMessage(err) || err.message || 'Unable to verify your order right now.');
     } finally {

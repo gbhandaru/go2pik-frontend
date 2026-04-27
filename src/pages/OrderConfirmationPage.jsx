@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { useLocation, useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import { acceptUpdatedCustomerOrder, cancelCustomerOrder, fetchOrderById } from '../api/ordersApi.js';
 import ContactSupportModal from '../components/shared/ContactSupportModal.jsx';
 import CustomerPartialOrderModal from '../components/shared/CustomerPartialOrderModal.jsx';
@@ -374,27 +374,24 @@ function getLineTotal(item) {
 export default function OrderConfirmationPage() {
   const navigate = useNavigate();
   const location = useLocation();
+  const [searchParams] = useSearchParams();
   const { user } = useAuth();
-  const [currentOrder, setCurrentOrder] = useState(() => location.state?.order || null);
-  const [showPartialOrderModal, setShowPartialOrderModal] = useState(() => isPendingPartialCustomerAction(location.state?.order));
+  const orderId = searchParams.get('orderId');
+  const [currentOrder, setCurrentOrder] = useState(null);
+  const [showPartialOrderModal, setShowPartialOrderModal] = useState(false);
   const [partialOrderSubmitting, setPartialOrderSubmitting] = useState(false);
   const [partialOrderError, setPartialOrderError] = useState('');
   const [showContactModal, setShowContactModal] = useState(false);
 
   useEffect(() => {
-    if (location.state?.order) {
-      setCurrentOrder(location.state.order);
-      setShowPartialOrderModal(isPendingPartialCustomerAction(location.state.order));
-    }
-  }, [location.state?.order]);
-
-  useEffect(() => {
-    if (!currentOrder?.id || !isPendingPartialCustomerAction(currentOrder)) {
+    if (!orderId) {
+      setCurrentOrder(null);
+      setShowPartialOrderModal(false);
       return;
     }
 
     let active = true;
-    fetchOrderById(currentOrder.id)
+    fetchOrderById(orderId)
       .then((response) => {
         if (!active) {
           return;
@@ -403,16 +400,23 @@ export default function OrderConfirmationPage() {
         if (latestOrder && typeof latestOrder === 'object') {
           setCurrentOrder(latestOrder);
           setShowPartialOrderModal(isPendingPartialCustomerAction(latestOrder));
+        } else {
+          setCurrentOrder(null);
+          setShowPartialOrderModal(false);
         }
       })
       .catch(() => {
-        // Keep the current order snapshot if refresh fails.
+        if (!active) {
+          return;
+        }
+        setCurrentOrder(null);
+        setShowPartialOrderModal(false);
       });
 
     return () => {
       active = false;
     };
-  }, [currentOrder?.id]);
+  }, [orderId]);
 
   const order = currentOrder;
 
