@@ -307,9 +307,7 @@ function resolveOrderTotal(order, items) {
     }
   }
 
-  const subtotal = resolveOrderSubtotal(order, items);
-  const discount = resolveOrderDiscount(order, subtotal);
-  return formatCurrency(Math.max(subtotal - discount, 0));
+  return '';
 }
 
 function resolveOrderDiscount(order, subtotal) {
