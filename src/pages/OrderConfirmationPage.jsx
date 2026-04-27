@@ -276,30 +276,71 @@ function resolveOrderSubtotal(order, items) {
 }
 
 function resolveOrderTotal(order, items) {
-  const subtotalDisplay =
-    order?.subtotalDisplay ||
-    order?.updatedSubtotalDisplay ||
-    order?.updated_subtotal_display;
-  if (typeof subtotalDisplay === 'string' && subtotalDisplay.trim()) {
-    return subtotalDisplay.trim();
+  const totalDisplay =
+    order?.totalDisplay ||
+    order?.finalAmountDisplay ||
+    order?.total_display ||
+    order?.final_amount_display;
+  if (typeof totalDisplay === 'string' && totalDisplay.trim()) {
+    return totalDisplay.trim();
   }
 
-  const subtotalNumeric =
-    order?.subtotal ??
-    order?.updatedSubtotal ??
-    order?.updated_subtotal;
-  if (typeof subtotalNumeric === 'number' && Number.isFinite(subtotalNumeric)) {
-    return formatCurrency(subtotalNumeric);
+  const totalNumeric =
+    order?.finalAmount ??
+    order?.total ??
+    order?.final_amount ??
+    order?.updatedTotal ??
+    order?.updated_total;
+  if (typeof totalNumeric === 'number' && Number.isFinite(totalNumeric)) {
+    return formatCurrency(totalNumeric);
   }
-  if (typeof subtotalNumeric === 'string' && subtotalNumeric.trim()) {
-    const parsedSubtotal = Number(subtotalNumeric);
-    if (Number.isFinite(parsedSubtotal)) {
-      return formatCurrency(parsedSubtotal);
+  if (typeof totalNumeric === 'string' && totalNumeric.trim()) {
+    const parsedTotal = Number(totalNumeric);
+    if (Number.isFinite(parsedTotal)) {
+      return formatCurrency(parsedTotal);
     }
   }
 
-  const fallback = resolveOrderSubtotal(order, items);
-  return formatCurrency(fallback);
+  const subtotal = resolveOrderSubtotal(order, items);
+  const discount = resolveOrderDiscount(order, subtotal);
+  return formatCurrency(Math.max(subtotal - discount, 0));
+}
+
+function resolveOrderDiscount(order, subtotal) {
+  const direct =
+    order?.discountAmount ??
+    order?.discount_amount ??
+    order?.promoDiscount ??
+    order?.promo_discount ??
+    order?.promotionDiscount ??
+    order?.promotion_discount;
+  if (typeof direct === 'number' && Number.isFinite(direct)) {
+    return Math.min(Math.max(direct, 0), subtotal);
+  }
+  if (typeof direct === 'string' && direct.trim()) {
+    const parsed = Number(direct);
+    if (Number.isFinite(parsed)) {
+      return Math.min(Math.max(parsed, 0), subtotal);
+    }
+  }
+
+  const totalNumeric =
+    order?.finalAmount ??
+    order?.total ??
+    order?.final_amount ??
+    order?.updatedTotal ??
+    order?.updated_total;
+  if (typeof totalNumeric === 'number' && Number.isFinite(totalNumeric)) {
+    return Math.max(subtotal - totalNumeric, 0);
+  }
+  if (typeof totalNumeric === 'string' && totalNumeric.trim()) {
+    const parsedTotal = Number(totalNumeric);
+    if (Number.isFinite(parsedTotal)) {
+      return Math.max(subtotal - parsedTotal, 0);
+    }
+  }
+
+  return 0;
 }
 
 function normalizeOrderItems(items) {
@@ -396,6 +437,8 @@ export default function OrderConfirmationPage() {
   const resolvedCustomerName = resolveCustomerName({ user, order });
   const fallbackCustomerName = location.state?.customerName;
   const customerName = fallbackCustomerName || resolvedCustomerName;
+  const subtotal = resolveOrderSubtotal(order, items);
+  const discount = resolveOrderDiscount(order, subtotal);
   const total = resolveOrderTotal(order, items);
   const browseMenuPath = getBrowseMenuPath(order);
   const supportEmail = 'orders@go2pik.com';
@@ -537,7 +580,17 @@ export default function OrderConfirmationPage() {
           <div className="order-totals">
             <div className="grand">
               <div className="order-totals-grand-label">
-                <strong>Estimated total</strong>
+                <strong>Subtotal</strong>
+                <strong>{formatCurrency(subtotal)}</strong>
+              </div>
+              {discount > 0 ? (
+                <div className="order-totals-discount">
+                  <strong>Promo</strong>
+                  <strong>-{formatCurrency(discount)}</strong>
+                </div>
+              ) : null}
+              <div className="order-totals-grand-label">
+                <strong>Total</strong>
                 <strong>{total}</strong>
               </div>
             </div>
