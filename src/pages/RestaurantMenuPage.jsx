@@ -11,7 +11,12 @@ import { getRestaurantAddressLines } from '../utils/formatRestaurantAddress.js';
 import { getRestaurantMenuPath, matchesRestaurantRouteKey, resolveRestaurantRouteKey } from '../utils/restaurantRoutes.js';
 import { useAuth } from '../hooks/useAuth.jsx';
 import { buildCustomerLoginState, getCustomerHomePath } from '../utils/customerFlow.js';
-import { clearCustomerOrderVerification, getCustomerOrderDraft, storeCustomerOrderDraft } from '../services/authStorage.js';
+import {
+  clearCustomerOrderVerification,
+  getCustomerOrderDraft,
+  getVerifiedCustomerPhone,
+  storeCustomerOrderDraft,
+} from '../services/authStorage.js';
 import { getCustomerId, getCustomerPhone } from '../utils/customerIdentity.js';
 
 const PICKUP_MODES = {
@@ -30,7 +35,7 @@ export default function RestaurantMenuPage() {
   const routeKey = restaurantRouteKey || restaurantId || '';
   const customerName = useMemo(() => getCustomerDisplayName(user), [user]);
   const customerId = useMemo(() => getCustomerId(user), [user]);
-  const initialCustomerPhone = useMemo(() => getCustomerPhone(user) || '', [user]);
+  const initialCustomerPhone = useMemo(() => getCustomerPhone(user) || getVerifiedCustomerPhone() || '', [user]);
   const [cart, setCart] = useState([]);
   const [selectedPickupMode, setSelectedPickupMode] = useState(PICKUP_MODES.ASAP);
   const [scheduledPickupTime, setScheduledPickupTime] = useState('');
@@ -83,7 +88,13 @@ export default function RestaurantMenuPage() {
       setCart(Array.isArray(storedDraft.items) ? storedDraft.items.map((item) => ({ ...item })) : []);
       setSelectedPickupMode(storedDraft?.pickupRequest?.type === PICKUP_MODES.SCHEDULED ? PICKUP_MODES.SCHEDULED : PICKUP_MODES.ASAP);
       setScheduledPickupTime(storedDraft?.pickupRequest?.scheduledTime || '');
-      setCustomerPhoneInput(storedDraft?.customer?.phone || storedDraft?.customerPhone || initialCustomerPhone);
+      setCustomerPhoneInput(
+        storedDraft?.customer?.phone ||
+          storedDraft?.customerPhone ||
+          getCustomerPhone(user) ||
+          getVerifiedCustomerPhone() ||
+          initialCustomerPhone,
+      );
       setPromoCodeInput(storedDraft?.promoCodeInput || storedDraft?.pendingPromoCode || storedDraft?.promoCode || '');
       setPendingPromoCode(storedDraft?.pendingPromoCode || '');
       setAppliedPromo(storedDraft?.appliedPromo || null);
@@ -114,7 +125,7 @@ export default function RestaurantMenuPage() {
   }, [data?.restaurant?.id, routeKey, initialCustomerPhone]);
 
   useEffect(() => {
-    setCustomerPhoneInput((prev) => prev || initialCustomerPhone);
+    setCustomerPhoneInput((prev) => prev || initialCustomerPhone || getVerifiedCustomerPhone() || '');
   }, [initialCustomerPhone]);
 
   useEffect(() => {
@@ -184,7 +195,7 @@ export default function RestaurantMenuPage() {
   const pickupReadyTime = useMemo(() => buildPickupTimestamp(asapReadyTime), [asapReadyTime]);
 
   useEffect(() => {
-    if (!pendingPromoCode || appliedPromo?.valid || !isCustomerPhoneValid) {
+    if (!pendingPromoCode || (appliedPromo?.valid && !appliedPromo?.optimistic) || !isCustomerPhoneValid) {
       return;
     }
 
@@ -456,6 +467,26 @@ export default function RestaurantMenuPage() {
     setRetryKey((current) => current + 1);
   };
 
+  const applyOptimisticLaunchOffer = (promoCode) => {
+    const optimisticDiscount = Math.min(2, subtotal);
+    const optimisticFinalAmount = Math.max(subtotal - optimisticDiscount, 0);
+    const optimisticPromo = {
+      valid: true,
+      promotionId: null,
+      promoCode,
+      discountAmount: optimisticDiscount,
+      finalAmount: optimisticFinalAmount,
+      message: '$2.00 discount applied',
+      optimistic: true,
+    };
+    setAppliedPromo(optimisticPromo);
+    setPendingPromoCode(promoCode);
+    setDiscountAmount(optimisticDiscount);
+    setFinalAmount(optimisticFinalAmount);
+    setPromoMessage(`${promoCode} applied — You saved ${formatCurrency(optimisticDiscount)}`);
+    setPromoError('');
+  };
+
   const applyPromoCode = async (nextPromoCode) => {
     const normalizedPromoCode = normalizePromoCode(nextPromoCode);
     setPromoError('');
@@ -467,6 +498,11 @@ export default function RestaurantMenuPage() {
     }
 
     if (!isCustomerPhoneValid) {
+      if (normalizedPromoCode === 'GO2PIK2') {
+        applyOptimisticLaunchOffer(normalizedPromoCode);
+        return;
+      }
+
       setPendingPromoCode(normalizedPromoCode);
       setAppliedPromo(null);
       setDiscountAmount(0);
@@ -513,7 +549,7 @@ export default function RestaurantMenuPage() {
 
   const handleLaunchOfferApply = () => {
     setPromoCodeInput('GO2PIK2');
-    void applyPromoCode('GO2PIK2');
+    applyOptimisticLaunchOffer('GO2PIK2');
   };
 
   const handlePromoApply = async () => {
@@ -552,7 +588,7 @@ export default function RestaurantMenuPage() {
       cart,
       cartItemById,
       customerName,
-      customerPhone: getCustomerPhone(user) || initialCustomerPhone,
+      customerPhone: getCustomerPhone(user) || getVerifiedCustomerPhone() || initialCustomerPhone,
       appliedPromo,
       promoCodeInput,
       pendingPromoCode,
@@ -568,7 +604,7 @@ export default function RestaurantMenuPage() {
       user,
     });
     storeCustomerOrderDraft(draft);
-    setCustomerPhoneInput(getCustomerPhone(user) || initialCustomerPhone);
+    setCustomerPhoneInput(getCustomerPhone(user) || getVerifiedCustomerPhone() || initialCustomerPhone);
     setSmsConsentAccepted(false);
     setShowPhoneModal(true);
   };
