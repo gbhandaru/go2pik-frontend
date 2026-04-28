@@ -11,7 +11,13 @@ import { getRestaurantAddressLines } from '../utils/formatRestaurantAddress.js';
 import { getRestaurantMenuPath, matchesRestaurantRouteKey, resolveRestaurantRouteKey } from '../utils/restaurantRoutes.js';
 import { useAuth } from '../hooks/useAuth.jsx';
 import { buildCustomerLoginState, getCustomerHomePath } from '../utils/customerFlow.js';
-import { clearCustomerOrderVerification, getCustomerOrderDraft, storeCustomerOrderDraft } from '../services/authStorage.js';
+import { resolvePromoValidationMessage } from '../utils/promoMessages.js';
+import {
+  clearCustomerOrderVerification,
+  getCustomerOrderDraft,
+  getVerifiedCustomerPhone,
+  storeCustomerOrderDraft,
+} from '../services/authStorage.js';
 import { getCustomerId, getCustomerPhone } from '../utils/customerIdentity.js';
 
 const PICKUP_MODES = {
@@ -30,7 +36,7 @@ export default function RestaurantMenuPage() {
   const routeKey = restaurantRouteKey || restaurantId || '';
   const customerName = useMemo(() => getCustomerDisplayName(user), [user]);
   const customerId = useMemo(() => getCustomerId(user), [user]);
-  const initialCustomerPhone = useMemo(() => getCustomerPhone(user) || '', [user]);
+  const initialCustomerPhone = useMemo(() => getCustomerPhone(user) || getVerifiedCustomerPhone() || '', [user]);
   const [cart, setCart] = useState([]);
   const [selectedPickupMode, setSelectedPickupMode] = useState(PICKUP_MODES.ASAP);
   const [scheduledPickupTime, setScheduledPickupTime] = useState('');
@@ -83,7 +89,13 @@ export default function RestaurantMenuPage() {
       setCart(Array.isArray(storedDraft.items) ? storedDraft.items.map((item) => ({ ...item })) : []);
       setSelectedPickupMode(storedDraft?.pickupRequest?.type === PICKUP_MODES.SCHEDULED ? PICKUP_MODES.SCHEDULED : PICKUP_MODES.ASAP);
       setScheduledPickupTime(storedDraft?.pickupRequest?.scheduledTime || '');
-      setCustomerPhoneInput(storedDraft?.customer?.phone || storedDraft?.customerPhone || initialCustomerPhone);
+      setCustomerPhoneInput(
+        storedDraft?.customer?.phone ||
+          storedDraft?.customerPhone ||
+          getCustomerPhone(user) ||
+          getVerifiedCustomerPhone() ||
+          initialCustomerPhone,
+      );
       setPromoCodeInput(storedDraft?.promoCodeInput || storedDraft?.pendingPromoCode || storedDraft?.promoCode || '');
       setPendingPromoCode(storedDraft?.pendingPromoCode || '');
       setAppliedPromo(storedDraft?.appliedPromo || null);
@@ -92,11 +104,10 @@ export default function RestaurantMenuPage() {
       setPromoMessage(
         storedDraft?.appliedPromo?.valid
           ? `${storedDraft.appliedPromo.promoCode || storedDraft.appliedPromo.code} applied — You saved ${formatCurrency(Number(storedDraft?.appliedPromo?.discountAmount ?? 0) || 0)}`
-          : storedDraft?.pendingPromoCode
-            ? 'Promo will be applied after phone verification'
-            : '',
+          : resolvePromoValidationMessage(storedDraft?.appliedPromo) ||
+            (storedDraft?.pendingPromoCode ? 'Promo will be applied after phone verification' : ''),
       );
-      setPromoError('');
+      setPromoError(storedDraft?.appliedPromo?.valid ? '' : resolvePromoValidationMessage(storedDraft?.appliedPromo));
       return;
     }
 
@@ -114,7 +125,7 @@ export default function RestaurantMenuPage() {
   }, [data?.restaurant?.id, routeKey, initialCustomerPhone]);
 
   useEffect(() => {
-    setCustomerPhoneInput((prev) => prev || initialCustomerPhone);
+    setCustomerPhoneInput((prev) => prev || initialCustomerPhone || getVerifiedCustomerPhone() || '');
   }, [initialCustomerPhone]);
 
   useEffect(() => {
@@ -182,6 +193,98 @@ export default function RestaurantMenuPage() {
     [selectedPickupMode, scheduledPickupTime, asapReadyTime, pickupAvailability],
   );
   const pickupReadyTime = useMemo(() => buildPickupTimestamp(asapReadyTime), [asapReadyTime]);
+
+  useEffect(() => {
+    if (!appliedPromo) {
+      return;
+    }
+
+    const storedContext = appliedPromo.promoContext || {};
+    const currentContext = {
+      subtotal: Number(subtotal) || 0,
+      restaurantId: String(restaurantIdForPromo || ''),
+      customerPhone: String(normalizedCustomerPhone || ''),
+    };
+    const contextMatches =
+      String(storedContext.restaurantId || '') === currentContext.restaurantId &&
+      Number(storedContext.subtotal ?? storedContext.orderAmount ?? 0) === currentContext.subtotal &&
+      String(storedContext.customerPhone || '') === currentContext.customerPhone;
+
+    if (contextMatches) {
+      return;
+    }
+
+    const nextPendingCode = normalizePromoCode(promoCodeInput || appliedPromo.promoCode || pendingPromoCode || '');
+    setAppliedPromo(null);
+    setDiscountAmount(0);
+    setFinalAmount(subtotal);
+    setPromoMessage('');
+    setPromoError('');
+    setPendingPromoCode(nextPendingCode);
+  }, [appliedPromo, subtotal, restaurantIdForPromo, normalizedCustomerPhone, promoCodeInput, pendingPromoCode]);
+
+  useEffect(() => {
+    if (!pendingPromoCode || (appliedPromo?.valid && !appliedPromo?.optimistic) || !isCustomerPhoneValid) {
+      return;
+    }
+
+    let active = true;
+
+    async function validatePendingPromo() {
+      setPromoSubmitting(true);
+      setPromoError('');
+      try {
+        const response = await validatePromotion({
+          promoCode: pendingPromoCode,
+          customerPhone: normalizedCustomerPhone,
+          orderAmount: subtotal,
+          restaurantId: restaurantIdForPromo,
+        });
+        if (!active) {
+          return;
+        }
+        const validation = normalizePromotionValidationResponse(response, subtotal, pendingPromoCode);
+        if (validation.valid) {
+          setAppliedPromo(validation);
+          setPendingPromoCode('');
+          setDiscountAmount(validation.discountAmount);
+          setFinalAmount(validation.finalAmount);
+          setPromoMessage(`${validation.promoCode} applied — You saved ${formatCurrency(validation.discountAmount)}`);
+          setPromoError('');
+          return;
+        }
+
+        setAppliedPromo(null);
+        setPendingPromoCode('');
+        setDiscountAmount(0);
+        setFinalAmount(subtotal);
+        setPromoMessage('');
+        setPromoError(validation.message || 'Promo code is invalid or already used');
+      } catch (error) {
+        if (!active) {
+          return;
+        }
+        setPromoError(String(error?.message || '').trim() || 'Unable to validate promo code right now.');
+      } finally {
+        if (active) {
+          setPromoSubmitting(false);
+        }
+      }
+    }
+
+    validatePendingPromo();
+
+    return () => {
+      active = false;
+    };
+  }, [
+    pendingPromoCode,
+    appliedPromo?.valid,
+    isCustomerPhoneValid,
+    normalizedCustomerPhone,
+    subtotal,
+    restaurantIdForPromo,
+  ]);
 
   const lastOrder = useMemo(() => {
     const sourceItems = normalizeOrderItems(data?.lastOrder);
@@ -393,6 +496,32 @@ export default function RestaurantMenuPage() {
     setRetryKey((current) => current + 1);
   };
 
+  const applyOptimisticLaunchOffer = (promoCode) => {
+    const optimisticDiscount = Math.min(2, subtotal);
+    const optimisticFinalAmount = Math.max(subtotal - optimisticDiscount, 0);
+    const optimisticPromo = {
+      valid: true,
+      promotionId: null,
+      promoCode,
+      reasonCode: null,
+      discountAmount: optimisticDiscount,
+      finalAmount: optimisticFinalAmount,
+      message: '$2.00 discount applied',
+      optimistic: true,
+      promoContext: {
+        subtotal,
+        restaurantId: restaurantIdForPromo,
+        customerPhone: normalizedCustomerPhone || '',
+      },
+    };
+    setAppliedPromo(optimisticPromo);
+    setPendingPromoCode(promoCode);
+    setDiscountAmount(optimisticDiscount);
+    setFinalAmount(optimisticFinalAmount);
+    setPromoMessage(`${promoCode} applied — You saved ${formatCurrency(optimisticDiscount)}`);
+    setPromoError('');
+  };
+
   const applyPromoCode = async (nextPromoCode) => {
     const normalizedPromoCode = normalizePromoCode(nextPromoCode);
     setPromoError('');
@@ -404,6 +533,11 @@ export default function RestaurantMenuPage() {
     }
 
     if (!isCustomerPhoneValid) {
+      if (normalizedPromoCode === 'GO2PIK2') {
+        applyOptimisticLaunchOffer(normalizedPromoCode);
+        return;
+      }
+
       setPendingPromoCode(normalizedPromoCode);
       setAppliedPromo(null);
       setDiscountAmount(0);
@@ -421,27 +555,20 @@ export default function RestaurantMenuPage() {
         restaurantId: restaurantIdForPromo,
       });
       const validation = normalizePromotionValidationResponse(response, subtotal, normalizedPromoCode);
+      setAppliedPromo(validation);
+      setPendingPromoCode('');
+      setDiscountAmount(validation.valid ? validation.discountAmount : 0);
+      setFinalAmount(validation.valid ? validation.finalAmount : subtotal);
       if (validation.valid) {
-        setAppliedPromo(validation);
-        setPendingPromoCode('');
-        setDiscountAmount(validation.discountAmount);
-        setFinalAmount(validation.finalAmount);
         setPromoMessage(`${validation.promoCode} applied — You saved ${formatCurrency(validation.discountAmount)}`);
         setPromoError('');
         return;
       }
 
-      setAppliedPromo(null);
-      setPendingPromoCode('');
-      setDiscountAmount(0);
-      setFinalAmount(subtotal);
-      setPromoMessage('');
-      setPromoError(validation.message || 'Promo code is invalid or already used');
+      setPromoMessage(validation.message || '');
+      setPromoError(validation.message || '');
     } catch (error) {
-      setAppliedPromo(null);
       setPendingPromoCode('');
-      setDiscountAmount(0);
-      setFinalAmount(subtotal);
       setPromoError(String(error?.message || '').trim() || 'Unable to validate promo code right now.');
     } finally {
       setPromoSubmitting(false);
@@ -450,7 +577,7 @@ export default function RestaurantMenuPage() {
 
   const handleLaunchOfferApply = () => {
     setPromoCodeInput('GO2PIK2');
-    void applyPromoCode('GO2PIK2');
+    applyOptimisticLaunchOffer('GO2PIK2');
   };
 
   const handlePromoApply = async () => {
@@ -489,7 +616,7 @@ export default function RestaurantMenuPage() {
       cart,
       cartItemById,
       customerName,
-      customerPhone: getCustomerPhone(user) || initialCustomerPhone,
+      customerPhone: getCustomerPhone(user) || getVerifiedCustomerPhone() || initialCustomerPhone,
       appliedPromo,
       promoCodeInput,
       pendingPromoCode,
@@ -505,7 +632,7 @@ export default function RestaurantMenuPage() {
       user,
     });
     storeCustomerOrderDraft(draft);
-    setCustomerPhoneInput(getCustomerPhone(user) || initialCustomerPhone);
+    setCustomerPhoneInput(getCustomerPhone(user) || getVerifiedCustomerPhone() || initialCustomerPhone);
     setSmsConsentAccepted(false);
     setShowPhoneModal(true);
   };
@@ -782,8 +909,33 @@ function buildCustomerOrderDraft({
       ? {
           ...appliedPromo,
           promoCode: appliedPromo.promoCode || appliedPromo.code || promoCode || '',
+          reasonCode: appliedPromo.reasonCode ?? null,
           discountAmount: Number(appliedPromo.discountAmount ?? appliedPromo.discount_amount ?? 0) || 0,
           finalAmount: Number(appliedPromo.finalAmount ?? appliedPromo.final_amount ?? subtotal) || subtotal,
+          promoContext: appliedPromo.promoContext || {
+            subtotal,
+            restaurantId: restaurant.id,
+            customerPhone: customerPhone || '',
+          },
+        }
+      : appliedPromo
+        ? {
+            ...appliedPromo,
+            promoContext: appliedPromo.promoContext || {
+              subtotal,
+              restaurantId: restaurant.id,
+              customerPhone: customerPhone || '',
+            },
+          }
+        : null,
+    promoValidation: appliedPromo
+      ? {
+          ...appliedPromo,
+          promoContext: appliedPromo.promoContext || {
+            subtotal,
+            restaurantId: restaurant.id,
+            customerPhone: customerPhone || '',
+          },
         }
       : null,
     promoCodeInput: promoCodeInput || '',
@@ -820,12 +972,14 @@ function normalizePromotionValidationResponse(response, orderAmount, promoCode) 
   const promoCodeValue = normalizePromoCode(response?.promoCode || promoCode);
   const discountAmount = Number(response?.discountAmount);
   const finalAmount = Number(response?.finalAmount);
-  const message = String(response?.message || '').trim();
+  const reasonCode = response?.reasonCode ?? null;
+  const message = resolvePromoValidationMessage(response);
 
   return {
     valid,
     promotionId: response?.promotionId ?? null,
     promoCode: promoCodeValue,
+    reasonCode,
     discountAmount: Number.isFinite(discountAmount) ? discountAmount : valid ? 0 : 0,
     finalAmount: Number.isFinite(finalAmount) ? finalAmount : Number(orderAmount) || 0,
     message,

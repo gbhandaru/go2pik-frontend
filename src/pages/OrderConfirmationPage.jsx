@@ -9,6 +9,7 @@ import { formatRestaurantAddress, getRestaurantAddressLines } from '../utils/for
 import { getCustomerHomePath, getCustomerOrdersPath } from '../utils/customerFlow.js';
 import { buildSupportMailtoHref } from '../utils/supportEmail.js';
 import { getRestaurantMenuPath } from '../utils/restaurantRoutes.js';
+import { resolvePromoValidationMessage } from '../utils/promoMessages.js';
 
 function formatPickupLabel(order) {
   const request = order?.pickupRequest || {};
@@ -323,6 +324,26 @@ function mergePromoMetaIntoOrder(order, promoMeta) {
     return order;
   }
 
+  const orderDiscountAmount = Number(order?.discountAmount ?? order?.discount_amount);
+  const promoDiscountAmount = Number(promoMeta?.discountAmount ?? promoMeta?.discount_amount ?? 0);
+  const resolvedDiscountAmount =
+    Number.isFinite(orderDiscountAmount) && orderDiscountAmount > 0
+      ? orderDiscountAmount
+      : Number.isFinite(promoDiscountAmount) && promoDiscountAmount > 0
+        ? promoDiscountAmount
+        : 0;
+
+  const orderFinalAmount = Number(order?.finalAmount ?? order?.final_amount);
+  const promoFinalAmount = Number(promoMeta?.finalAmount ?? promoMeta?.final_amount ?? 0);
+  const resolvedFinalAmount =
+    Number.isFinite(orderFinalAmount) && orderFinalAmount > 0
+      ? orderFinalAmount
+      : Number.isFinite(promoFinalAmount) && promoFinalAmount > 0
+        ? promoFinalAmount
+        : Number.isFinite(Number(order?.total))
+          ? Number(order.total)
+          : 0;
+
   const mergedPromo = {
     ...(order.appliedPromo || {}),
     promoCode:
@@ -333,12 +354,10 @@ function mergePromoMetaIntoOrder(order, promoMeta) {
       promoMeta.promoCode ||
       promoMeta.code ||
       undefined,
-    discountAmount: Number.isFinite(Number(order?.discountAmount ?? order?.discount_amount))
-      ? Number(order.discountAmount ?? order.discount_amount)
-      : Number(promoMeta.discountAmount ?? promoMeta.discount_amount ?? 0) || 0,
-    finalAmount: Number.isFinite(Number(order?.finalAmount ?? order?.final_amount))
-      ? Number(order.finalAmount ?? order.final_amount)
-      : Number(promoMeta.finalAmount ?? promoMeta.final_amount ?? 0) || 0,
+    discountAmount: resolvedDiscountAmount,
+    finalAmount: resolvedFinalAmount,
+    reasonCode: order?.reasonCode ?? order?.reason_code ?? promoMeta?.reasonCode ?? promoMeta?.reason_code ?? null,
+    message: order?.message ?? order?.promoMessage ?? promoMeta?.message ?? promoMeta?.promoMessage ?? undefined,
   };
 
   return {
@@ -346,9 +365,10 @@ function mergePromoMetaIntoOrder(order, promoMeta) {
     appliedPromo: mergedPromo,
     promotionCode: order.promotionCode ?? order.promoCode ?? mergedPromo.promoCode ?? undefined,
     promoCode: order.promoCode ?? order.promotionCode ?? mergedPromo.promoCode ?? undefined,
-    discountAmount: order.discountAmount ?? order.discount_amount ?? mergedPromo.discountAmount,
-    finalAmount: order.finalAmount ?? order.final_amount ?? mergedPromo.finalAmount,
-    total: order.total ?? order.finalAmount ?? order.final_amount ?? mergedPromo.finalAmount,
+    discountAmount: resolvedDiscountAmount,
+    finalAmount: resolvedFinalAmount,
+    total: Number.isFinite(Number(order?.total)) ? Number(order.total) : resolvedFinalAmount,
+    promoValidation: order.promoValidation ?? order.promo_validation ?? promoMeta ?? undefined,
   };
 }
 
@@ -437,6 +457,9 @@ export default function OrderConfirmationPage() {
   const discountDisplay = resolveOrderDiscountDisplay(order);
   const discountAmount = Number(order?.discountAmount);
   const showDiscountLine = Boolean(discountDisplay) || Number.isFinite(discountAmount) && discountAmount > 0;
+  const promoStatusMessage = order?.appliedPromo?.valid
+    ? ''
+    : resolvePromoValidationMessage(order?.appliedPromo || order?.promoValidation || order);
   const browseMenuPath = getBrowseMenuPath(order);
   const supportEmail = 'orders@go2pik.com';
   const supportHref = buildSupportMailtoHref({
@@ -581,6 +604,9 @@ export default function OrderConfirmationPage() {
                   <strong>Promo</strong>
                   <strong>-{discountDisplay}</strong>
                 </div>
+              ) : null}
+              {!order?.appliedPromo?.valid && promoStatusMessage ? (
+                <p className="muted order-promo-status">{promoStatusMessage}</p>
               ) : null}
               <div className="order-totals-grand-label">
                 <strong>Estimated Total</strong>
