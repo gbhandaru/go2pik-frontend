@@ -235,23 +235,28 @@ function normalizeItems(items) {
 }
 
 function formatReviewTotal(order) {
-  const direct =
-    order?.totalDisplay ??
-    order?.updatedTotal ??
-    order?.updated_total ??
-    order?.total ??
-    order?.subtotal ??
-    order?.totalAmount ??
-    order?.total_amount;
-
-  if (typeof direct === 'number' && Number.isFinite(direct)) {
-    return formatCurrency(direct);
+  const displayCandidates = [
+    order?.payableAmountDisplay,
+    order?.estimatedTotalDisplay,
+    order?.finalAmountDisplay,
+    order?.totalDisplay,
+  ];
+  for (const candidate of displayCandidates) {
+    if (typeof candidate === 'string' && candidate.trim()) {
+      return candidate.trim();
+    }
   }
 
-  if (typeof direct === 'string' && direct.trim()) {
-    const parsed = Number(direct);
-    if (Number.isFinite(parsed)) {
-      return formatCurrency(parsed);
+  const numericCandidates = [order?.payableAmount, order?.finalAmount];
+  for (const candidate of numericCandidates) {
+    if (typeof candidate === 'number' && Number.isFinite(candidate)) {
+      return formatCurrency(candidate);
+    }
+    if (typeof candidate === 'string' && candidate.trim()) {
+      const parsed = Number(candidate);
+      if (Number.isFinite(parsed)) {
+        return formatCurrency(parsed);
+      }
     }
   }
 

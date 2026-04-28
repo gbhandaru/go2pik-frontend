@@ -259,59 +259,45 @@ function getVisibleOrderItems(order) {
   return normalizeOrderItems(order?.items);
 }
 
-function resolveOrderSubtotal(order, items) {
-  const direct = order?.subtotal ?? order?.updatedSubtotal ?? order?.updated_subtotal;
-  if (typeof direct === 'number' && Number.isFinite(direct)) {
-    return direct;
-  }
-
-  if (typeof direct === 'string' && direct.trim()) {
-    const parsed = Number(direct);
-    if (Number.isFinite(parsed)) {
-      return parsed;
+function resolveOrderPayableTotal(order) {
+  const displayCandidates = [
+    order?.payableAmountDisplay,
+    order?.estimatedTotalDisplay,
+    order?.finalAmountDisplay,
+    order?.totalDisplay,
+  ];
+  for (const candidate of displayCandidates) {
+    if (typeof candidate === 'string' && candidate.trim()) {
+      return candidate.trim();
     }
   }
 
-  return items.reduce((sum, item) => sum + getLineTotal(item), 0);
+  const numericCandidates = [order?.payableAmount, order?.finalAmount];
+  for (const candidate of numericCandidates) {
+    if (typeof candidate === 'number' && Number.isFinite(candidate)) {
+      return formatCurrency(candidate);
+    }
+    if (typeof candidate === 'string' && candidate.trim()) {
+      const parsed = Number(candidate);
+      if (Number.isFinite(parsed)) {
+        return formatCurrency(parsed);
+      }
+    }
+  }
+
+  return '';
 }
 
-function resolveOrderDiscount(order, subtotal) {
-  const direct = order?.discountAmount ?? order?.discountAmountDisplay;
-  if (typeof direct === 'number' && Number.isFinite(direct)) {
-    return Math.min(Math.max(direct, 0), subtotal);
-  }
-  if (typeof direct === 'string' && direct.trim()) {
-    const parsed = Number(direct);
-    if (Number.isFinite(parsed)) {
-      return Math.min(Math.max(parsed, 0), subtotal);
+function resolveOrderDiscountDisplay(order) {
+  const displayCandidates = [order?.discountAmountDisplay];
+  for (const candidate of displayCandidates) {
+    if (typeof candidate === 'string' && candidate.trim()) {
+      return candidate.trim();
     }
   }
 
-  const fallbackNumeric =
-    order?.discount_amount ??
-    order?.promoDiscount ??
-    order?.promo_discount ??
-    order?.promotionDiscount ??
-    order?.promotion_discount;
-  if (typeof fallbackNumeric === 'number' && Number.isFinite(fallbackNumeric)) {
-    return Math.min(Math.max(fallbackNumeric, 0), subtotal);
-  }
-  if (typeof fallbackNumeric === 'string' && fallbackNumeric.trim()) {
-    const parsed = Number(fallbackNumeric);
-    if (Number.isFinite(parsed)) {
-      return Math.min(Math.max(parsed, 0), subtotal);
-    }
-  }
-
-  const discountDisplay = order?.discountAmountDisplay;
-  if (typeof discountDisplay === 'string' && discountDisplay.trim()) {
-    const parsed = Number(discountDisplay);
-    if (Number.isFinite(parsed)) {
-      return Math.min(Math.max(parsed, 0), subtotal);
-    }
-  }
-
-  return 0;
+  const amount = Number(order?.discountAmount);
+  return amount > 0 ? formatCurrency(amount) : '';
 }
 
 function normalizeOrderItems(items) {
@@ -447,8 +433,10 @@ export default function OrderConfirmationPage() {
   const resolvedCustomerName = resolveCustomerName({ user, order });
   const fallbackCustomerName = location.state?.customerName;
   const customerName = fallbackCustomerName || resolvedCustomerName;
-  const subtotal = resolveOrderSubtotal(order, items);
-  const discount = resolveOrderDiscount(order, subtotal);
+  const payableTotal = resolveOrderPayableTotal(order);
+  const discountDisplay = resolveOrderDiscountDisplay(order);
+  const discountAmount = Number(order?.discountAmount);
+  const showDiscountLine = Boolean(discountDisplay) || Number.isFinite(discountAmount) && discountAmount > 0;
   const browseMenuPath = getBrowseMenuPath(order);
   const supportEmail = 'orders@go2pik.com';
   const supportHref = buildSupportMailtoHref({
@@ -588,15 +576,15 @@ export default function OrderConfirmationPage() {
 
           <div className="order-totals">
             <div className="grand">
-              {discount > 0 ? (
+              {showDiscountLine ? (
                 <div className="order-totals-discount">
                   <strong>Promo</strong>
-                  <strong>-{formatCurrency(discount)}</strong>
+                  <strong>-{discountDisplay}</strong>
                 </div>
               ) : null}
               <div className="order-totals-grand-label">
                 <strong>Estimated Total</strong>
-                <strong>{formatCurrency(subtotal)}</strong>
+                <strong>{payableTotal || ''}</strong>
               </div>
             </div>
           </div>

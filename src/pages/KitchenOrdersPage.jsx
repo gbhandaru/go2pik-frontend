@@ -456,10 +456,20 @@ function getItemInstructions(item) {
 }
 
 function resolveEstimatedTotalDisplay(order, fallbackValue = 0) {
+  const displayCandidates = [
+    order?.payableAmountDisplay,
+    order?.estimatedTotalDisplay,
+    order?.finalAmountDisplay,
+  ];
+  for (const candidate of displayCandidates) {
+    if (typeof candidate === 'string' && candidate.trim()) {
+      return candidate.trim();
+    }
+  }
+
   const numericCandidates = [
-    order?.subtotal,
-    order?.updatedSubtotal,
-    order?.updated_subtotal,
+    order?.payableAmount,
+    order?.finalAmount,
   ];
 
   for (const candidate of numericCandidates) {
