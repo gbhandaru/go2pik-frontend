@@ -371,6 +371,40 @@ function getLineTotal(item) {
   return quantity * (Number.isFinite(price) ? price : 0);
 }
 
+function mergePromoMetaIntoOrder(order, promoMeta) {
+  if (!order || typeof order !== 'object' || !promoMeta) {
+    return order;
+  }
+
+  const mergedPromo = {
+    ...(order.appliedPromo || {}),
+    promoCode:
+      order?.appliedPromo?.promoCode ||
+      order?.appliedPromo?.code ||
+      order?.promotionCode ||
+      order?.promoCode ||
+      promoMeta.promoCode ||
+      promoMeta.code ||
+      undefined,
+    discountAmount: Number.isFinite(Number(order?.discountAmount ?? order?.discount_amount))
+      ? Number(order.discountAmount ?? order.discount_amount)
+      : Number(promoMeta.discountAmount ?? promoMeta.discount_amount ?? 0) || 0,
+    finalAmount: Number.isFinite(Number(order?.finalAmount ?? order?.final_amount))
+      ? Number(order.finalAmount ?? order.final_amount)
+      : Number(promoMeta.finalAmount ?? promoMeta.final_amount ?? 0) || 0,
+  };
+
+  return {
+    ...order,
+    appliedPromo: mergedPromo,
+    promotionCode: order.promotionCode ?? order.promoCode ?? mergedPromo.promoCode ?? undefined,
+    promoCode: order.promoCode ?? order.promotionCode ?? mergedPromo.promoCode ?? undefined,
+    discountAmount: order.discountAmount ?? order.discount_amount ?? mergedPromo.discountAmount,
+    finalAmount: order.finalAmount ?? order.final_amount ?? mergedPromo.finalAmount,
+    total: order.total ?? order.finalAmount ?? order.final_amount ?? mergedPromo.finalAmount,
+  };
+}
+
 export default function OrderConfirmationPage() {
   const navigate = useNavigate();
   const location = useLocation();
@@ -398,8 +432,9 @@ export default function OrderConfirmationPage() {
         }
         const latestOrder = response?.order || response?.data?.order || response;
         if (latestOrder && typeof latestOrder === 'object') {
-          setCurrentOrder(latestOrder);
-          setShowPartialOrderModal(isPendingPartialCustomerAction(latestOrder));
+          const mergedOrder = mergePromoMetaIntoOrder(latestOrder, location.state?.promoMeta);
+          setCurrentOrder(mergedOrder);
+          setShowPartialOrderModal(isPendingPartialCustomerAction(mergedOrder));
         } else {
           setCurrentOrder(null);
           setShowPartialOrderModal(false);

@@ -490,6 +490,7 @@ export default function RestaurantMenuPage() {
       cartItemById,
       customerName,
       customerPhone: getCustomerPhone(user) || initialCustomerPhone,
+      appliedPromo,
       promoCodeInput,
       pendingPromoCode,
       promoCode: appliedPromo?.valid ? appliedPromo.promoCode : '',
@@ -525,6 +526,7 @@ export default function RestaurantMenuPage() {
       cartItemById,
       customerName,
       customerPhone,
+      appliedPromo,
       promoCodeInput,
       pendingPromoCode,
       promoCode: appliedPromo?.valid ? appliedPromo.promoCode : '',
@@ -743,6 +745,7 @@ function buildCustomerOrderDraft({
   cartItemById,
   customerName,
   customerPhone,
+  appliedPromo,
   promoCodeInput,
   pendingPromoCode,
   promoCode,
@@ -775,6 +778,14 @@ function buildCustomerOrderDraft({
     items: orderItems,
     subtotal,
     total: subtotal,
+    appliedPromo: appliedPromo?.valid
+      ? {
+          ...appliedPromo,
+          promoCode: appliedPromo.promoCode || appliedPromo.code || promoCode || '',
+          discountAmount: Number(appliedPromo.discountAmount ?? appliedPromo.discount_amount ?? 0) || 0,
+          finalAmount: Number(appliedPromo.finalAmount ?? appliedPromo.final_amount ?? subtotal) || subtotal,
+        }
+      : null,
     promoCodeInput: promoCodeInput || '',
     pendingPromoCode: pendingPromoCode || '',
     promoCode: promoCode || '',

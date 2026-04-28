@@ -490,6 +490,18 @@ export default function VerificationPage() {
           replace: true,
           state: {
             customerName: responseOrder.customer?.name || customerName || undefined,
+            promoMeta: orderDraftForSubmit.appliedPromo
+              ? {
+                  promoCode:
+                    orderDraftForSubmit.appliedPromo.promoCode ||
+                    orderDraftForSubmit.appliedPromo.code ||
+                    orderDraftForSubmit.promoCode ||
+                    undefined,
+                  discountAmount: Number(orderDraftForSubmit.appliedPromo.discountAmount ?? orderDraftForSubmit.appliedPromo.discount_amount ?? 0) || 0,
+                  finalAmount: Number(orderDraftForSubmit.appliedPromo.finalAmount ?? orderDraftForSubmit.appliedPromo.final_amount ?? 0) || 0,
+                  promotionId: orderDraftForSubmit.appliedPromo.promotionId ?? null,
+                }
+              : undefined,
           },
         },
       );
