@@ -2411,9 +2411,6 @@ function PhoneModal({
         >
           Send Code
         </button>
-        <p className="phone-modal__legal">
-          By continuing, you agree to receive SMS order updates. Message and data rates may apply.
-        </p>
         <p className="phone-modal__helper">
           <span aria-hidden="true">✓</span>
           <span>Used only for order updates</span>
