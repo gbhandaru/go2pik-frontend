@@ -53,7 +53,7 @@ export default function KitchenOrderCard({
       : visibleItems.reduce((sum, item) => sum + (item.quantity || 1), 0) || 0;
   const statusLabel = STATUS_LABELS[order.status] || order.status;
   const pickupTime = order.pickupTime || order.pickupAt || order.scheduledPickupTime || null;
-  const totalValue = resolveEstimatedTotalDisplay(order);
+  const totalValue = resolveEstimatedTotalDisplay(order, visibleItems);
   const hasTotal = totalValue != null;
   const hasMultipleActions = actions.length > 1;
   const waitingMinutes = Number.isFinite(ageMinutes) ? Math.max(0, Math.round(ageMinutes)) : null;
@@ -222,34 +222,27 @@ function getVisibleOrderItems(order) {
   return [];
 }
 
-function resolveEstimatedTotalDisplay(order) {
+function resolveEstimatedTotalDisplay(order, items = []) {
   if (!order || typeof order !== 'object') {
     return null;
   }
 
-  const displayCandidates = [
-    order.subtotalDisplay,
-    order.updatedSubtotalDisplay,
-    order.updated_subtotal_display,
-  ];
-
-  for (const candidate of displayCandidates) {
+  const numericCandidates = [order.subtotal, order.updatedSubtotal, order.updated_subtotal];
+  for (const candidate of numericCandidates) {
+    if (typeof candidate === 'number' && Number.isFinite(candidate)) {
+      return formatCurrency(candidate);
+    }
     if (typeof candidate === 'string' && candidate.trim()) {
-      return candidate.trim();
+      const parsed = Number(candidate);
+      if (Number.isFinite(parsed)) {
+        return formatCurrency(parsed);
+      }
     }
   }
 
-  const numericCandidates = [
-    order.subtotal,
-    order.updatedSubtotal,
-    order.updated_subtotal,
-  ];
-
-  for (const candidate of numericCandidates) {
-    const parsed = Number(candidate);
-    if (Number.isFinite(parsed)) {
-      return formatCurrency(parsed);
-    }
+  if (Array.isArray(items) && items.length > 0) {
+    const subtotal = items.reduce((sum, item) => sum + (Number(item.price) || 0) * (Number(item.quantity) || 1), 0);
+    return formatCurrency(subtotal);
   }
 
   return null;

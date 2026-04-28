@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { useLocation, useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import { acceptUpdatedCustomerOrder, cancelCustomerOrder, fetchOrderById } from '../api/ordersApi.js';
 import ContactSupportModal from '../components/shared/ContactSupportModal.jsx';
 import CustomerPartialOrderModal from '../components/shared/CustomerPartialOrderModal.jsx';
@@ -275,55 +275,8 @@ function resolveOrderSubtotal(order, items) {
   return items.reduce((sum, item) => sum + getLineTotal(item), 0);
 }
 
-function resolveOrderTotal(order, items) {
-  const appliedPromo = order?.appliedPromo;
-  const promoFinalAmount = Number(appliedPromo?.finalAmount ?? appliedPromo?.final_amount);
-  if (Number.isFinite(promoFinalAmount)) {
-    return formatCurrency(promoFinalAmount);
-  }
-
-  const totalDisplay =
-    order?.totalDisplay ||
-    order?.finalAmountDisplay ||
-    order?.total_display ||
-    order?.final_amount_display;
-  if (typeof totalDisplay === 'string' && totalDisplay.trim()) {
-    return totalDisplay.trim();
-  }
-
-  const totalNumeric =
-    order?.finalAmount ??
-    order?.total ??
-    order?.final_amount ??
-    order?.updatedTotal ??
-    order?.updated_total;
-  if (typeof totalNumeric === 'number' && Number.isFinite(totalNumeric)) {
-    return formatCurrency(totalNumeric);
-  }
-  if (typeof totalNumeric === 'string' && totalNumeric.trim()) {
-    const parsedTotal = Number(totalNumeric);
-    if (Number.isFinite(parsedTotal)) {
-      return formatCurrency(parsedTotal);
-    }
-  }
-
-  return '';
-}
-
 function resolveOrderDiscount(order, subtotal) {
-  const appliedPromo = order?.appliedPromo;
-  const promoDiscountAmount = Number(appliedPromo?.discountAmount ?? appliedPromo?.discount_amount);
-  if (Number.isFinite(promoDiscountAmount)) {
-    return Math.min(Math.max(promoDiscountAmount, 0), subtotal);
-  }
-
-  const direct =
-    order?.discountAmount ??
-    order?.discount_amount ??
-    order?.promoDiscount ??
-    order?.promo_discount ??
-    order?.promotionDiscount ??
-    order?.promotion_discount;
+  const direct = order?.discountAmount ?? order?.discountAmountDisplay;
   if (typeof direct === 'number' && Number.isFinite(direct)) {
     return Math.min(Math.max(direct, 0), subtotal);
   }
@@ -334,19 +287,27 @@ function resolveOrderDiscount(order, subtotal) {
     }
   }
 
-  const totalNumeric =
-    order?.finalAmount ??
-    order?.total ??
-    order?.final_amount ??
-    order?.updatedTotal ??
-    order?.updated_total;
-  if (typeof totalNumeric === 'number' && Number.isFinite(totalNumeric)) {
-    return Math.max(subtotal - totalNumeric, 0);
+  const fallbackNumeric =
+    order?.discount_amount ??
+    order?.promoDiscount ??
+    order?.promo_discount ??
+    order?.promotionDiscount ??
+    order?.promotion_discount;
+  if (typeof fallbackNumeric === 'number' && Number.isFinite(fallbackNumeric)) {
+    return Math.min(Math.max(fallbackNumeric, 0), subtotal);
   }
-  if (typeof totalNumeric === 'string' && totalNumeric.trim()) {
-    const parsedTotal = Number(totalNumeric);
-    if (Number.isFinite(parsedTotal)) {
-      return Math.max(subtotal - parsedTotal, 0);
+  if (typeof fallbackNumeric === 'string' && fallbackNumeric.trim()) {
+    const parsed = Number(fallbackNumeric);
+    if (Number.isFinite(parsed)) {
+      return Math.min(Math.max(parsed, 0), subtotal);
+    }
+  }
+
+  const discountDisplay = order?.discountAmountDisplay;
+  if (typeof discountDisplay === 'string' && discountDisplay.trim()) {
+    const parsed = Number(discountDisplay);
+    if (Number.isFinite(parsed)) {
+      return Math.min(Math.max(parsed, 0), subtotal);
     }
   }
 
@@ -371,48 +332,87 @@ function getLineTotal(item) {
   return quantity * (Number.isFinite(price) ? price : 0);
 }
 
+function mergePromoMetaIntoOrder(order, promoMeta) {
+  if (!order || typeof order !== 'object' || !promoMeta) {
+    return order;
+  }
+
+  const mergedPromo = {
+    ...(order.appliedPromo || {}),
+    promoCode:
+      order?.appliedPromo?.promoCode ||
+      order?.appliedPromo?.code ||
+      order?.promotionCode ||
+      order?.promoCode ||
+      promoMeta.promoCode ||
+      promoMeta.code ||
+      undefined,
+    discountAmount: Number.isFinite(Number(order?.discountAmount ?? order?.discount_amount))
+      ? Number(order.discountAmount ?? order.discount_amount)
+      : Number(promoMeta.discountAmount ?? promoMeta.discount_amount ?? 0) || 0,
+    finalAmount: Number.isFinite(Number(order?.finalAmount ?? order?.final_amount))
+      ? Number(order.finalAmount ?? order.final_amount)
+      : Number(promoMeta.finalAmount ?? promoMeta.final_amount ?? 0) || 0,
+  };
+
+  return {
+    ...order,
+    appliedPromo: mergedPromo,
+    promotionCode: order.promotionCode ?? order.promoCode ?? mergedPromo.promoCode ?? undefined,
+    promoCode: order.promoCode ?? order.promotionCode ?? mergedPromo.promoCode ?? undefined,
+    discountAmount: order.discountAmount ?? order.discount_amount ?? mergedPromo.discountAmount,
+    finalAmount: order.finalAmount ?? order.final_amount ?? mergedPromo.finalAmount,
+    total: order.total ?? order.finalAmount ?? order.final_amount ?? mergedPromo.finalAmount,
+  };
+}
+
 export default function OrderConfirmationPage() {
   const navigate = useNavigate();
   const location = useLocation();
+  const [searchParams] = useSearchParams();
   const { user } = useAuth();
-  const [currentOrder, setCurrentOrder] = useState(() => location.state?.order || null);
-  const [showPartialOrderModal, setShowPartialOrderModal] = useState(() => isPendingPartialCustomerAction(location.state?.order));
+  const orderId = searchParams.get('orderId');
+  const [currentOrder, setCurrentOrder] = useState(null);
+  const [showPartialOrderModal, setShowPartialOrderModal] = useState(false);
   const [partialOrderSubmitting, setPartialOrderSubmitting] = useState(false);
   const [partialOrderError, setPartialOrderError] = useState('');
   const [showContactModal, setShowContactModal] = useState(false);
 
   useEffect(() => {
-    if (location.state?.order) {
-      setCurrentOrder(location.state.order);
-      setShowPartialOrderModal(isPendingPartialCustomerAction(location.state.order));
-    }
-  }, [location.state?.order]);
-
-  useEffect(() => {
-    if (!currentOrder?.id || !isPendingPartialCustomerAction(currentOrder)) {
+    if (!orderId) {
+      setCurrentOrder(null);
+      setShowPartialOrderModal(false);
       return;
     }
 
     let active = true;
-    fetchOrderById(currentOrder.id)
+    fetchOrderById(orderId)
       .then((response) => {
         if (!active) {
           return;
         }
         const latestOrder = response?.order || response?.data?.order || response;
         if (latestOrder && typeof latestOrder === 'object') {
-          setCurrentOrder(latestOrder);
-          setShowPartialOrderModal(isPendingPartialCustomerAction(latestOrder));
+          const mergedOrder = mergePromoMetaIntoOrder(latestOrder, location.state?.promoMeta);
+          setCurrentOrder(mergedOrder);
+          setShowPartialOrderModal(isPendingPartialCustomerAction(mergedOrder));
+        } else {
+          setCurrentOrder(null);
+          setShowPartialOrderModal(false);
         }
       })
       .catch(() => {
-        // Keep the current order snapshot if refresh fails.
+        if (!active) {
+          return;
+        }
+        setCurrentOrder(null);
+        setShowPartialOrderModal(false);
       });
 
     return () => {
       active = false;
     };
-  }, [currentOrder?.id]);
+  }, [orderId]);
 
   const order = currentOrder;
 
@@ -449,7 +449,6 @@ export default function OrderConfirmationPage() {
   const customerName = fallbackCustomerName || resolvedCustomerName;
   const subtotal = resolveOrderSubtotal(order, items);
   const discount = resolveOrderDiscount(order, subtotal);
-  const total = resolveOrderTotal(order, items);
   const browseMenuPath = getBrowseMenuPath(order);
   const supportEmail = 'orders@go2pik.com';
   const supportHref = buildSupportMailtoHref({
@@ -589,10 +588,6 @@ export default function OrderConfirmationPage() {
 
           <div className="order-totals">
             <div className="grand">
-              <div className="order-totals-grand-label">
-                <strong>Subtotal</strong>
-                <strong>{formatCurrency(subtotal)}</strong>
-              </div>
               {discount > 0 ? (
                 <div className="order-totals-discount">
                   <strong>Promo</strong>
@@ -601,7 +596,7 @@ export default function OrderConfirmationPage() {
               ) : null}
               <div className="order-totals-grand-label">
                 <strong>Estimated Total</strong>
-                <strong>{total}</strong>
+                <strong>{formatCurrency(subtotal)}</strong>
               </div>
             </div>
           </div>

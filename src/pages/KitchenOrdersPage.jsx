@@ -456,18 +456,6 @@ function getItemInstructions(item) {
 }
 
 function resolveEstimatedTotalDisplay(order, fallbackValue = 0) {
-  const displayCandidates = [
-    order?.subtotalDisplay,
-    order?.updatedSubtotalDisplay,
-    order?.updated_subtotal_display,
-  ];
-
-  for (const candidate of displayCandidates) {
-    if (typeof candidate === 'string' && candidate.trim()) {
-      return candidate.trim();
-    }
-  }
-
   const numericCandidates = [
     order?.subtotal,
     order?.updatedSubtotal,
@@ -475,9 +463,14 @@ function resolveEstimatedTotalDisplay(order, fallbackValue = 0) {
   ];
 
   for (const candidate of numericCandidates) {
-    const parsed = Number(candidate);
-    if (Number.isFinite(parsed)) {
-      return formatCurrency(parsed);
+    if (typeof candidate === 'number' && Number.isFinite(candidate)) {
+      return formatCurrency(candidate);
+    }
+    if (typeof candidate === 'string' && candidate.trim()) {
+      const parsed = Number(candidate);
+      if (Number.isFinite(parsed)) {
+        return formatCurrency(parsed);
+      }
     }
   }
 
