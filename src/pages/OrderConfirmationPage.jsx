@@ -275,30 +275,6 @@ function resolveOrderSubtotal(order, items) {
   return items.reduce((sum, item) => sum + getLineTotal(item), 0);
 }
 
-function resolveOrderPayableAmount(order) {
-  const direct = order?.finalAmount ?? order?.total;
-  if (typeof direct === 'number' && Number.isFinite(direct)) {
-    return formatCurrency(direct);
-  }
-  if (typeof direct === 'string' && direct.trim()) {
-    const parsed = Number(direct);
-    if (Number.isFinite(parsed)) {
-      return formatCurrency(parsed);
-    }
-  }
-
-  const totalDisplay =
-    order?.totalDisplay ||
-    order?.finalAmountDisplay ||
-    order?.total_display ||
-    order?.final_amount_display;
-  if (typeof totalDisplay === 'string' && totalDisplay.trim()) {
-    return totalDisplay.trim();
-  }
-
-  return '';
-}
-
 function resolveOrderDiscount(order, subtotal) {
   const direct = order?.discountAmount ?? order?.discountAmountDisplay;
   if (typeof direct === 'number' && Number.isFinite(direct)) {
@@ -473,7 +449,6 @@ export default function OrderConfirmationPage() {
   const customerName = fallbackCustomerName || resolvedCustomerName;
   const subtotal = resolveOrderSubtotal(order, items);
   const discount = resolveOrderDiscount(order, subtotal);
-  const total = resolveOrderPayableAmount(order);
   const browseMenuPath = getBrowseMenuPath(order);
   const supportEmail = 'orders@go2pik.com';
   const supportHref = buildSupportMailtoHref({
@@ -613,10 +588,6 @@ export default function OrderConfirmationPage() {
 
           <div className="order-totals">
             <div className="grand">
-              <div className="order-totals-grand-label">
-                <strong>Subtotal</strong>
-                <strong>{formatCurrency(subtotal)}</strong>
-              </div>
               {discount > 0 ? (
                 <div className="order-totals-discount">
                   <strong>Promo</strong>
@@ -625,7 +596,7 @@ export default function OrderConfirmationPage() {
               ) : null}
               <div className="order-totals-grand-label">
                 <strong>Estimated Total</strong>
-                <strong>{total}</strong>
+                <strong>{formatCurrency(subtotal)}</strong>
               </div>
             </div>
           </div>
