@@ -132,6 +132,57 @@ export default function RestaurantMenuPage() {
   const phoneValidationMessage =
     customerPhoneInput.trim() && !isCustomerPhoneValid ? 'Please enter a valid US phone number' : '';
 
+  const totalItems = useMemo(() => cart.reduce((sum, item) => sum + item.quantity, 0), [cart]);
+  const subtotal = useMemo(() => cart.reduce((sum, item) => sum + item.price * item.quantity, 0), [cart]);
+  const quantityById = useMemo(
+    () =>
+      cart.reduce((acc, item) => {
+        acc[item.id] = item.quantity;
+        return acc;
+      }, {}),
+    [cart],
+  );
+  const cartItemById = useMemo(
+    () =>
+      cart.reduce((acc, item) => {
+        acc[item.id] = item;
+        return acc;
+      }, {}),
+    [cart],
+  );
+  const menu = data?.menu || [];
+  const categories = data?.categories || data?.menuCategories || data?.menu_categories || [];
+  const restaurant = data?.restaurant;
+  const finalTotal = useMemo(
+    () => (appliedPromo?.valid ? finalAmount : subtotal),
+    [appliedPromo?.valid, finalAmount, subtotal],
+  );
+  const restaurantIdForPromo = restaurant?.id || routeKey || '';
+  const restaurantHistoryKey = restaurant?.id || routeKey;
+  const pickupAvailability = useMemo(
+    () => resolvePickupAvailability(data, restaurant),
+    [data, restaurant],
+  );
+  const pickupSlotGroups = useMemo(
+    () => buildPickupSlotGroups(pickupAvailability),
+    [pickupAvailability],
+  );
+  const hasMenuItems = menu.length > 0;
+  const customerOrdersList = useMemo(() => resolveCustomerOrdersList(customerOrdersData), [customerOrdersData]);
+  const pickupDisplayTime = useMemo(
+    () =>
+      getPickupByLabel(
+        selectedPickupMode,
+        scheduledPickupTime,
+        asapReadyTime,
+        pickupAvailability?.timezone,
+        pickupAvailability,
+        pickupAvailability?.today?.windows || [],
+      ),
+    [selectedPickupMode, scheduledPickupTime, asapReadyTime, pickupAvailability],
+  );
+  const pickupReadyTime = useMemo(() => buildPickupTimestamp(asapReadyTime), [asapReadyTime]);
+
   useEffect(() => {
     if (!pendingPromoCode || appliedPromo?.valid || !isCustomerPhoneValid) {
       return;
@@ -194,57 +245,6 @@ export default function RestaurantMenuPage() {
     subtotal,
     restaurantIdForPromo,
   ]);
-
-  const totalItems = useMemo(() => cart.reduce((sum, item) => sum + item.quantity, 0), [cart]);
-  const subtotal = useMemo(() => cart.reduce((sum, item) => sum + item.price * item.quantity, 0), [cart]);
-  const quantityById = useMemo(
-    () =>
-      cart.reduce((acc, item) => {
-        acc[item.id] = item.quantity;
-        return acc;
-      }, {}),
-    [cart],
-  );
-  const cartItemById = useMemo(
-    () =>
-      cart.reduce((acc, item) => {
-        acc[item.id] = item;
-        return acc;
-      }, {}),
-    [cart],
-  );
-  const menu = data?.menu || [];
-  const categories = data?.categories || data?.menuCategories || data?.menu_categories || [];
-  const restaurant = data?.restaurant;
-  const finalTotal = useMemo(
-    () => (appliedPromo?.valid ? finalAmount : subtotal),
-    [appliedPromo?.valid, finalAmount, subtotal],
-  );
-  const restaurantIdForPromo = restaurant?.id || routeKey || '';
-  const restaurantHistoryKey = restaurant?.id || routeKey;
-  const pickupAvailability = useMemo(
-    () => resolvePickupAvailability(data, restaurant),
-    [data, restaurant],
-  );
-  const pickupSlotGroups = useMemo(
-    () => buildPickupSlotGroups(pickupAvailability),
-    [pickupAvailability],
-  );
-  const hasMenuItems = menu.length > 0;
-  const customerOrdersList = useMemo(() => resolveCustomerOrdersList(customerOrdersData), [customerOrdersData]);
-  const pickupDisplayTime = useMemo(
-    () =>
-      getPickupByLabel(
-        selectedPickupMode,
-        scheduledPickupTime,
-        asapReadyTime,
-        pickupAvailability?.timezone,
-        pickupAvailability,
-        pickupAvailability?.today?.windows || [],
-      ),
-    [selectedPickupMode, scheduledPickupTime, asapReadyTime, pickupAvailability],
-  );
-  const pickupReadyTime = useMemo(() => buildPickupTimestamp(asapReadyTime), [asapReadyTime]);
 
   const lastOrder = useMemo(() => {
     const sourceItems = normalizeOrderItems(data?.lastOrder);
