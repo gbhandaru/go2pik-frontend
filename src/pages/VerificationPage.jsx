@@ -8,6 +8,7 @@ import { updateCustomerPhone } from '../api/authApi.js';
 import { ENV } from '../config/env.js';
 import { useAuth } from '../hooks/useAuth.jsx';
 import { getCustomerHomePath } from '../utils/customerFlow.js';
+import { resolvePromoValidationMessage } from '../utils/promoMessages.js';
 import {
   clearCustomerOrderDraft,
   clearCustomerOrderVerification,
@@ -384,6 +385,13 @@ export default function VerificationPage() {
       const response = await confirmOrderVerification({
         verificationId: verification?.id,
         code: codeValue,
+        pickupType: orderDraftForSubmit?.pickupRequest?.type || orderDraftForSubmit?.pickupType || undefined,
+        pickupTime:
+          orderDraftForSubmit?.pickupRequest?.scheduledTime ||
+          orderDraftForSubmit?.pickupRequest?.readyTime ||
+          orderDraftForSubmit?.customer?.pickupTime ||
+          orderDraftForSubmit?.pickupTime ||
+          undefined,
         customer: {
           ...(orderDraftForSubmit.customer || {}),
           phone: resolvedPhone,
@@ -470,20 +478,6 @@ export default function VerificationPage() {
       clearCustomerOrderDraft();
       clearCustomerOrderVerification();
       persistVerifiedPhone(orderDraftForSubmit?.customer?.phone, user);
-      const promoDiscountAmount = Number(
-          orderDraftForSubmit?.appliedPromo?.discountAmount ??
-          orderDraftForSubmit?.appliedPromo?.discount_amount ??
-          responseOrder.discountAmount ??
-          responseOrder.discount_amount ??
-          0,
-      );
-      const promoFinalAmount = Number(
-          orderDraftForSubmit?.appliedPromo?.finalAmount ??
-          orderDraftForSubmit?.appliedPromo?.final_amount ??
-          responseOrder.finalAmount ??
-          responseOrder.final_amount ??
-          orderDraftForSubmit.subtotal,
-      );
       const confirmationOrderId = responseOrder.id || response?.order?.id || response?.id;
       navigate(
         {
@@ -494,18 +488,7 @@ export default function VerificationPage() {
           replace: true,
           state: {
             customerName: responseOrder.customer?.name || customerName || undefined,
-            promoMeta: orderDraftForSubmit.appliedPromo
-              ? {
-                  promoCode:
-                    orderDraftForSubmit.appliedPromo.promoCode ||
-                    orderDraftForSubmit.appliedPromo.code ||
-                    orderDraftForSubmit.promoCode ||
-                    undefined,
-                  discountAmount: Number(orderDraftForSubmit.appliedPromo.discountAmount ?? orderDraftForSubmit.appliedPromo.discount_amount ?? 0) || 0,
-                  finalAmount: Number(orderDraftForSubmit.appliedPromo.finalAmount ?? orderDraftForSubmit.appliedPromo.final_amount ?? 0) || 0,
-                  promotionId: orderDraftForSubmit.appliedPromo.promotionId ?? null,
-                }
-              : undefined,
+            promoMeta: orderDraftForSubmit.appliedPromo || orderDraftForSubmit.promoValidation || undefined,
           },
         },
       );
@@ -725,6 +708,7 @@ function buildVerificationStartPayload(orderDraft, customerName, customerPhone, 
     orderDraft?.customer?.pickupTime ||
     orderDraft?.pickupTime ||
     '';
+  const pickupType = orderDraft?.pickupRequest?.type || orderDraft?.pickupType || undefined;
   const pickupDisplayTime =
     orderDraft?.pickupRequest?.displayTime ||
     orderDraft?.pickupRequest?.summary ||
@@ -738,6 +722,8 @@ function buildVerificationStartPayload(orderDraft, customerName, customerPhone, 
     restaurantId,
     promoCode: promoCode || undefined,
     promotionCode: promoCode || undefined,
+    pickupType,
+    pickupTime: pickupTime || undefined,
     items,
     customer: {
       name: customerName || orderDraft?.customer?.name || orderDraft?.customerName || '',
@@ -775,7 +761,8 @@ async function resolvePromoDraftForVerification({ orderDraft, customerPhone, res
       orderDraft: {
         ...orderDraft,
         promoCode: existingPromoCode,
-        appliedPromo: orderDraft?.appliedPromo || null,
+        appliedPromo: orderDraft?.appliedPromo || orderDraft?.promoValidation || null,
+        promoValidation: orderDraft?.promoValidation || orderDraft?.appliedPromo || null,
       },
       updated: false,
     };
@@ -804,7 +791,8 @@ async function resolvePromoDraftForVerification({ orderDraft, customerPhone, res
         promoCodeInput: orderDraft?.promoCodeInput || pendingPromoCode,
         pendingPromoCode: '',
         promoCode: validation.valid ? validation.promoCode : '',
-        appliedPromo: validation.valid ? validation : null,
+        appliedPromo: validation,
+        promoValidation: validation,
       },
       updated: validation.valid,
     };
@@ -815,6 +803,7 @@ async function resolvePromoDraftForVerification({ orderDraft, customerPhone, res
         pendingPromoCode: '',
         promoCode: '',
         appliedPromo: null,
+        promoValidation: null,
       },
       error: String(error?.message || '').trim() || 'Unable to validate promo code right now.',
       updated: false,
@@ -830,12 +819,14 @@ function normalizePromotionValidationResponse(response, orderAmount, promoCode) 
   const valid = Boolean(response?.valid);
   const discountAmount = Number(response?.discountAmount);
   const finalAmount = Number(response?.finalAmount);
-  const message = String(response?.message || '').trim();
+  const reasonCode = response?.reasonCode ?? null;
+  const message = resolvePromoValidationMessage(response);
 
   return {
     valid,
     promotionId: response?.promotionId ?? null,
     promoCode: normalizePromoCode(response?.promoCode || promoCode),
+    reasonCode,
     discountAmount: Number.isFinite(discountAmount) ? discountAmount : 0,
     finalAmount: Number.isFinite(finalAmount) ? finalAmount : Number(orderAmount) || 0,
     message,
