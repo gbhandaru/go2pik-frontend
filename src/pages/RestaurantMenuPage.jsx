@@ -132,6 +132,69 @@ export default function RestaurantMenuPage() {
   const phoneValidationMessage =
     customerPhoneInput.trim() && !isCustomerPhoneValid ? 'Please enter a valid US phone number' : '';
 
+  useEffect(() => {
+    if (!pendingPromoCode || appliedPromo?.valid || !isCustomerPhoneValid) {
+      return;
+    }
+
+    let active = true;
+
+    async function validatePendingPromo() {
+      setPromoSubmitting(true);
+      setPromoError('');
+      try {
+        const response = await validatePromotion({
+          promoCode: pendingPromoCode,
+          customerPhone: normalizedCustomerPhone,
+          orderAmount: subtotal,
+          restaurantId: restaurantIdForPromo,
+        });
+        if (!active) {
+          return;
+        }
+        const validation = normalizePromotionValidationResponse(response, subtotal, pendingPromoCode);
+        if (validation.valid) {
+          setAppliedPromo(validation);
+          setPendingPromoCode('');
+          setDiscountAmount(validation.discountAmount);
+          setFinalAmount(validation.finalAmount);
+          setPromoMessage(`${validation.promoCode} applied — You saved ${formatCurrency(validation.discountAmount)}`);
+          setPromoError('');
+          return;
+        }
+
+        setAppliedPromo(null);
+        setPendingPromoCode('');
+        setDiscountAmount(0);
+        setFinalAmount(subtotal);
+        setPromoMessage('');
+        setPromoError(validation.message || 'Promo code is invalid or already used');
+      } catch (error) {
+        if (!active) {
+          return;
+        }
+        setPromoError(String(error?.message || '').trim() || 'Unable to validate promo code right now.');
+      } finally {
+        if (active) {
+          setPromoSubmitting(false);
+        }
+      }
+    }
+
+    validatePendingPromo();
+
+    return () => {
+      active = false;
+    };
+  }, [
+    pendingPromoCode,
+    appliedPromo?.valid,
+    isCustomerPhoneValid,
+    normalizedCustomerPhone,
+    subtotal,
+    restaurantIdForPromo,
+  ]);
+
   const totalItems = useMemo(() => cart.reduce((sum, item) => sum + item.quantity, 0), [cart]);
   const subtotal = useMemo(() => cart.reduce((sum, item) => sum + item.price * item.quantity, 0), [cart]);
   const quantityById = useMemo(
