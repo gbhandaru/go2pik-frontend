@@ -201,15 +201,32 @@ function resolvePreviousTotal(order, acceptedItems, unavailableItems, visibleIte
 }
 
 function resolveUpdatedTotal(order, acceptedItems, visibleItems) {
-  const direct =
-    order?.updatedTotal ??
-    order?.updated_total ??
-    order?.total ??
-    order?.subtotal ??
-    order?.totalAmount ??
-    order?.total_amount;
-  if (isUsableNumber(direct)) {
-    return Number(direct);
+  const displayCandidates = [
+    order?.payableAmountDisplay,
+    order?.estimatedTotalDisplay,
+    order?.finalAmountDisplay,
+    order?.totalDisplay,
+  ];
+  for (const candidate of displayCandidates) {
+    if (typeof candidate === 'string' && candidate.trim()) {
+      const parsed = Number(candidate.replace(/[^0-9.-]/g, ''));
+      if (Number.isFinite(parsed)) {
+        return parsed;
+      }
+    }
+  }
+
+  const numericCandidates = [order?.payableAmount, order?.finalAmount, order?.total];
+  for (const candidate of numericCandidates) {
+    if (isUsableNumber(candidate)) {
+      return Number(candidate);
+    }
+    if (typeof candidate === 'string' && candidate.trim()) {
+      const parsed = Number(candidate);
+      if (Number.isFinite(parsed)) {
+        return parsed;
+      }
+    }
   }
 
   if (acceptedItems.length) {

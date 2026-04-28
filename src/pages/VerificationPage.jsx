@@ -407,7 +407,11 @@ export default function VerificationPage() {
         restaurant: orderDraftForSubmit.restaurant,
         items: orderDraftForSubmit.items,
         subtotal: orderDraftForSubmit.subtotal,
-        total: orderDraftForSubmit.subtotal,
+        total:
+          orderDraftForSubmit?.appliedPromo?.finalAmount ??
+          orderDraftForSubmit?.appliedPromo?.estimatedTotal ??
+          orderDraftForSubmit?.appliedPromo?.payableAmount ??
+          orderDraftForSubmit.subtotal,
         promoCode: orderDraftForSubmit.promoCode || undefined,
         pickupRequest: {
           ...(orderDraftForSubmit.pickupRequest || {}),

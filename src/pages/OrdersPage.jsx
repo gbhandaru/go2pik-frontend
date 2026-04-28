@@ -368,14 +368,32 @@ function formatOrderPlacement(order) {
 }
 
 function formatOrderTotal(order) {
-  const updatedTotal = resolveUpdatedOrderTotal(order);
-  if (updatedTotal != null) {
-    return formatCurrency(updatedTotal);
+  const displayCandidates = [
+    order?.payableAmountDisplay,
+    order?.estimatedTotalDisplay,
+    order?.finalAmountDisplay,
+    order?.totalDisplay,
+  ];
+  for (const candidate of displayCandidates) {
+    if (typeof candidate === 'string' && candidate.trim()) {
+      return candidate.trim();
+    }
   }
-  if (order?.totalDisplay) {
-    return order.totalDisplay;
+
+  const numericCandidates = [order?.payableAmount, order?.finalAmount, order?.total];
+  for (const candidate of numericCandidates) {
+    if (typeof candidate === 'number' && Number.isFinite(candidate)) {
+      return formatCurrency(candidate);
+    }
+    if (typeof candidate === 'string' && candidate.trim()) {
+      const parsed = Number(candidate);
+      if (Number.isFinite(parsed)) {
+        return formatCurrency(parsed);
+      }
+    }
   }
-  return formatCurrency(order?.total || 0);
+
+  return formatCurrency(0);
 }
 
 function formatPaymentLabel(order) {
@@ -424,29 +442,6 @@ function getVisibleOrderItems(order) {
   }
 
   return normalizeOrderItems(order?.items);
-}
-
-function resolveUpdatedOrderTotal(order) {
-  const direct =
-    order?.updatedTotal ??
-    order?.updated_total ??
-    order?.total ??
-    order?.subtotal ??
-    order?.totalAmount ??
-    order?.total_amount;
-
-  if (typeof direct === 'number' && Number.isFinite(direct)) {
-    return direct;
-  }
-
-  if (typeof direct === 'string' && direct.trim()) {
-    const parsed = Number(direct);
-    if (Number.isFinite(parsed)) {
-      return parsed;
-    }
-  }
-
-  return null;
 }
 
 function normalizeOrderItems(items) {

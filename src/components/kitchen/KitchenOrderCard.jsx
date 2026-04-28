@@ -53,7 +53,7 @@ export default function KitchenOrderCard({
       : visibleItems.reduce((sum, item) => sum + (item.quantity || 1), 0) || 0;
   const statusLabel = STATUS_LABELS[order.status] || order.status;
   const pickupTime = order.pickupTime || order.pickupAt || order.scheduledPickupTime || null;
-  const totalValue = resolveEstimatedTotalDisplay(order, visibleItems);
+  const totalValue = resolvePayableAmountDisplay(order);
   const hasTotal = totalValue != null;
   const hasMultipleActions = actions.length > 1;
   const waitingMinutes = Number.isFinite(ageMinutes) ? Math.max(0, Math.round(ageMinutes)) : null;
@@ -222,12 +222,23 @@ function getVisibleOrderItems(order) {
   return [];
 }
 
-function resolveEstimatedTotalDisplay(order, items = []) {
+function resolvePayableAmountDisplay(order) {
   if (!order || typeof order !== 'object') {
     return null;
   }
 
-  const numericCandidates = [order.subtotal, order.updatedSubtotal, order.updated_subtotal];
+  const displayCandidates = [
+    order.payableAmountDisplay,
+    order.estimatedTotalDisplay,
+    order.finalAmountDisplay,
+  ];
+  for (const candidate of displayCandidates) {
+    if (typeof candidate === 'string' && candidate.trim()) {
+      return candidate.trim();
+    }
+  }
+
+  const numericCandidates = [order.payableAmount, order.finalAmount];
   for (const candidate of numericCandidates) {
     if (typeof candidate === 'number' && Number.isFinite(candidate)) {
       return formatCurrency(candidate);
@@ -238,11 +249,6 @@ function resolveEstimatedTotalDisplay(order, items = []) {
         return formatCurrency(parsed);
       }
     }
-  }
-
-  if (Array.isArray(items) && items.length > 0) {
-    const subtotal = items.reduce((sum, item) => sum + (Number(item.price) || 0) * (Number(item.quantity) || 1), 0);
-    return formatCurrency(subtotal);
   }
 
   return null;
