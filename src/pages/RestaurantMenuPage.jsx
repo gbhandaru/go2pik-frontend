@@ -2399,10 +2399,7 @@ function PhoneModal({
             onChange={(event) => onSmsConsentChange(event.target.checked)}
           />
           <span className="phone-modal__consent-copy" aria-label="SMS consent">
-            <span className="phone-modal__consent-line">I agree to receive SMS messages from Go2Pik,a service provided by Eha Technologies,for order updates.</span>
-            <span className="phone-modal__consent-line">Message &amp; data rates apply.</span>
-            <span className="phone-modal__consent-line">Reply STOP to opt out, HELP for help.</span>
-            <span className="phone-modal__consent-line">Consent is not a condition of purchase.</span>
+            <span className="phone-modal__consent-line">I agree to receive SMS messages from Go2Pik, a service provided by Eha Technologies, for order updates including order confirmation, order status, and pickup alerts. Message &amp; data rates may apply. Reply STOP to opt out, HELP for help. Consent is not a condition of purchase.</span>
           </span>
         </label>
         {error ? <p className="error-text phone-modal__error">{error}</p> : null}
