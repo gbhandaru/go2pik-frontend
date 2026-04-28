@@ -275,11 +275,16 @@ function resolveOrderSubtotal(order, items) {
   return items.reduce((sum, item) => sum + getLineTotal(item), 0);
 }
 
-function resolveOrderTotal(order, items) {
-  const appliedPromo = order?.appliedPromo;
-  const promoFinalAmount = Number(appliedPromo?.finalAmount ?? appliedPromo?.final_amount);
-  if (Number.isFinite(promoFinalAmount)) {
-    return formatCurrency(promoFinalAmount);
+function resolveOrderPayableAmount(order) {
+  const direct = order?.finalAmount ?? order?.total;
+  if (typeof direct === 'number' && Number.isFinite(direct)) {
+    return formatCurrency(direct);
+  }
+  if (typeof direct === 'string' && direct.trim()) {
+    const parsed = Number(direct);
+    if (Number.isFinite(parsed)) {
+      return formatCurrency(parsed);
+    }
   }
 
   const totalDisplay =
@@ -291,39 +296,11 @@ function resolveOrderTotal(order, items) {
     return totalDisplay.trim();
   }
 
-  const totalNumeric =
-    order?.finalAmount ??
-    order?.total ??
-    order?.final_amount ??
-    order?.updatedTotal ??
-    order?.updated_total;
-  if (typeof totalNumeric === 'number' && Number.isFinite(totalNumeric)) {
-    return formatCurrency(totalNumeric);
-  }
-  if (typeof totalNumeric === 'string' && totalNumeric.trim()) {
-    const parsedTotal = Number(totalNumeric);
-    if (Number.isFinite(parsedTotal)) {
-      return formatCurrency(parsedTotal);
-    }
-  }
-
   return '';
 }
 
 function resolveOrderDiscount(order, subtotal) {
-  const appliedPromo = order?.appliedPromo;
-  const promoDiscountAmount = Number(appliedPromo?.discountAmount ?? appliedPromo?.discount_amount);
-  if (Number.isFinite(promoDiscountAmount)) {
-    return Math.min(Math.max(promoDiscountAmount, 0), subtotal);
-  }
-
-  const direct =
-    order?.discountAmount ??
-    order?.discount_amount ??
-    order?.promoDiscount ??
-    order?.promo_discount ??
-    order?.promotionDiscount ??
-    order?.promotion_discount;
+  const direct = order?.discountAmount ?? order?.discountAmountDisplay;
   if (typeof direct === 'number' && Number.isFinite(direct)) {
     return Math.min(Math.max(direct, 0), subtotal);
   }
@@ -334,19 +311,27 @@ function resolveOrderDiscount(order, subtotal) {
     }
   }
 
-  const totalNumeric =
-    order?.finalAmount ??
-    order?.total ??
-    order?.final_amount ??
-    order?.updatedTotal ??
-    order?.updated_total;
-  if (typeof totalNumeric === 'number' && Number.isFinite(totalNumeric)) {
-    return Math.max(subtotal - totalNumeric, 0);
+  const fallbackNumeric =
+    order?.discount_amount ??
+    order?.promoDiscount ??
+    order?.promo_discount ??
+    order?.promotionDiscount ??
+    order?.promotion_discount;
+  if (typeof fallbackNumeric === 'number' && Number.isFinite(fallbackNumeric)) {
+    return Math.min(Math.max(fallbackNumeric, 0), subtotal);
   }
-  if (typeof totalNumeric === 'string' && totalNumeric.trim()) {
-    const parsedTotal = Number(totalNumeric);
-    if (Number.isFinite(parsedTotal)) {
-      return Math.max(subtotal - parsedTotal, 0);
+  if (typeof fallbackNumeric === 'string' && fallbackNumeric.trim()) {
+    const parsed = Number(fallbackNumeric);
+    if (Number.isFinite(parsed)) {
+      return Math.min(Math.max(parsed, 0), subtotal);
+    }
+  }
+
+  const discountDisplay = order?.discountAmountDisplay;
+  if (typeof discountDisplay === 'string' && discountDisplay.trim()) {
+    const parsed = Number(discountDisplay);
+    if (Number.isFinite(parsed)) {
+      return Math.min(Math.max(parsed, 0), subtotal);
     }
   }
 
@@ -488,7 +473,7 @@ export default function OrderConfirmationPage() {
   const customerName = fallbackCustomerName || resolvedCustomerName;
   const subtotal = resolveOrderSubtotal(order, items);
   const discount = resolveOrderDiscount(order, subtotal);
-  const total = resolveOrderTotal(order, items);
+  const total = resolveOrderPayableAmount(order);
   const browseMenuPath = getBrowseMenuPath(order);
   const supportEmail = 'orders@go2pik.com';
   const supportHref = buildSupportMailtoHref({
