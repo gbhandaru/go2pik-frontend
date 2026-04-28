@@ -701,6 +701,13 @@ function withTimeout(promise, timeoutMs, timeoutMessage) {
 
 function buildVerificationStartPayload(orderDraft, customerName, customerPhone, user) {
   const restaurantId = resolveRestaurantIdForVerification(orderDraft);
+  const promoCode = normalizePromoCode(
+    orderDraft?.promoCode ||
+      orderDraft?.promotionCode ||
+      orderDraft?.appliedPromo?.promoCode ||
+      orderDraft?.appliedPromo?.code ||
+      '',
+  );
   const items = Array.isArray(orderDraft?.items)
     ? orderDraft.items.map((item) => ({
         id: item.id ?? item.menuItemId ?? item.menu_item_id ?? item.sku ?? '',
@@ -729,6 +736,8 @@ function buildVerificationStartPayload(orderDraft, customerName, customerPhone, 
 
   return {
     restaurantId,
+    promoCode: promoCode || undefined,
+    promotionCode: promoCode || undefined,
     items,
     customer: {
       name: customerName || orderDraft?.customer?.name || orderDraft?.customerName || '',
