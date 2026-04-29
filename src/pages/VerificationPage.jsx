@@ -385,6 +385,7 @@ export default function VerificationPage() {
       const response = await confirmOrderVerification({
         verificationId: verification?.id,
         code: codeValue,
+        smsConsentAccepted: Boolean(orderDraftForSubmit?.smsConsentAccepted ?? orderDraftForSubmit?.customer?.smsConsentAccepted),
         pickupType: orderDraftForSubmit?.pickupRequest?.type || orderDraftForSubmit?.pickupType || undefined,
         pickupTime:
           orderDraftForSubmit?.pickupRequest?.scheduledTime ||
@@ -395,6 +396,7 @@ export default function VerificationPage() {
         customer: {
           ...(orderDraftForSubmit.customer || {}),
           phone: resolvedPhone,
+          smsConsentAccepted: Boolean(orderDraftForSubmit?.smsConsentAccepted ?? orderDraftForSubmit?.customer?.smsConsentAccepted),
           pickupTime:
             orderDraftForSubmit?.pickupRequest?.scheduledTime ||
             orderDraftForSubmit?.pickupRequest?.readyTime ||
@@ -722,6 +724,7 @@ function buildVerificationStartPayload(orderDraft, customerName, customerPhone, 
     restaurantId,
     promoCode: promoCode || undefined,
     promotionCode: promoCode || undefined,
+    smsConsentAccepted: Boolean(orderDraft?.smsConsentAccepted ?? orderDraft?.customer?.smsConsentAccepted),
     pickupType,
     pickupTime: pickupTime || undefined,
     items,
@@ -729,6 +732,7 @@ function buildVerificationStartPayload(orderDraft, customerName, customerPhone, 
       name: customerName || orderDraft?.customer?.name || orderDraft?.customerName || '',
       phone: normalizedPhone,
       email: orderDraft?.customer?.email || '',
+      smsConsentAccepted: Boolean(orderDraft?.smsConsentAccepted ?? orderDraft?.customer?.smsConsentAccepted),
       pickupTime: pickupTime || undefined,
       pickupDisplayTime: pickupDisplayTime || undefined,
       notes: orderDraft?.customer?.notes || orderDraft?.pickupRequest?.summary || '',

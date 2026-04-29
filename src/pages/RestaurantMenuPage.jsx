@@ -617,6 +617,7 @@ export default function RestaurantMenuPage() {
       cartItemById,
       customerName,
       customerPhone: getCustomerPhone(user) || getVerifiedCustomerPhone() || initialCustomerPhone,
+      smsConsentAccepted,
       appliedPromo,
       promoCodeInput,
       pendingPromoCode,
@@ -653,6 +654,7 @@ export default function RestaurantMenuPage() {
       cartItemById,
       customerName,
       customerPhone,
+      smsConsentAccepted,
       appliedPromo,
       promoCodeInput,
       pendingPromoCode,
@@ -830,10 +832,10 @@ export default function RestaurantMenuPage() {
       </section>
 
       {showPhoneModal ? (
-          <PhoneModal
+        <PhoneModal
             customerPhone={customerPhoneInput}
             error={phoneValidationMessage || orderError}
-            canSendCode={isCustomerPhoneValid && smsConsentAccepted}
+            canSendCode={isCustomerPhoneValid}
             smsConsentAccepted={smsConsentAccepted}
             onClose={() => {
               setShowPhoneModal(false);
@@ -872,6 +874,7 @@ function buildCustomerOrderDraft({
   cartItemById,
   customerName,
   customerPhone,
+  smsConsentAccepted,
   appliedPromo,
   promoCodeInput,
   pendingPromoCode,
@@ -952,6 +955,7 @@ function buildCustomerOrderDraft({
       name: customerName || getCustomerDisplayName(user) || '',
       phone: customerPhone,
       email: user?.email || '',
+      smsConsentAccepted: Boolean(smsConsentAccepted),
       pickupTime:
           selectedPickupMode === PICKUP_MODES.SCHEDULED
           ? pickupTime
@@ -959,6 +963,7 @@ function buildCustomerOrderDraft({
       pickupDisplayTime: pickupDisplayTime || pickupSummary || '',
       notes: pickupSummary || '',
     },
+    smsConsentAccepted: Boolean(smsConsentAccepted),
     customerName: customerName || undefined,
   };
 }
@@ -2361,6 +2366,10 @@ function PhoneModal({
   onSendOtp,
   phoneInputRef,
 }) {
+  const host = typeof window !== 'undefined' && window.location?.origin ? window.location.origin : '';
+  const privacyUrl = host ? `${host}/privacy` : '/privacy';
+  const termsUrl = host ? `${host}/terms` : '/terms';
+
   return (
     <div className="phone-modal-backdrop" role="presentation">
       <section
@@ -2399,10 +2408,17 @@ function PhoneModal({
             onChange={(event) => onSmsConsentChange(event.target.checked)}
           />
           <span className="phone-modal__consent-copy" aria-label="SMS consent">
-            <span className="phone-modal__consent-line">I agree to receive SMS messages from Go2Pik for order updates.</span>
-            <span className="phone-modal__consent-line">Message &amp; data rates apply.</span>
-            <span className="phone-modal__consent-line">Reply STOP to opt out, HELP for help.</span>
-            <span className="phone-modal__consent-line">Consent is not a condition of purchase.</span>
+            <span className="phone-modal__consent-line">
+              I agree to receive SMS messages from Go2Pik, a service provided by Eha Technologies, for order updates including order confirmation, order status, and pickup alerts. Message &amp; data rates may apply. Reply STOP to opt out, HELP for help. Consent is not a condition of purchase.
+            </span>
+            <span className="phone-modal__consent-links">
+              <a className="phone-modal__consent-link" href={privacyUrl}>
+                Privacy Policy
+              </a>
+              <a className="phone-modal__consent-link" href={termsUrl}>
+                Terms &amp; Conditions
+              </a>
+            </span>
           </span>
         </label>
         {error ? <p className="error-text phone-modal__error">{error}</p> : null}
@@ -2414,12 +2430,9 @@ function PhoneModal({
         >
           Send Code
         </button>
-        <p className="phone-modal__legal">
-          By continuing, you agree to receive SMS order updates. Message and data rates may apply.
-        </p>
         <p className="phone-modal__helper">
           <span aria-hidden="true">✓</span>
-          <span>Used only for order updates</span>
+          <span>Your phone number will be used only for order-related updates if you choose to opt in.</span>
         </p>
       </section>
     </div>
