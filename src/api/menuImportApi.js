@@ -1,10 +1,4 @@
 import { apiRequest } from './client.js';
-import { getKitchenRestaurantId } from '../services/authStorage.js';
-
-function resolveRestaurantId(explicitRestaurantId) {
-  const resolved = String(explicitRestaurantId || getKitchenRestaurantId() || '').trim();
-  return resolved || null;
-}
 
 function createUploadPayload(file, restaurantId) {
   const formData = new FormData();
@@ -18,7 +12,7 @@ export function uploadAndOcrMenu(file, restaurantId) {
     throw new Error('file is required');
   }
 
-  const resolvedRestaurantId = resolveRestaurantId(restaurantId);
+  const resolvedRestaurantId = String(restaurantId || '').trim();
   if (!resolvedRestaurantId) {
     throw new Error('restaurantId is required');
   }
@@ -36,6 +30,18 @@ export function parseMenuImport(importId) {
   }
 
   return apiRequest(`/menu-imports/${encodeURIComponent(resolvedImportId)}/parse`, {
+    method: 'POST',
+  });
+}
+
+export function reparseMenuImport(importId) {
+  const resolvedImportId = String(importId || '').trim();
+  if (!resolvedImportId) {
+    throw new Error('importId is required');
+  }
+
+  // TODO: confirm backend exposes POST /api/menu-imports/:id/reparse in all environments.
+  return apiRequest(`/menu-imports/${encodeURIComponent(resolvedImportId)}/reparse`, {
     method: 'POST',
   });
 }

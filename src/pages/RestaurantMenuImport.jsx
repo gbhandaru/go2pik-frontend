@@ -1,11 +1,19 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { fetchRestaurants } from '../api/restaurantsApi.js';
 import {
   approveMenuImport,
+  getMenuImport,
   parseMenuImport,
+  reparseMenuImport,
   uploadAndOcrMenu,
 } from '../api/menuImportApi.js';
+import { useFetch } from '../hooks/useFetch.js';
 import { normalizeAppError } from '../utils/appError.js';
-import { getKitchenRestaurantId } from '../services/authStorage.js';
+import { getStoredKitchenProfile } from '../services/authStorage.js';
+
+const LOADING_STEPS = ['Reading menu...', 'Understanding items...', 'Organizing categories...', 'Almost ready...'];
+const MENU_ROUTE = '/kitchen/menu';
 
 function createEmptyItem() {
   return {
@@ -13,6 +21,7 @@ function createEmptyItem() {
     description: '',
     price: null,
     isVegetarian: null,
+    isDuplicate: false,
   };
 }
 
@@ -21,6 +30,56 @@ function createEmptyCategory() {
     name: '',
     items: [createEmptyItem()],
   };
+}
+
+function normalizeRestaurantList(response) {
+  if (Array.isArray(response)) {
+    return response;
+  }
+
+  if (Array.isArray(response?.restaurants)) {
+    return response.restaurants;
+  }
+
+  if (Array.isArray(response?.data?.restaurants)) {
+    return response.data.restaurants;
+  }
+
+  return [];
+}
+
+function normalizeRestaurantId(value) {
+  if (value == null) {
+    return '';
+  }
+
+  return String(value).trim();
+}
+
+function extractRestaurantContext(profile) {
+  const candidates = [
+    profile?.restaurant,
+    profile?.restaurant_data,
+    profile?.restaurantData,
+    profile?.data?.restaurant,
+    profile?.data?.restaurantData,
+    profile?.user?.restaurant,
+    profile?.profile?.restaurant,
+  ];
+
+  for (const candidate of candidates) {
+    if (candidate && typeof candidate === 'object') {
+      const id = normalizeRestaurantId(
+        candidate.restaurantId || candidate.restaurant_id || candidate.id || candidate.restaurantID,
+      );
+      const name = String(candidate.name || candidate.restaurantName || candidate.restaurant_name || '').trim();
+      if (id || name) {
+        return { restaurantId: id, restaurantName: name };
+      }
+    }
+  }
+
+  return { restaurantId: '', restaurantName: '' };
 }
 
 function createDefaultParsedJson() {
@@ -57,6 +116,8 @@ function normalizeParsedJson(parsedJson) {
               price: normalizePrice(item?.price),
               isVegetarian:
                 typeof item?.isVegetarian === 'boolean' ? item.isVegetarian : item?.isVegetarian ?? null,
+              // TODO: have backend return a deterministic duplicate flag for each item.
+              isDuplicate: Boolean(item?.isDuplicate ?? item?.is_duplicate ?? false),
             }))
           : [createEmptyItem()],
       };
@@ -77,6 +138,34 @@ function toSubmissionParsedJson(parsedJson) {
       })),
     })),
   };
+}
+
+function isHttpUrl(value) {
+  return typeof value === 'string' && /^https?:\/\//i.test(value.trim());
+}
+
+function resolveMenuPreviewUrl(fileUrl) {
+  const value = String(fileUrl || '').trim();
+  if (!value) {
+    return '';
+  }
+
+  if (isHttpUrl(value) || value.startsWith('data:') || value.startsWith('blob:')) {
+    return value;
+  }
+
+  if (value.startsWith('gs://')) {
+    // TODO: if the bucket is private, use a signed/public media endpoint from the backend instead.
+    const withoutScheme = value.slice('gs://'.length);
+    const slashIndex = withoutScheme.indexOf('/');
+    if (slashIndex > 0) {
+      const bucket = withoutScheme.slice(0, slashIndex);
+      const objectPath = withoutScheme.slice(slashIndex + 1);
+      return `https://storage.googleapis.com/${bucket}/${objectPath}`;
+    }
+  }
+
+  return value;
 }
 
 function getDetectionReasons(response) {
@@ -146,7 +235,27 @@ function validateParsedJson(parsedJson) {
   return errors;
 }
 
-function formatImportSummary(response) {
+function formatSuccessMessage(response) {
+  const categoriesInserted = Number(response?.categoriesInserted || 0);
+  const itemsInserted = Number(response?.itemsInserted || 0);
+  const skippedItems = Number(response?.skippedItems || 0);
+
+  if (itemsInserted === 0 && skippedItems > 0) {
+    return 'Menu already up to date. All items already exist.';
+  }
+
+  if (itemsInserted > 0 && skippedItems > 0) {
+    return `${itemsInserted} new items added, ${skippedItems} already existed.`;
+  }
+
+  if (itemsInserted > 0 && skippedItems === 0) {
+    return `Menu saved successfully. ${itemsInserted} items added.`;
+  }
+
+  return 'No valid menu items found.';
+}
+
+function buildSuccessSummary(response) {
   const categoriesInserted = Number(response?.categoriesInserted || 0);
   const itemsInserted = Number(response?.itemsInserted || 0);
   const skippedItems = Number(response?.skippedItems || 0);
@@ -155,7 +264,7 @@ function formatImportSummary(response) {
     categoriesInserted,
     itemsInserted,
     skippedItems,
-    message: `Menu saved successfully. ${itemsInserted} items added, ${skippedItems} skipped.`,
+    message: formatSuccessMessage(response),
   };
 }
 
@@ -179,32 +288,55 @@ function MenuImportBanner({ tone = 'info', message, details = [] }) {
 }
 
 export default function RestaurantMenuImport() {
+  const navigate = useNavigate();
   const fileInputRef = useRef(null);
-  const [restaurantId, setRestaurantId] = useState('');
-  const [usingFallbackRestaurantId, setUsingFallbackRestaurantId] = useState(false);
+  const loadingTimerRef = useRef(null);
+  const successRedirectRef = useRef(null);
+  const profileRestaurantContext = useMemo(() => extractRestaurantContext(getStoredKitchenProfile()), []);
+  const [selectedRestaurantId, setSelectedRestaurantId] = useState(profileRestaurantContext.restaurantId);
   const [selectedFile, setSelectedFile] = useState(null);
   const [importId, setImportId] = useState(null);
+  const [fileUrl, setFileUrl] = useState('');
+  const [importingRestaurantName, setImportingRestaurantName] = useState(profileRestaurantContext.restaurantName);
   const [rawOcrText, setRawOcrText] = useState('');
   const [parsedJson, setParsedJson] = useState(createDefaultParsedJson());
   const [stage, setStage] = useState('upload');
-  const [processingMessage, setProcessingMessage] = useState('Reading menu...');
+  const [loadingMode, setLoadingMode] = useState(null);
+  const [loadingStepIndex, setLoadingStepIndex] = useState(0);
   const [loading, setLoading] = useState(false);
   const [approving, setApproving] = useState(false);
+  const [reparsing, setReparsing] = useState(false);
   const [banner, setBanner] = useState(null);
   const [successSummary, setSuccessSummary] = useState(null);
+  const {
+    data: restaurantsData,
+    loading: restaurantsLoading,
+    error: restaurantsError,
+  } = useFetch(fetchRestaurants, []);
+  const restaurants = useMemo(() => normalizeRestaurantList(restaurantsData), [restaurantsData]);
 
-  useEffect(() => {
-    const resolvedRestaurantId = getKitchenRestaurantId();
-    if (resolvedRestaurantId) {
-      setRestaurantId(resolvedRestaurantId);
-      setUsingFallbackRestaurantId(false);
-      return;
+  const restaurantOptions = useMemo(
+    () =>
+      restaurants.map((restaurant) => ({
+        id: normalizeRestaurantId(restaurant?.id || restaurant?.restaurantId || restaurant?.restaurant_id),
+        name: String(restaurant?.name || restaurant?.restaurantName || restaurant?.restaurant_name || 'Restaurant').trim(),
+      })),
+    [restaurants],
+  );
+
+  const selectedRestaurant = useMemo(() => {
+    const currentId = normalizeRestaurantId(selectedRestaurantId);
+    if (!currentId) {
+      return null;
     }
 
-    // TODO: wire restaurant context/auth state into this page so the fallback is no longer needed.
-    setRestaurantId('1');
-    setUsingFallbackRestaurantId(true);
-  }, []);
+    return (
+      restaurantOptions.find((restaurant) => restaurant.id === currentId) || {
+        id: currentId,
+        name: importingRestaurantName || `Restaurant ${currentId}`,
+      }
+    );
+  }, [importingRestaurantName, restaurantOptions, selectedRestaurantId]);
 
   const categoryCount = useMemo(() => parsedJson.categories.length, [parsedJson]);
   const itemCount = useMemo(
@@ -215,18 +347,71 @@ export default function RestaurantMenuImport() {
       ),
     [parsedJson],
   );
+  const loadingStep = LOADING_STEPS[loadingStepIndex % LOADING_STEPS.length];
+  const previewUrl = useMemo(() => resolveMenuPreviewUrl(fileUrl), [fileUrl]);
+
+  useEffect(() => {
+    if (!loadingMode) {
+      setLoadingStepIndex(0);
+      return undefined;
+    }
+
+    setLoadingStepIndex(0);
+    loadingTimerRef.current = window.setInterval(() => {
+      setLoadingStepIndex((current) => (current + 1) % LOADING_STEPS.length);
+    }, 1500);
+
+    return () => {
+      if (loadingTimerRef.current) {
+        window.clearInterval(loadingTimerRef.current);
+        loadingTimerRef.current = null;
+      }
+    };
+  }, [loadingMode]);
+
+  useEffect(() => {
+    if (stage !== 'success') {
+      return undefined;
+    }
+
+    successRedirectRef.current = window.setTimeout(() => {
+      navigate(
+        `${MENU_ROUTE}?restaurantId=${encodeURIComponent(normalizeRestaurantId(selectedRestaurantId))}`,
+        { replace: true },
+      );
+    }, 30000);
+
+    return () => {
+      if (successRedirectRef.current) {
+        window.clearTimeout(successRedirectRef.current);
+        successRedirectRef.current = null;
+      }
+    };
+  }, [navigate, stage]);
 
   const resetImport = () => {
+    if (loadingTimerRef.current) {
+      window.clearInterval(loadingTimerRef.current);
+      loadingTimerRef.current = null;
+    }
+    if (successRedirectRef.current) {
+      window.clearTimeout(successRedirectRef.current);
+      successRedirectRef.current = null;
+    }
+
     setSelectedFile(null);
     setImportId(null);
+    setFileUrl('');
     setRawOcrText('');
     setParsedJson(createDefaultParsedJson());
     setStage('upload');
-    setProcessingMessage('Reading menu...');
     setLoading(false);
     setApproving(false);
+    setReparsing(false);
+    setLoadingMode(null);
     setBanner(null);
     setSuccessSummary(null);
+    setLoadingStepIndex(0);
 
     if (fileInputRef.current) {
       fileInputRef.current.value = '';
@@ -324,17 +509,27 @@ export default function RestaurantMenuImport() {
       return;
     }
 
+    if (!normalizeRestaurantId(selectedRestaurantId)) {
+      setBanner({
+        tone: 'warning',
+        message: 'Please select a restaurant before uploading a menu.',
+      });
+      return;
+    }
+
     setBanner(null);
     setLoading(true);
+    setLoadingMode('upload');
     setStage('processing');
-    setProcessingMessage('Reading menu...');
 
     try {
-      const uploadResponse = await uploadAndOcrMenu(selectedFile, restaurantId);
+      const uploadResponse = await uploadAndOcrMenu(selectedFile, selectedRestaurantId);
       const nextImportId = uploadResponse?.importId ?? uploadResponse?.id ?? null;
       const nextRawText = String(uploadResponse?.rawOcrText || '').trim();
+      const nextFileUrl = String(uploadResponse?.fileUrl || '').trim();
 
       setImportId(nextImportId);
+      setFileUrl(nextFileUrl);
       setRawOcrText(nextRawText);
 
       if (!nextImportId || !nextRawText || uploadResponse?.status !== 'OCR_COMPLETED') {
@@ -346,7 +541,6 @@ export default function RestaurantMenuImport() {
         return;
       }
 
-      setProcessingMessage('Parsing extracted text...');
       try {
         const parseResponse = await parseMenuImport(nextImportId);
 
@@ -361,21 +555,29 @@ export default function RestaurantMenuImport() {
           return;
         }
 
-        setParsedJson(normalizeParsedJson(parseResponse?.parsedJson));
+        const nextParsedJson = normalizeParsedJson(parseResponse?.parsedJson);
+        setParsedJson(nextParsedJson);
+        setFileUrl(String(parseResponse?.fileUrl || nextFileUrl || '').trim() || nextFileUrl);
         setStage('review');
-      } catch {
+      } catch (error) {
+        const normalized = normalizeAppError(error);
         setStage('upload');
         setImportId(null);
+        setFileUrl('');
         setRawOcrText('');
         setParsedJson(createDefaultParsedJson());
         setBanner({
           tone: 'error',
-          message: 'Could not parse menu items. Please try another file.',
+          message:
+            normalized.kind === 'validation'
+              ? 'Could not parse menu items. Please try another file.'
+              : 'Could not parse menu items. Please try another file.',
         });
       }
     } catch (error) {
       setStage('upload');
       setImportId(null);
+      setFileUrl('');
       setRawOcrText('');
       setParsedJson(createDefaultParsedJson());
       setBanner({
@@ -384,7 +586,7 @@ export default function RestaurantMenuImport() {
       });
     } finally {
       setLoading(false);
-      setProcessingMessage('Reading menu...');
+      setLoadingMode(null);
     }
   };
 
@@ -412,7 +614,7 @@ export default function RestaurantMenuImport() {
 
     try {
       const response = await approveMenuImport(importId, toSubmissionParsedJson(parsedJson));
-      setSuccessSummary(formatImportSummary(response));
+      setSuccessSummary(buildSuccessSummary(response));
       setStage('success');
     } catch (error) {
       const normalized = normalizeAppError(error);
@@ -422,6 +624,43 @@ export default function RestaurantMenuImport() {
       });
     } finally {
       setApproving(false);
+    }
+  };
+
+  const handleReparse = async () => {
+    if (!importId) {
+      setBanner({
+        tone: 'error',
+        message: 'Missing menu import context. Please upload the file again.',
+      });
+      return;
+    }
+
+    setBanner(null);
+    setReparsing(true);
+    setLoadingMode('reparse');
+
+    try {
+      const response = await reparseMenuImport(importId);
+      const nextParsedJson = response?.parsedJson ? normalizeParsedJson(response.parsedJson) : null;
+
+      if (nextParsedJson) {
+        setParsedJson(nextParsedJson);
+      } else {
+        const refreshed = await getMenuImport(importId);
+        setParsedJson(normalizeParsedJson(refreshed?.parsedJson));
+        setRawOcrText(String(refreshed?.rawOcrText || rawOcrText || '').trim());
+        setFileUrl(String(refreshed?.fileUrl || fileUrl || '').trim());
+      }
+    } catch (error) {
+      const normalized = normalizeAppError(error);
+      setBanner({
+        tone: 'error',
+        message: normalized.kind === 'not_found' ? 'Could not re-parse this menu. Please upload it again.' : 'Could not re-parse menu items. Please try again.',
+      });
+    } finally {
+      setReparsing(false);
+      setLoadingMode(null);
     }
   };
 
@@ -436,14 +675,42 @@ export default function RestaurantMenuImport() {
           </p>
         </div>
         <div className="menu-import-hero__meta">
-          <span className="menu-import-pill">Restaurant ID: {restaurantId || '—'}</span>
-          {usingFallbackRestaurantId ? <span className="menu-import-pill menu-import-pill--muted">Using fallback ID</span> : null}
+          <span className="menu-import-pill">
+            Importing menu for: {selectedRestaurant?.name || 'Select a restaurant'}
+          </span>
         </div>
       </section>
 
       <section className="menu-import-shell">
         <div className="card menu-import-panel">
           <MenuImportBanner tone={banner?.tone} message={banner?.message} details={banner?.details} />
+          {restaurantsError ? (
+            <MenuImportBanner tone="error" message="Unable to load restaurants. Please try again." />
+          ) : null}
+          {!normalizeRestaurantId(selectedRestaurantId) ? (
+            <MenuImportBanner tone="warning" message="Please select a restaurant before uploading a menu." />
+          ) : null}
+          <label className="form-group">
+            Select Restaurant
+            <select
+              value={selectedRestaurantId}
+              onChange={(event) => {
+                const nextId = event.target.value;
+                setSelectedRestaurantId(nextId);
+                const nextRestaurant = restaurantOptions.find((restaurant) => restaurant.id === nextId);
+                setImportingRestaurantName(nextRestaurant?.name || '');
+                setBanner(null);
+              }}
+              disabled={restaurantsLoading || loading || approving || reparsing}
+            >
+              <option value="">Select Restaurant</option>
+              {restaurantOptions.map((restaurant) => (
+                <option key={restaurant.id} value={restaurant.id}>
+                  {restaurant.name || `Restaurant ${restaurant.id}`}
+                </option>
+              ))}
+            </select>
+          </label>
           <label className="form-group">
             Menu file
             <input
@@ -466,9 +733,9 @@ export default function RestaurantMenuImport() {
             type="button"
             className="primary-btn emphasis"
             onClick={handleUpload}
-            disabled={loading || approving || !selectedFile}
+            disabled={loading || approving || !selectedFile || !normalizeRestaurantId(selectedRestaurantId)}
           >
-            {loading ? processingMessage : 'Upload & Scan Menu'}
+            {loading ? loadingStep : 'Upload & Scan Menu'}
           </button>
         </div>
 
@@ -500,7 +767,7 @@ export default function RestaurantMenuImport() {
   const renderProcessingState = () => (
     <section className="card menu-import-processing">
       <p className="eyebrow">Working</p>
-      <h1>{processingMessage}</h1>
+      <h1>{loadingStep}</h1>
       <p className="muted">
         Please keep this tab open while Go2Pik reads the menu and prepares the review draft.
       </p>
@@ -568,7 +835,9 @@ export default function RestaurantMenuImport() {
           </p>
         </div>
         <div className="menu-import-hero__meta">
-          <span className="menu-import-pill">Import ID: {importId || '—'}</span>
+          <span className="menu-import-pill">
+            Importing menu for: {selectedRestaurant?.name || importingRestaurantName || 'Selected restaurant'}
+          </span>
           <span className="menu-import-pill">Categories: {categoryCount}</span>
           <span className="menu-import-pill">Items: {itemCount}</span>
         </div>
@@ -576,17 +845,36 @@ export default function RestaurantMenuImport() {
 
       <section className="menu-import-shell">
         <aside className="card menu-import-panel menu-import-panel--sticky">
-          <MenuImportBanner tone={banner?.tone} message={banner?.message} details={banner?.details} />
+          {reparsing ? <MenuImportBanner tone="info" message={loadingStep} /> : null}
+          {!reparsing ? <MenuImportBanner tone={banner?.tone} message={banner?.message} details={banner?.details} /> : null}
+          <div className="menu-import-preview">
+            {previewUrl ? (
+              <img src={previewUrl} alt="Uploaded menu preview" className="menu-import-preview__image" />
+            ) : (
+              <div className="menu-import-preview__placeholder">
+                <strong>Image preview</strong>
+                <span>Preview will appear here after upload.</span>
+              </div>
+            )}
+          </div>
           <details className="menu-import-ocr">
             <summary>Raw OCR text</summary>
             <pre>{rawOcrText || 'No OCR text available.'}</pre>
           </details>
 
           <div className="menu-import-actions">
-            <button type="button" className="primary-btn secondary" onClick={resetImport} disabled={loading || approving}>
+            <button
+              type="button"
+              className="primary-btn secondary"
+              onClick={handleReparse}
+              disabled={loading || approving || reparsing || !importId}
+            >
+              {reparsing ? 'Re-parsing Menu...' : 'Re-parse Menu'}
+            </button>
+            <button type="button" className="primary-btn secondary" onClick={resetImport} disabled={loading || approving || reparsing}>
               Upload another
             </button>
-            <button type="button" className="primary-btn emphasis" onClick={handleApprove} disabled={loading || approving}>
+            <button type="button" className="primary-btn emphasis" onClick={handleApprove} disabled={loading || approving || reparsing}>
               {approving ? 'Saving menu...' : 'Approve & Save Menu'}
             </button>
           </div>
@@ -594,9 +882,12 @@ export default function RestaurantMenuImport() {
 
         <section className="card menu-import-panel menu-import-review">
           <div className="menu-import-review__toolbar">
-            <div>
+            <div className="menu-import-review__heading">
               <p className="eyebrow">Parsed menu</p>
               <h2>Categories and items</h2>
+              <span className="menu-import-chip">
+                Selected restaurant: {selectedRestaurant?.name || importingRestaurantName || 'Select a restaurant'}
+              </span>
             </div>
             <button type="button" className="primary-btn secondary" onClick={addCategory} disabled={approving}>
               Add Category
@@ -631,6 +922,11 @@ export default function RestaurantMenuImport() {
                 <div className="menu-import-items">
                   {category.items.map((item, itemIndex) => (
                     <div key={`item-${categoryIndex}-${itemIndex}`} className="menu-import-item">
+                      <div className="menu-import-item__header">
+                        <span className={`menu-import-item__badge${item.isDuplicate ? ' menu-import-item__badge--duplicate' : ' menu-import-item__badge--new'}`}>
+                          {item.isDuplicate ? 'Already exists' : 'New'}
+                        </span>
+                      </div>
                       <label className="form-group">
                         Item name
                         <input
@@ -714,8 +1010,8 @@ export default function RestaurantMenuImport() {
   const renderSuccessState = () => (
     <section className="card menu-import-success">
       <p className="eyebrow">Complete</p>
-      <h1>Menu saved successfully</h1>
-      <p className="muted">{successSummary?.message || 'Menu saved successfully.'}</p>
+      <h1>{successSummary?.message || 'Menu saved successfully.'}</h1>
+      <p className="muted">Import finished. You can view the menu or upload another file.</p>
 
       <div className="menu-import-summary-list">
         <div className="menu-import-summary-item">
@@ -733,6 +1029,18 @@ export default function RestaurantMenuImport() {
       </div>
 
       <div className="menu-import-actions">
+        <button
+          type="button"
+          className="primary-btn secondary"
+          onClick={() =>
+            navigate(
+              `${MENU_ROUTE}?restaurantId=${encodeURIComponent(normalizeRestaurantId(selectedRestaurantId))}`,
+              { replace: true },
+            )
+          }
+        >
+          View Menu
+        </button>
         <button type="button" className="primary-btn emphasis" onClick={resetImport}>
           Upload another
         </button>

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import KitchenTabs from '../components/kitchen/KitchenTabs.jsx';
 import { KITCHEN_MAIN_TABS } from '../components/kitchen/kitchenMainTabs.js';
 import {
@@ -738,6 +738,11 @@ function MenuItemRow({
 
 export default function KitchenMenuPage() {
   const navigate = useNavigate();
+  const location = useLocation();
+  const restaurantIdFromQuery = useMemo(() => {
+    const params = new URLSearchParams(location.search);
+    return String(params.get('restaurantId') || '').trim();
+  }, [location.search]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [feedback, setFeedback] = useState(null);
@@ -758,7 +763,7 @@ export default function KitchenMenuPage() {
   const [menuItems, setMenuItems] = useState([]);
   const [categories, setCategories] = useState([]);
   const [restaurant, setRestaurant] = useState(null);
-  const [restaurantId, setRestaurantId] = useState(() => getKitchenRestaurantId() || '');
+  const [restaurantId, setRestaurantId] = useState(() => restaurantIdFromQuery || getKitchenRestaurantId() || '');
   const [lastUpdated, setLastUpdated] = useState(null);
   const [itemForm, setItemForm] = useState({ ...EMPTY_ITEM_FORM });
   const [editingItemId, setEditingItemId] = useState(null);
@@ -773,36 +778,54 @@ export default function KitchenMenuPage() {
   const groupSectionRefs = useRef(new Map());
   const [activeCategoryId, setActiveCategoryId] = useState('');
 
-  const loadMenu = useCallback(async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      const [menuResponse, categoryResponse] = await Promise.all([
-        fetchKitchenMenuItems(),
-        fetchKitchenMenuCategories(),
-      ]);
-      const nextCategories = normalizeCategories(categoryResponse || []);
-      setMenuItems(normalizeMenuItems(menuResponse.items || []));
-      setCategories(nextCategories);
-      setRestaurant(menuResponse.restaurant || null);
-      setRestaurantId((current) => current || getKitchenRestaurantId() || menuResponse.restaurant?.id || '');
-      setLastUpdated(new Date());
-      setBulkCategoryId((current) => current || (nextCategories[0]?.id ? String(nextCategories[0].id) : ''));
-      setSelectedItemIds([]);
-      setBulkSelectMode(false);
-      setCategoryEditorOpen(false);
-    } catch (err) {
-      setMenuItems([]);
-      setCategories([]);
-      setError(err.message || 'Unable to load menu');
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+  const loadMenu = useCallback(
+    async (overrideRestaurantId = '') => {
+      const resolvedRestaurantId = String(overrideRestaurantId || restaurantIdFromQuery || restaurantId || getKitchenRestaurantId() || '').trim();
+      if (!resolvedRestaurantId) {
+        setLoading(false);
+        setError('Restaurant context is not available yet.');
+        setMenuItems([]);
+        setCategories([]);
+        return;
+      }
+
+      setLoading(true);
+      setError(null);
+      try {
+        const [menuResponse, categoryResponse] = await Promise.all([
+          fetchKitchenMenuItems(resolvedRestaurantId),
+          fetchKitchenMenuCategories(resolvedRestaurantId),
+        ]);
+        const nextCategories = normalizeCategories(categoryResponse || []);
+        setMenuItems(normalizeMenuItems(menuResponse.items || []));
+        setCategories(nextCategories);
+        setRestaurant(menuResponse.restaurant || null);
+        setRestaurantId(resolvedRestaurantId);
+        setLastUpdated(new Date());
+        setBulkCategoryId((current) => current || (nextCategories[0]?.id ? String(nextCategories[0].id) : ''));
+        setSelectedItemIds([]);
+        setBulkSelectMode(false);
+        setCategoryEditorOpen(false);
+      } catch (err) {
+        setMenuItems([]);
+        setCategories([]);
+        setError(err.message || 'Unable to load menu');
+      } finally {
+        setLoading(false);
+      }
+    },
+    [restaurantId, restaurantIdFromQuery],
+  );
 
   useEffect(() => {
-    loadMenu();
-  }, [loadMenu]);
+    if (restaurantIdFromQuery) {
+      setRestaurantId(restaurantIdFromQuery);
+    }
+  }, [restaurantIdFromQuery]);
+
+  useEffect(() => {
+    loadMenu(restaurantIdFromQuery || restaurantId || getKitchenRestaurantId() || '');
+  }, [loadMenu, restaurantId, restaurantIdFromQuery]);
 
   useEffect(() => {
     if (!feedback) return undefined;
