@@ -125,6 +125,28 @@ function normalizeParsedJson(parsedJson) {
   };
 }
 
+function normalizeText(value) {
+  return String(value || '').trim();
+}
+
+function normalizeCorrectionNotes(correctionNotes) {
+  const corrections = Array.isArray(correctionNotes?.corrections)
+    ? correctionNotes.corrections
+        .map((item) => ({
+          original: normalizeText(item?.original),
+          corrected: normalizeText(item?.corrected),
+          reason: normalizeText(item?.reason),
+        }))
+        .filter((item) => item.original || item.corrected || item.reason)
+    : [];
+
+  const warnings = Array.isArray(correctionNotes?.warnings)
+    ? correctionNotes.warnings.map((item) => normalizeText(item)).filter(Boolean)
+    : [];
+
+  return { corrections, warnings };
+}
+
 function toSubmissionParsedJson(parsedJson) {
   return {
     categories: (Array.isArray(parsedJson?.categories) ? parsedJson.categories : []).map((category) => ({
@@ -144,28 +166,56 @@ function isHttpUrl(value) {
   return typeof value === 'string' && /^https?:\/\//i.test(value.trim());
 }
 
+function isBrowserReadableUrl(value) {
+  const normalized = String(value || '').trim();
+  return Boolean(normalized) && (isHttpUrl(normalized) || normalized.startsWith('data:') || normalized.startsWith('blob:'));
+}
+
+function isPreviewableImageUrl(value, fileName = '', fileType = '') {
+  const normalized = String(value || '').trim().toLowerCase();
+  const normalizedName = String(fileName || '').trim().toLowerCase();
+  const normalizedType = String(fileType || '').trim().toLowerCase();
+  return (
+    normalizedType.startsWith('image/') ||
+    /\.(png|jpe?g|gif|webp|bmp|svg)$/.test(normalized) ||
+    /\.(png|jpe?g|gif|webp|bmp|svg)$/.test(normalizedName)
+  );
+}
+
+function isPreviewablePdfUrl(value, fileName = '', fileType = '') {
+  const normalized = String(value || '').trim().toLowerCase();
+  const normalizedName = String(fileName || '').trim().toLowerCase();
+  const normalizedType = String(fileType || '').trim().toLowerCase();
+  return normalizedType === 'application/pdf' || normalized.endsWith('.pdf') || normalizedName.endsWith('.pdf');
+}
+
 function resolveMenuPreviewUrl(fileUrl) {
   const value = String(fileUrl || '').trim();
   if (!value) {
     return '';
   }
 
-  if (isHttpUrl(value) || value.startsWith('data:') || value.startsWith('blob:')) {
+  if (isBrowserReadableUrl(value)) {
     return value;
   }
 
   if (value.startsWith('gs://')) {
-    // TODO: if the bucket is private, use a signed/public media endpoint from the backend instead.
-    const withoutScheme = value.slice('gs://'.length);
-    const slashIndex = withoutScheme.indexOf('/');
-    if (slashIndex > 0) {
-      const bucket = withoutScheme.slice(0, slashIndex);
-      const objectPath = withoutScheme.slice(slashIndex + 1);
-      return `https://storage.googleapis.com/${bucket}/${objectPath}`;
-    }
+    return '';
   }
 
   return value;
+}
+
+function getPreviewSourceType(url, fileName = '', fileType = '') {
+  if (isPreviewablePdfUrl(url, fileName, fileType)) {
+    return 'pdf';
+  }
+
+  if (isPreviewableImageUrl(url, fileName, fileType)) {
+    return 'image';
+  }
+
+  return '';
 }
 
 function getDetectionReasons(response) {
@@ -297,8 +347,14 @@ export default function RestaurantMenuImport() {
   const [selectedFile, setSelectedFile] = useState(null);
   const [importId, setImportId] = useState(null);
   const [fileUrl, setFileUrl] = useState('');
+  const [previewUrl, setPreviewUrl] = useState('');
+  const [localPreviewUrl, setLocalPreviewUrl] = useState('');
+  const [previewLoadFailed, setPreviewLoadFailed] = useState(false);
+  const [previewStatus, setPreviewStatus] = useState('idle');
   const [importingRestaurantName, setImportingRestaurantName] = useState(profileRestaurantContext.restaurantName);
   const [rawOcrText, setRawOcrText] = useState('');
+  const [correctedOcrText, setCorrectedOcrText] = useState('');
+  const [correctionNotes, setCorrectionNotes] = useState({ corrections: [], warnings: [] });
   const [parsedJson, setParsedJson] = useState(createDefaultParsedJson());
   const [stage, setStage] = useState('upload');
   const [loadingMode, setLoadingMode] = useState(null);
@@ -348,7 +404,29 @@ export default function RestaurantMenuImport() {
     [parsedJson],
   );
   const loadingStep = LOADING_STEPS[loadingStepIndex % LOADING_STEPS.length];
-  const previewUrl = useMemo(() => resolveMenuPreviewUrl(fileUrl), [fileUrl]);
+  const resolvedPreviewUrl = useMemo(
+    () => {
+      const backendPreviewUrl = resolveMenuPreviewUrl(previewUrl);
+      if (backendPreviewUrl) {
+        return backendPreviewUrl;
+      }
+
+      const uploadedFileUrl = resolveMenuPreviewUrl(fileUrl);
+      if (uploadedFileUrl) {
+        return uploadedFileUrl;
+      }
+
+      return localPreviewUrl;
+    },
+    [fileUrl, localPreviewUrl, previewUrl],
+  );
+  const resolvedPreviewKind = useMemo(
+    () => getPreviewSourceType(resolvedPreviewUrl, selectedFile?.name, selectedFile?.type),
+    [resolvedPreviewUrl, selectedFile?.name, selectedFile?.type],
+  );
+  const hasAiCorrectionSummary = Boolean(
+    normalizeText(correctedOcrText) && normalizeText(correctedOcrText) !== normalizeText(rawOcrText),
+  );
 
   useEffect(() => {
     if (!loadingMode) {
@@ -389,6 +467,33 @@ export default function RestaurantMenuImport() {
     };
   }, [navigate, stage]);
 
+  useEffect(() => {
+    if (stage !== 'review') {
+      setPreviewStatus('idle');
+      setPreviewLoadFailed(false);
+      return undefined;
+    }
+
+    if (!resolvedPreviewUrl) {
+      setPreviewStatus('unsupported');
+      setPreviewLoadFailed(false);
+      return undefined;
+    }
+
+    setPreviewLoadFailed(false);
+    setPreviewStatus('loading');
+
+    return undefined;
+  }, [resolvedPreviewKind, resolvedPreviewUrl, stage]);
+
+  useEffect(() => {
+    return () => {
+      if (localPreviewUrl) {
+        window.URL.revokeObjectURL(localPreviewUrl);
+      }
+    };
+  }, [localPreviewUrl]);
+
   const resetImport = () => {
     if (loadingTimerRef.current) {
       window.clearInterval(loadingTimerRef.current);
@@ -402,7 +507,16 @@ export default function RestaurantMenuImport() {
     setSelectedFile(null);
     setImportId(null);
     setFileUrl('');
+    setPreviewUrl('');
+    if (localPreviewUrl) {
+      window.URL.revokeObjectURL(localPreviewUrl);
+    }
+    setLocalPreviewUrl('');
+    setPreviewLoadFailed(false);
+    setPreviewStatus('idle');
     setRawOcrText('');
+    setCorrectedOcrText('');
+    setCorrectionNotes({ corrections: [], warnings: [] });
     setParsedJson(createDefaultParsedJson());
     setStage('upload');
     setLoading(false);
@@ -420,8 +534,19 @@ export default function RestaurantMenuImport() {
 
   const handleFileChange = (event) => {
     const nextFile = event.target.files?.[0] || null;
+    if (localPreviewUrl) {
+      window.URL.revokeObjectURL(localPreviewUrl);
+    }
     setSelectedFile(nextFile);
     setBanner(null);
+    setPreviewLoadFailed(false);
+    setPreviewStatus('idle');
+    setLocalPreviewUrl(nextFile ? window.URL.createObjectURL(nextFile) : '');
+  };
+
+  const handlePreviewError = () => {
+    setPreviewLoadFailed(true);
+    setPreviewStatus('error');
   };
 
   const updateCategoryName = (categoryIndex, value) => {
@@ -526,11 +651,19 @@ export default function RestaurantMenuImport() {
       const uploadResponse = await uploadAndOcrMenu(selectedFile, selectedRestaurantId);
       const nextImportId = uploadResponse?.importId ?? uploadResponse?.id ?? null;
       const nextRawText = String(uploadResponse?.rawOcrText || '').trim();
+      const nextCorrectedText = String(uploadResponse?.correctedOcrText || '').trim();
+      const nextCorrectionNotes = normalizeCorrectionNotes(uploadResponse?.correctionNotes);
       const nextFileUrl = String(uploadResponse?.fileUrl || '').trim();
+      const nextPreviewUrl = String(
+        uploadResponse?.previewUrl || uploadResponse?.preview_url || uploadResponse?.signedPreviewUrl || '',
+      ).trim();
 
       setImportId(nextImportId);
       setFileUrl(nextFileUrl);
+      setPreviewUrl(nextPreviewUrl);
       setRawOcrText(nextRawText);
+      setCorrectedOcrText(nextCorrectedText);
+      setCorrectionNotes(nextCorrectionNotes);
 
       if (!nextImportId || !nextRawText || uploadResponse?.status !== 'OCR_COMPLETED') {
         setStage('warning');
@@ -557,6 +690,12 @@ export default function RestaurantMenuImport() {
 
         const nextParsedJson = normalizeParsedJson(parseResponse?.parsedJson);
         setParsedJson(nextParsedJson);
+        setCorrectedOcrText(String(parseResponse?.correctedOcrText || nextCorrectedText || '').trim());
+        setCorrectionNotes(normalizeCorrectionNotes(parseResponse?.correctionNotes || nextCorrectionNotes));
+        setPreviewUrl(
+          String(parseResponse?.previewUrl || parseResponse?.preview_url || nextPreviewUrl || '').trim() ||
+            nextPreviewUrl,
+        );
         setFileUrl(String(parseResponse?.fileUrl || nextFileUrl || '').trim() || nextFileUrl);
         setStage('review');
       } catch (error) {
@@ -564,7 +703,10 @@ export default function RestaurantMenuImport() {
         setStage('upload');
         setImportId(null);
         setFileUrl('');
+        setPreviewUrl('');
         setRawOcrText('');
+        setCorrectedOcrText('');
+        setCorrectionNotes({ corrections: [], warnings: [] });
         setParsedJson(createDefaultParsedJson());
         setBanner({
           tone: 'error',
@@ -578,7 +720,10 @@ export default function RestaurantMenuImport() {
       setStage('upload');
       setImportId(null);
       setFileUrl('');
+      setPreviewUrl('');
       setRawOcrText('');
+      setCorrectedOcrText('');
+      setCorrectionNotes({ corrections: [], warnings: [] });
       setParsedJson(createDefaultParsedJson());
       setBanner({
         tone: 'error',
@@ -646,11 +791,17 @@ export default function RestaurantMenuImport() {
 
       if (nextParsedJson) {
         setParsedJson(nextParsedJson);
+        setPreviewUrl(String(response?.previewUrl || response?.preview_url || previewUrl || '').trim() || previewUrl);
+        setCorrectedOcrText(String(response?.correctedOcrText || correctedOcrText || '').trim());
+        setCorrectionNotes(normalizeCorrectionNotes(response?.correctionNotes || correctionNotes));
       } else {
         const refreshed = await getMenuImport(importId);
         setParsedJson(normalizeParsedJson(refreshed?.parsedJson));
         setRawOcrText(String(refreshed?.rawOcrText || rawOcrText || '').trim());
+        setCorrectedOcrText(String(refreshed?.correctedOcrText || correctedOcrText || '').trim());
+        setCorrectionNotes(normalizeCorrectionNotes(refreshed?.correctionNotes || correctionNotes));
         setFileUrl(String(refreshed?.fileUrl || fileUrl || '').trim());
+        setPreviewUrl(String(refreshed?.previewUrl || refreshed?.preview_url || previewUrl || '').trim() || previewUrl);
       }
     } catch (error) {
       const normalized = normalizeAppError(error);
@@ -847,18 +998,110 @@ export default function RestaurantMenuImport() {
         <aside className="card menu-import-panel menu-import-panel--sticky">
           {reparsing ? <MenuImportBanner tone="info" message={loadingStep} /> : null}
           {!reparsing ? <MenuImportBanner tone={banner?.tone} message={banner?.message} details={banner?.details} /> : null}
+          {hasAiCorrectionSummary ? (
+            <div className="menu-import-correction-note">
+              <strong>AI improved the scanned menu text before parsing.</strong>
+            </div>
+          ) : null}
           <div className="menu-import-preview">
-            {previewUrl ? (
-              <img src={previewUrl} alt="Uploaded menu preview" className="menu-import-preview__image" />
-            ) : (
-              <div className="menu-import-preview__placeholder">
-                <strong>Image preview</strong>
-                <span>Preview will appear here after upload.</span>
-              </div>
-            )}
+            <div className="menu-import-preview__header">
+              <strong>Uploaded Menu Preview</strong>
+              <span className="menu-import-preview__subtle">
+                {resolvedPreviewKind === 'pdf' ? 'PDF' : resolvedPreviewKind === 'image' ? 'Image' : 'Preview'}
+              </span>
+            </div>
+            <div className="menu-import-preview__frame" aria-busy={previewStatus === 'loading'}>
+              {previewStatus === 'loading' ? (
+                <div className="menu-import-preview__loading">
+                  <span className="menu-import-preview__spinner" aria-hidden="true" />
+                  <strong>Loading preview…</strong>
+                  <span>Preparing the uploaded file for display.</span>
+                </div>
+              ) : resolvedPreviewUrl && !previewLoadFailed ? (
+                resolvedPreviewKind === 'pdf' ? (
+                  <iframe
+                    title="Uploaded menu preview"
+                    src={resolvedPreviewUrl}
+                    className="menu-import-preview__pdf"
+                    onLoad={() => setPreviewStatus('ready')}
+                    onError={handlePreviewError}
+                  />
+                ) : resolvedPreviewKind === 'image' ? (
+                  <img
+                    src={resolvedPreviewUrl}
+                    alt="Uploaded menu preview"
+                    className="menu-import-preview__image"
+                    onLoad={() => setPreviewStatus('ready')}
+                    onError={handlePreviewError}
+                  />
+                ) : (
+                  <div className="menu-import-preview__placeholder">
+                    <strong>Preview unavailable</strong>
+                    <span>The uploaded file cannot be displayed directly.</span>
+                  </div>
+                )
+              ) : (
+                <div className="menu-import-preview__placeholder">
+                  <strong>Preview unavailable</strong>
+                  <span>
+                    {previewUrl && previewLoadFailed
+                      ? 'Preview unavailable. The uploaded file cannot be displayed directly.'
+                      : 'Preview unavailable. The uploaded file cannot be displayed directly.'}
+                  </span>
+                </div>
+              )}
+            </div>
           </div>
+          {correctedOcrText ? (
+            <details className="menu-import-corrections">
+              <summary>View AI corrections</summary>
+              <div className="menu-import-corrections__body">
+                {correctionNotes.corrections.length ? (
+                  <div className="menu-import-corrections__list">
+                    {correctionNotes.corrections.map((item, index) => (
+                      <article key={`${item.original || item.corrected || 'correction'}-${index}`} className="menu-import-corrections__item">
+                        <div className="menu-import-corrections__pair">
+                          <span className="menu-import-corrections__label">Original</span>
+                          <strong>{item.original || '—'}</strong>
+                        </div>
+                        <div className="menu-import-corrections__arrow">→</div>
+                        <div className="menu-import-corrections__pair">
+                          <span className="menu-import-corrections__label">Corrected</span>
+                          <strong>{item.corrected || '—'}</strong>
+                        </div>
+                        {item.reason ? (
+                          <p className="menu-import-corrections__reason">{item.reason}</p>
+                        ) : null}
+                      </article>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="menu-import-corrections__empty">No major corrections were needed.</p>
+                )}
+
+                {correctionNotes.warnings.length ? (
+                  <div className="menu-import-corrections__warnings">
+                    <span className="menu-import-corrections__section-label">Warnings</span>
+                    <ul>
+                      {correctionNotes.warnings.map((warning, index) => (
+                        <li key={`${warning}-${index}`}>{warning}</li>
+                      ))}
+                    </ul>
+                  </div>
+                ) : null}
+              </div>
+            </details>
+          ) : null}
+          {correctedOcrText ? (
+            <details className="menu-import-corrections">
+              <summary>View corrected text</summary>
+              <div className="menu-import-corrections__body">
+                <pre className="menu-import-corrections__text">{correctedOcrText}</pre>
+              </div>
+            </details>
+          ) : null}
           <details className="menu-import-ocr">
-            <summary>Raw OCR text</summary>
+            <summary>Original scanned text</summary>
             <pre>{rawOcrText || 'No OCR text available.'}</pre>
           </details>
 
