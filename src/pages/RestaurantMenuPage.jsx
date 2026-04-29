@@ -57,6 +57,7 @@ export default function RestaurantMenuPage() {
   const [promoSubmitting, setPromoSubmitting] = useState(false);
   const [showManualPromoInput, setShowManualPromoInput] = useState(false);
   const [smsConsentAccepted, setSmsConsentAccepted] = useState(false);
+  const [policyAcceptanceChecked, setPolicyAcceptanceChecked] = useState(false);
   const [showPhoneModal, setShowPhoneModal] = useState(false);
   const [continuingOrder, setContinuingOrder] = useState(false);
   const [retryKey, setRetryKey] = useState(0);
@@ -134,6 +135,7 @@ export default function RestaurantMenuPage() {
   useEffect(() => {
     if (showPhoneModal) {
       setSmsConsentAccepted(false);
+      setPolicyAcceptanceChecked(false);
       phoneInputRef.current?.focus();
     }
   }, [showPhoneModal]);
@@ -638,6 +640,7 @@ export default function RestaurantMenuPage() {
     storeCustomerOrderDraft(draft);
     setCustomerPhoneInput(getCustomerPhone(user) || getVerifiedCustomerPhone() || initialCustomerPhone);
     setSmsConsentAccepted(false);
+    setPolicyAcceptanceChecked(false);
     setShowPhoneModal(true);
   };
 
@@ -682,6 +685,7 @@ export default function RestaurantMenuPage() {
       clearCustomerOrderVerification();
       setShowPhoneModal(false);
       setSmsConsentAccepted(false);
+      setPolicyAcceptanceChecked(false);
       navigate('/verification', {
         state: {
           orderDraft: payload,
@@ -702,6 +706,7 @@ export default function RestaurantMenuPage() {
       clearCustomerOrderDraft();
       setShowPhoneModal(false);
       setSmsConsentAccepted(false);
+      setPolicyAcceptanceChecked(false);
       navigate(
         {
           pathname: '/order-confirmation',
@@ -874,9 +879,11 @@ export default function RestaurantMenuPage() {
             customerPhone={customerPhoneInput}
             error={phoneValidationMessage || orderError}
             smsConsentAccepted={smsConsentAccepted}
+            policyAcceptanceChecked={policyAcceptanceChecked}
             onClose={() => {
               setShowPhoneModal(false);
               setOrderError('');
+              setPolicyAcceptanceChecked(false);
             }}
             onCustomerPhoneChange={(value) => {
               setCustomerPhoneInput(value);
@@ -885,6 +892,7 @@ export default function RestaurantMenuPage() {
               }
             }}
             onSmsConsentChange={setSmsConsentAccepted}
+            onPolicyAcceptanceChange={setPolicyAcceptanceChecked}
             onContinue={handleContinue}
             continuingOrder={continuingOrder}
             phoneInputRef={phoneInputRef}
@@ -2399,9 +2407,11 @@ function PhoneModal({
   customerPhone,
   error,
   smsConsentAccepted,
+  policyAcceptanceChecked,
   onClose,
   onCustomerPhoneChange,
   onSmsConsentChange,
+  onPolicyAcceptanceChange,
   onContinue,
   continuingOrder,
   phoneInputRef,
@@ -2441,9 +2451,25 @@ function PhoneModal({
             />
           </div>
         </label>
+        <label className="phone-modal__consent">
+          <input
+            type="checkbox"
+            checked={smsConsentAccepted}
+            onChange={(event) => onSmsConsentChange(event.target.checked)}
+          />
+          <span className="phone-modal__consent-copy" aria-label="SMS consent">
+            <span className="phone-modal__consent-line">
+              I agree to receive SMS messages from Go2Pik, a service provided by Eha Technologies, for order updates including order confirmation, order status, and pickup alerts. Message &amp; data rates may apply. Reply STOP to opt out, HELP for help. Consent is not a condition of purchase.
+            </span>
+          </span>
+        </label>
         <div className="phone-modal__policy-ack">
           <label className="phone-modal__policy-ack-row">
-            <input type="checkbox" />
+            <input
+              type="checkbox"
+              checked={policyAcceptanceChecked}
+              onChange={(event) => onPolicyAcceptanceChange(event.target.checked)}
+            />
             <span className="phone-modal__policy-ack-copy">
               By checking, I accept
               <a className="phone-modal__consent-link" href={privacyUrl}>
@@ -2456,32 +2482,12 @@ function PhoneModal({
             </span>
           </label>
         </div>
-        <label className="phone-modal__consent">
-          <input
-            type="checkbox"
-            checked={smsConsentAccepted}
-            onChange={(event) => onSmsConsentChange(event.target.checked)}
-          />
-          <span className="phone-modal__consent-copy" aria-label="SMS consent">
-            <span className="phone-modal__consent-line">
-              I agree to receive SMS messages from Go2Pik, a service provided by Eha Technologies, for order updates including order confirmation, order status, and pickup alerts. Message &amp; data rates may apply. Reply STOP to opt out, HELP for help. Consent is not a condition of purchase.
-            </span>
-            <span className="phone-modal__consent-links">
-              <a className="phone-modal__consent-link" href={privacyUrl}>
-                Privacy Policy
-              </a>
-              <a className="phone-modal__consent-link" href={termsUrl}>
-                Terms &amp; Conditions
-              </a>
-            </span>
-          </span>
-        </label>
         {error ? <p className="error-text phone-modal__error">{error}</p> : null}
         <button
           type="button"
-          className={`phone-modal__submit${continuingOrder ? ' is-disabled' : ''}`}
+          className={`phone-modal__submit${continuingOrder || !policyAcceptanceChecked ? ' is-disabled' : ''}`}
           onClick={onContinue}
-          disabled={continuingOrder}
+          disabled={continuingOrder || !policyAcceptanceChecked}
         >
           {continuingOrder ? 'Continuing…' : 'Continue'}
         </button>
