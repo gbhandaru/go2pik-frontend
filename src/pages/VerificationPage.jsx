@@ -127,7 +127,13 @@ export default function VerificationPage() {
   }, [resolvedOtpLength, verification?.id]);
 
   useEffect(() => {
-    if (!orderDraft || !resolvedOtpLength || verification || startError) {
+    if (
+      !orderDraft ||
+      !resolvedOtpLength ||
+      verification ||
+      startError ||
+      (orderDraft?.smsConsent !== true && orderDraft?.customer?.smsConsent !== true)
+    ) {
       return;
     }
 
@@ -385,6 +391,8 @@ export default function VerificationPage() {
       const response = await confirmOrderVerification({
         verificationId: verification?.id,
         code: codeValue,
+        phoneNumber: resolvedPhone,
+        smsConsent: Boolean(orderDraftForSubmit?.smsConsent ?? orderDraftForSubmit?.customer?.smsConsent),
         pickupType: orderDraftForSubmit?.pickupRequest?.type || orderDraftForSubmit?.pickupType || undefined,
         pickupTime:
           orderDraftForSubmit?.pickupRequest?.scheduledTime ||
@@ -395,6 +403,8 @@ export default function VerificationPage() {
         customer: {
           ...(orderDraftForSubmit.customer || {}),
           phone: resolvedPhone,
+          phoneNumber: resolvedPhone,
+          smsConsent: Boolean(orderDraftForSubmit?.smsConsent ?? orderDraftForSubmit?.customer?.smsConsent),
           pickupTime:
             orderDraftForSubmit?.pickupRequest?.scheduledTime ||
             orderDraftForSubmit?.pickupRequest?.readyTime ||
@@ -722,13 +732,17 @@ function buildVerificationStartPayload(orderDraft, customerName, customerPhone, 
     restaurantId,
     promoCode: promoCode || undefined,
     promotionCode: promoCode || undefined,
+    phoneNumber: normalizedPhone,
+    smsConsent: Boolean(orderDraft?.smsConsent ?? orderDraft?.customer?.smsConsent),
     pickupType,
     pickupTime: pickupTime || undefined,
     items,
     customer: {
       name: customerName || orderDraft?.customer?.name || orderDraft?.customerName || '',
       phone: normalizedPhone,
+      phoneNumber: normalizedPhone,
       email: orderDraft?.customer?.email || '',
+      smsConsent: Boolean(orderDraft?.smsConsent ?? orderDraft?.customer?.smsConsent),
       pickupTime: pickupTime || undefined,
       pickupDisplayTime: pickupDisplayTime || undefined,
       notes: orderDraft?.customer?.notes || orderDraft?.pickupRequest?.summary || '',
@@ -837,7 +851,9 @@ function normalizePromotionValidationResponse(response, orderAmount, promoCode) 
 function resolveVerificationPhone(orderDraft, customerPhone, user) {
   return normalizeE164Phone(
     customerPhone ||
+      orderDraft?.phoneNumber ||
       orderDraft?.customer?.phone ||
+      orderDraft?.customer?.phoneNumber ||
       orderDraft?.customer?.phone_number ||
       orderDraft?.customerPhone ||
       orderDraft?.phone ||

@@ -12,8 +12,10 @@ import { getRestaurantMenuPath, matchesRestaurantRouteKey, resolveRestaurantRout
 import { useAuth } from '../hooks/useAuth.jsx';
 import { buildCustomerLoginState, getCustomerHomePath } from '../utils/customerFlow.js';
 import { resolvePromoValidationMessage } from '../utils/promoMessages.js';
+import { submitOrder } from '../api/ordersApi.js';
 import {
   clearCustomerOrderVerification,
+  clearCustomerOrderDraft,
   getCustomerOrderDraft,
   getVerifiedCustomerPhone,
   storeCustomerOrderDraft,
@@ -56,6 +58,7 @@ export default function RestaurantMenuPage() {
   const [showManualPromoInput, setShowManualPromoInput] = useState(false);
   const [smsConsentAccepted, setSmsConsentAccepted] = useState(false);
   const [showPhoneModal, setShowPhoneModal] = useState(false);
+  const [continuingOrder, setContinuingOrder] = useState(false);
   const [retryKey, setRetryKey] = useState(0);
   const phoneInputRef = useRef(null);
   const { data, loading, error, errorInfo } = useFetch(
@@ -617,6 +620,7 @@ export default function RestaurantMenuPage() {
       cartItemById,
       customerName,
       customerPhone: getCustomerPhone(user) || getVerifiedCustomerPhone() || initialCustomerPhone,
+      smsConsent: false,
       appliedPromo,
       promoCodeInput,
       pendingPromoCode,
@@ -637,8 +641,13 @@ export default function RestaurantMenuPage() {
     setShowPhoneModal(true);
   };
 
-  const handleSendOtp = () => {
+  const handleContinue = async () => {
     setOrderError('');
+    const customerPhone = normalizedCustomerPhone;
+    if (!customerPhoneInput.trim()) {
+      setOrderError('Phone number is required');
+      return;
+    }
     if (!isCustomerPhoneValid) {
       setOrderError('Please enter a valid US phone number');
       return;
@@ -647,12 +656,12 @@ export default function RestaurantMenuPage() {
       setOrderError('One or more cart items are missing a menu sku. Please refresh the menu and try again.');
       return;
     }
-    const customerPhone = normalizedCustomerPhone;
     const payload = buildCustomerOrderDraft({
       cart,
       cartItemById,
       customerName,
       customerPhone,
+      smsConsent: Boolean(smsConsentAccepted),
       appliedPromo,
       promoCodeInput,
       pendingPromoCode,
@@ -669,17 +678,48 @@ export default function RestaurantMenuPage() {
     });
 
     storeCustomerOrderDraft(payload);
-    clearCustomerOrderVerification();
-    setShowPhoneModal(false);
-    setSmsConsentAccepted(false);
-    navigate('/verification', {
-      state: {
-        orderDraft: payload,
-        customerName: customerName || undefined,
-        customerPhone,
-        pendingVerification: true,
-      },
-    });
+    if (smsConsentAccepted) {
+      clearCustomerOrderVerification();
+      setShowPhoneModal(false);
+      setSmsConsentAccepted(false);
+      navigate('/verification', {
+        state: {
+          orderDraft: payload,
+          customerName: customerName || undefined,
+          customerPhone,
+          pendingVerification: true,
+        },
+      });
+      return;
+    }
+
+    setContinuingOrder(true);
+    try {
+      const response = await submitOrder(payload);
+      const responseOrder = response?.order || response?.data?.order || response;
+      const confirmationOrderId = responseOrder?.id || response?.id;
+      clearCustomerOrderVerification();
+      clearCustomerOrderDraft();
+      setShowPhoneModal(false);
+      setSmsConsentAccepted(false);
+      navigate(
+        {
+          pathname: '/order-confirmation',
+          search: confirmationOrderId ? `?orderId=${encodeURIComponent(confirmationOrderId)}` : '',
+        },
+        {
+          replace: true,
+          state: {
+            customerName: customerName || undefined,
+            promoMeta: payload.appliedPromo || payload.promoValidation || undefined,
+          },
+        },
+      );
+    } catch (error) {
+      setOrderError(String(error?.message || '').trim() || 'Unable to place your order right now.');
+    } finally {
+      setContinuingOrder(false);
+    }
   };
 
   if (authLoading) {
@@ -830,10 +870,9 @@ export default function RestaurantMenuPage() {
       </section>
 
       {showPhoneModal ? (
-          <PhoneModal
+        <PhoneModal
             customerPhone={customerPhoneInput}
             error={phoneValidationMessage || orderError}
-            canSendCode={isCustomerPhoneValid && smsConsentAccepted}
             smsConsentAccepted={smsConsentAccepted}
             onClose={() => {
               setShowPhoneModal(false);
@@ -846,7 +885,8 @@ export default function RestaurantMenuPage() {
               }
             }}
             onSmsConsentChange={setSmsConsentAccepted}
-            onSendOtp={handleSendOtp}
+            onContinue={handleContinue}
+            continuingOrder={continuingOrder}
             phoneInputRef={phoneInputRef}
           />
       ) : null}
@@ -872,6 +912,7 @@ function buildCustomerOrderDraft({
   cartItemById,
   customerName,
   customerPhone,
+  smsConsent = false,
   appliedPromo,
   promoCodeInput,
   pendingPromoCode,
@@ -951,7 +992,9 @@ function buildCustomerOrderDraft({
     customer: {
       name: customerName || getCustomerDisplayName(user) || '',
       phone: customerPhone,
+      phoneNumber: customerPhone,
       email: user?.email || '',
+      smsConsent: Boolean(smsConsent),
       pickupTime:
           selectedPickupMode === PICKUP_MODES.SCHEDULED
           ? pickupTime
@@ -959,6 +1002,8 @@ function buildCustomerOrderDraft({
       pickupDisplayTime: pickupDisplayTime || pickupSummary || '',
       notes: pickupSummary || '',
     },
+    phoneNumber: customerPhone,
+    smsConsent: Boolean(smsConsent),
     customerName: customerName || undefined,
   };
 }
@@ -2353,14 +2398,18 @@ function CartSummary({
 function PhoneModal({
   customerPhone,
   error,
-  canSendCode,
   smsConsentAccepted,
   onClose,
   onCustomerPhoneChange,
   onSmsConsentChange,
-  onSendOtp,
+  onContinue,
+  continuingOrder,
   phoneInputRef,
 }) {
+  const host = typeof window !== 'undefined' && window.location?.origin ? window.location.origin : '';
+  const privacyUrl = host ? `${host}/privacy` : '/privacy';
+  const termsUrl = host ? `${host}/terms` : '/terms';
+
   return (
     <div className="phone-modal-backdrop" role="presentation">
       <section
@@ -2376,8 +2425,8 @@ function PhoneModal({
         <div className="phone-modal__icon" aria-hidden="true">
           <LockIcon />
         </div>
-        <p className="phone-modal__eyebrow">Verify your phone</p>
-        <h2 id="phone-modal-title">We&apos;ll send a 6-digit code to confirm your order and share pickup updates</h2>
+        <p className="phone-modal__eyebrow">Enter your phone number</p>
+        <h2 id="phone-modal-title">We will use it for pickup identification. Enable SMS updates to receive order statuses and alerts.</h2>
         <label className="phone-modal__field">
           <span>Phone number</span>
           <div className="phone-modal__input-shell">
@@ -2399,27 +2448,31 @@ function PhoneModal({
             onChange={(event) => onSmsConsentChange(event.target.checked)}
           />
           <span className="phone-modal__consent-copy" aria-label="SMS consent">
-            <span className="phone-modal__consent-line">I agree to receive SMS messages from Go2Pik for order updates.</span>
-            <span className="phone-modal__consent-line">Message &amp; data rates apply.</span>
-            <span className="phone-modal__consent-line">Reply STOP to opt out, HELP for help.</span>
-            <span className="phone-modal__consent-line">Consent is not a condition of purchase.</span>
+            <span className="phone-modal__consent-line">
+              I agree to receive SMS messages from Go2Pik, a service provided by Eha Technologies, for order updates including order confirmation, order status, and pickup alerts. Message &amp; data rates may apply. Reply STOP to opt out, HELP for help. Consent is not a condition of purchase.
+            </span>
+            <span className="phone-modal__consent-links">
+              <a className="phone-modal__consent-link" href={privacyUrl}>
+                Privacy Policy
+              </a>
+              <a className="phone-modal__consent-link" href={termsUrl}>
+                Terms &amp; Conditions
+              </a>
+            </span>
           </span>
         </label>
         {error ? <p className="error-text phone-modal__error">{error}</p> : null}
         <button
           type="button"
-          className={`phone-modal__submit${canSendCode ? '' : ' is-disabled'}`}
-          onClick={onSendOtp}
-          disabled={!canSendCode}
+          className={`phone-modal__submit${continuingOrder ? ' is-disabled' : ''}`}
+          onClick={onContinue}
+          disabled={continuingOrder}
         >
-          Send Code
+          {continuingOrder ? 'Continuing…' : 'Continue'}
         </button>
-        <p className="phone-modal__legal">
-          By continuing, you agree to receive SMS order updates. Message and data rates may apply.
-        </p>
         <p className="phone-modal__helper">
           <span aria-hidden="true">✓</span>
-          <span>Used only for order updates</span>
+          <span>Your phone number is required for pickup identification at the restaurant.</span>
         </p>
       </section>
     </div>
