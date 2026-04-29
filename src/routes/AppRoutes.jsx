@@ -20,6 +20,7 @@ import KitchenMenuPage from '../pages/KitchenMenuPage.jsx';
 import KitchenReportsPage from '../pages/KitchenReportsPage.jsx';
 import KitchenReadyPage from '../pages/KitchenReadyPage.jsx';
 import KitchenCompletedPage from '../pages/KitchenCompletedPage.jsx';
+import RestaurantMenuImport from '../pages/RestaurantMenuImport.jsx';
 import CustomerLayout from '../components/customer/CustomerLayout.jsx';
 
 export default function AppRoutes() {
@@ -43,6 +44,7 @@ export default function AppRoutes() {
           <Route path="/orders" element={<OrdersPage />} />
         </Route>
       </Route>
+      <Route path="/restaurant/menu-import" element={<RestaurantMenuImport />} />
       <Route path="/kitchen/login" element={<KitchenLoginPage />} />
       <Route path="/kitchen/users/new" element={<KitchenCreateUserPage />} />
       <Route path="/kitchen" element={<Navigate to="/kitchen/orders" replace />} />
