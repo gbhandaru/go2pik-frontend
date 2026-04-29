@@ -17,7 +17,7 @@ import { createAppError, normalizeAppError } from '../utils/appError.js';
 
 function getActiveToken() {
   const pathname = typeof window !== 'undefined' ? window.location.pathname : '';
-  if (pathname.startsWith('/kitchen/')) {
+  if (pathname.startsWith('/kitchen/') || pathname.startsWith('/restaurant/')) {
     return getKitchenAuthToken() || getAuthToken();
   }
 
@@ -26,7 +26,7 @@ function getActiveToken() {
 
 function getActiveRefreshToken() {
   const pathname = typeof window !== 'undefined' ? window.location.pathname : '';
-  if (pathname.startsWith('/kitchen/')) {
+  if (pathname.startsWith('/kitchen/') || pathname.startsWith('/restaurant/')) {
     return getKitchenRefreshToken() || getRefreshToken();
   }
 
@@ -35,7 +35,7 @@ function getActiveRefreshToken() {
 
 function getRefreshEndpoint() {
   const pathname = typeof window !== 'undefined' ? window.location.pathname : '';
-  return pathname.startsWith('/kitchen/')
+  return pathname.startsWith('/kitchen/') || pathname.startsWith('/restaurant/')
     ? '/auth/restaurant-users/refresh'
     : '/auth/customers/refresh';
 }
@@ -71,7 +71,7 @@ async function refreshActiveSession() {
     const profile = data?.user || data?.customer || data?.profile || null;
     const pathname = typeof window !== 'undefined' ? window.location.pathname : '';
 
-    if (pathname.startsWith('/kitchen/')) {
+    if (pathname.startsWith('/kitchen/') || pathname.startsWith('/restaurant/')) {
       storeKitchenAuthTokens({
         accessToken,
         refreshToken: nextRefreshToken,
@@ -92,8 +92,9 @@ async function refreshActiveSession() {
 
 export async function apiRequest(path, options = {}) {
   const token = options.auth === false ? null : getActiveToken();
+  const isFormData = typeof FormData !== 'undefined' && options.body instanceof FormData;
   const headers = {
-    'Content-Type': 'application/json',
+    ...(isFormData ? {} : { 'Content-Type': 'application/json' }),
     ...(token ? { Authorization: `Bearer ${token}` } : {}),
     ...(options.headers || {}),
   };
@@ -101,7 +102,9 @@ export async function apiRequest(path, options = {}) {
   const body = options.body
     ? typeof options.body === 'string'
       ? options.body
-      : JSON.stringify(options.body)
+      : isFormData
+        ? options.body
+        : JSON.stringify(options.body)
     : undefined;
 
   const url = `${ENV.API_BASE_URL}${path}`;
@@ -139,7 +142,7 @@ export async function apiRequest(path, options = {}) {
       clearAuthTokens();
       clearKitchenAuthTokens();
       const pathname = typeof window !== 'undefined' ? window.location.pathname : '';
-      if (pathname.startsWith('/kitchen/')) {
+      if (pathname.startsWith('/kitchen/') || pathname.startsWith('/restaurant/')) {
         setKitchenAuthNotice('Session expired. Please sign in again.');
       } else {
         setAuthNotice('Session expired. Please sign in again.');

@@ -601,7 +601,7 @@ export default function RestaurantMenuPage() {
       return;
     }
     if (closedAsapBlocked) {
-      setOrderError('Restaurant is closed right now. Please place your order during restaurant open hours.');
+      setOrderError('Restaurant is closed right now, please schedule the pickup during open hours');
       return;
     }
     if (cart.some((item) => !resolveMenuItemSku(item))) {
@@ -797,7 +797,7 @@ export default function RestaurantMenuPage() {
           showManualPromoInput={showManualPromoInput}
           statusMessage={
             closedAsapBlocked
-              ? 'Restaurant is closed right now, place your order during restaurant open hours.'
+              ? 'Restaurant is closed right now, please schedule the pickup during open hours'
               : missingScheduledTime
                 ? 'Choose a pickup time from the available hours.'
                 : ''
