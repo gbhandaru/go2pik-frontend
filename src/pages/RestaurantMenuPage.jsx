@@ -2426,7 +2426,7 @@ function PhoneModal({
           <LockIcon />
         </div>
         <p className="phone-modal__eyebrow">Enter your phone number</p>
-        <h2 id="phone-modal-title">We will use it for pickup identification. Enable SMS updates to receive order statuses and alerts.</h2>
+        <h2 id="phone-modal-title">For pickup identification at the restaurant.</h2>
         <label className="phone-modal__field">
           <span>Phone number</span>
           <div className="phone-modal__input-shell">
@@ -2472,7 +2472,7 @@ function PhoneModal({
         </button>
         <p className="phone-modal__helper">
           <span aria-hidden="true">✓</span>
-          <span>Your phone number is required for pickup identification at the restaurant.</span>
+          <span>We never send messages without your permission.</span>
         </p>
       </section>
     </div>
