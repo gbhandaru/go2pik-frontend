@@ -15,6 +15,7 @@ import { resolvePromoValidationMessage } from '../utils/promoMessages.js';
 import { submitOrder } from '../api/ordersApi.js';
 import {
   clearCustomerOrderVerification,
+  clearCustomerOrderDraft,
   getCustomerOrderDraft,
   getVerifiedCustomerPhone,
   storeCustomerOrderDraft,
