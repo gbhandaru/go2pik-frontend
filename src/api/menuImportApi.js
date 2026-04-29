@@ -40,6 +40,18 @@ export function parseMenuImport(importId) {
   });
 }
 
+export function reparseMenuImport(importId) {
+  const resolvedImportId = String(importId || '').trim();
+  if (!resolvedImportId) {
+    throw new Error('importId is required');
+  }
+
+  // TODO: confirm backend exposes POST /api/menu-imports/:id/reparse in all environments.
+  return apiRequest(`/menu-imports/${encodeURIComponent(resolvedImportId)}/reparse`, {
+    method: 'POST',
+  });
+}
+
 export function approveMenuImport(importId, parsedJson) {
   const resolvedImportId = String(importId || '').trim();
   if (!resolvedImportId) {
