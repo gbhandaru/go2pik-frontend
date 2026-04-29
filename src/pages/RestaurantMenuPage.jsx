@@ -2441,6 +2441,21 @@ function PhoneModal({
             />
           </div>
         </label>
+        <div className="phone-modal__policy-ack">
+          <label className="phone-modal__policy-ack-row">
+            <input type="checkbox" />
+            <span className="phone-modal__policy-ack-copy">
+              By checking, I accept
+              <a className="phone-modal__consent-link" href={privacyUrl}>
+                Privacy Policy
+              </a>
+              &amp;
+              <a className="phone-modal__consent-link" href={termsUrl}>
+                Terms &amp; Conditions
+              </a>
+            </span>
+          </label>
+        </div>
         <label className="phone-modal__consent">
           <input
             type="checkbox"

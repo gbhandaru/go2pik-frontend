@@ -2725,6 +2725,33 @@ textarea {
   gap: 0.55rem 0.9rem;
 }
 
+.phone-modal__policy-ack {
+  width: min(410px, 100%);
+  margin-top: 0.9rem;
+  text-align: left;
+}
+
+.phone-modal__policy-ack-row {
+  display: grid;
+  grid-template-columns: 1rem 1fr;
+  column-gap: 0.55rem;
+  align-items: start;
+  color: #374151;
+  font-size: 0.82rem;
+  line-height: 1.28;
+}
+
+.phone-modal__policy-ack-row input {
+  margin-top: 0.2rem;
+}
+
+.phone-modal__policy-ack-copy {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.25rem 0.35rem;
+}
+
 .phone-modal__consent-link {
   color: #166534;
   font-size: 0.82rem;
