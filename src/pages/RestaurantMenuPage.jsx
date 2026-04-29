@@ -620,7 +620,7 @@ export default function RestaurantMenuPage() {
       cartItemById,
       customerName,
       customerPhone: getCustomerPhone(user) || getVerifiedCustomerPhone() || initialCustomerPhone,
-      smsConsentAccepted,
+      smsConsent: false,
       appliedPromo,
       promoCodeInput,
       pendingPromoCode,
@@ -661,7 +661,7 @@ export default function RestaurantMenuPage() {
       cartItemById,
       customerName,
       customerPhone,
-      smsConsentAccepted,
+      smsConsent: Boolean(smsConsentAccepted),
       appliedPromo,
       promoCodeInput,
       pendingPromoCode,
@@ -912,7 +912,7 @@ function buildCustomerOrderDraft({
   cartItemById,
   customerName,
   customerPhone,
-  smsConsentAccepted,
+  smsConsent = false,
   appliedPromo,
   promoCodeInput,
   pendingPromoCode,
@@ -992,8 +992,9 @@ function buildCustomerOrderDraft({
     customer: {
       name: customerName || getCustomerDisplayName(user) || '',
       phone: customerPhone,
+      phoneNumber: customerPhone,
       email: user?.email || '',
-      smsConsentAccepted: Boolean(smsConsentAccepted),
+      smsConsent: Boolean(smsConsent),
       pickupTime:
           selectedPickupMode === PICKUP_MODES.SCHEDULED
           ? pickupTime
@@ -1001,7 +1002,8 @@ function buildCustomerOrderDraft({
       pickupDisplayTime: pickupDisplayTime || pickupSummary || '',
       notes: pickupSummary || '',
     },
-    smsConsentAccepted: Boolean(smsConsentAccepted),
+    phoneNumber: customerPhone,
+    smsConsent: Boolean(smsConsent),
     customerName: customerName || undefined,
   };
 }
