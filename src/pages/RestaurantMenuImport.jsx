@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { fetchRestaurants } from '../api/restaurantsApi.js';
 import {
   approveMenuImport,
   getMenuImport,
@@ -7,8 +8,9 @@ import {
   reparseMenuImport,
   uploadAndOcrMenu,
 } from '../api/menuImportApi.js';
+import { useFetch } from '../hooks/useFetch.js';
 import { normalizeAppError } from '../utils/appError.js';
-import { getKitchenRestaurantId } from '../services/authStorage.js';
+import { getStoredKitchenProfile } from '../services/authStorage.js';
 
 const LOADING_STEPS = ['Reading menu...', 'Understanding items...', 'Organizing categories...', 'Almost ready...'];
 const MENU_ROUTE = '/kitchen/menu';
@@ -28,6 +30,56 @@ function createEmptyCategory() {
     name: '',
     items: [createEmptyItem()],
   };
+}
+
+function normalizeRestaurantList(response) {
+  if (Array.isArray(response)) {
+    return response;
+  }
+
+  if (Array.isArray(response?.restaurants)) {
+    return response.restaurants;
+  }
+
+  if (Array.isArray(response?.data?.restaurants)) {
+    return response.data.restaurants;
+  }
+
+  return [];
+}
+
+function normalizeRestaurantId(value) {
+  if (value == null) {
+    return '';
+  }
+
+  return String(value).trim();
+}
+
+function extractRestaurantContext(profile) {
+  const candidates = [
+    profile?.restaurant,
+    profile?.restaurant_data,
+    profile?.restaurantData,
+    profile?.data?.restaurant,
+    profile?.data?.restaurantData,
+    profile?.user?.restaurant,
+    profile?.profile?.restaurant,
+  ];
+
+  for (const candidate of candidates) {
+    if (candidate && typeof candidate === 'object') {
+      const id = normalizeRestaurantId(
+        candidate.restaurantId || candidate.restaurant_id || candidate.id || candidate.restaurantID,
+      );
+      const name = String(candidate.name || candidate.restaurantName || candidate.restaurant_name || '').trim();
+      if (id || name) {
+        return { restaurantId: id, restaurantName: name };
+      }
+    }
+  }
+
+  return { restaurantId: '', restaurantName: '' };
 }
 
 function createDefaultParsedJson() {
@@ -240,11 +292,12 @@ export default function RestaurantMenuImport() {
   const fileInputRef = useRef(null);
   const loadingTimerRef = useRef(null);
   const successRedirectRef = useRef(null);
-  const [restaurantId, setRestaurantId] = useState('');
-  const [usingFallbackRestaurantId, setUsingFallbackRestaurantId] = useState(false);
+  const profileRestaurantContext = useMemo(() => extractRestaurantContext(getStoredKitchenProfile()), []);
+  const [selectedRestaurantId, setSelectedRestaurantId] = useState(profileRestaurantContext.restaurantId);
   const [selectedFile, setSelectedFile] = useState(null);
   const [importId, setImportId] = useState(null);
   const [fileUrl, setFileUrl] = useState('');
+  const [importingRestaurantName, setImportingRestaurantName] = useState(profileRestaurantContext.restaurantName);
   const [rawOcrText, setRawOcrText] = useState('');
   const [parsedJson, setParsedJson] = useState(createDefaultParsedJson());
   const [stage, setStage] = useState('upload');
@@ -255,19 +308,35 @@ export default function RestaurantMenuImport() {
   const [reparsing, setReparsing] = useState(false);
   const [banner, setBanner] = useState(null);
   const [successSummary, setSuccessSummary] = useState(null);
+  const {
+    data: restaurantsData,
+    loading: restaurantsLoading,
+    error: restaurantsError,
+  } = useFetch(fetchRestaurants, []);
+  const restaurants = useMemo(() => normalizeRestaurantList(restaurantsData), [restaurantsData]);
 
-  useEffect(() => {
-    const resolvedRestaurantId = getKitchenRestaurantId();
-    if (resolvedRestaurantId) {
-      setRestaurantId(resolvedRestaurantId);
-      setUsingFallbackRestaurantId(false);
-      return;
+  const restaurantOptions = useMemo(
+    () =>
+      restaurants.map((restaurant) => ({
+        id: normalizeRestaurantId(restaurant?.id || restaurant?.restaurantId || restaurant?.restaurant_id),
+        name: String(restaurant?.name || restaurant?.restaurantName || restaurant?.restaurant_name || 'Restaurant').trim(),
+      })),
+    [restaurants],
+  );
+
+  const selectedRestaurant = useMemo(() => {
+    const currentId = normalizeRestaurantId(selectedRestaurantId);
+    if (!currentId) {
+      return null;
     }
 
-    // TODO: wire restaurant context/auth state into this page so the fallback is no longer needed.
-    setRestaurantId('1');
-    setUsingFallbackRestaurantId(true);
-  }, []);
+    return (
+      restaurantOptions.find((restaurant) => restaurant.id === currentId) || {
+        id: currentId,
+        name: importingRestaurantName || `Restaurant ${currentId}`,
+      }
+    );
+  }, [importingRestaurantName, restaurantOptions, selectedRestaurantId]);
 
   const categoryCount = useMemo(() => parsedJson.categories.length, [parsedJson]);
   const itemCount = useMemo(
@@ -306,8 +375,11 @@ export default function RestaurantMenuImport() {
     }
 
     successRedirectRef.current = window.setTimeout(() => {
-      navigate(MENU_ROUTE, { replace: true });
-    }, 3000);
+      navigate(
+        `${MENU_ROUTE}?restaurantId=${encodeURIComponent(normalizeRestaurantId(selectedRestaurantId))}`,
+        { replace: true },
+      );
+    }, 30000);
 
     return () => {
       if (successRedirectRef.current) {
@@ -437,13 +509,21 @@ export default function RestaurantMenuImport() {
       return;
     }
 
+    if (!normalizeRestaurantId(selectedRestaurantId)) {
+      setBanner({
+        tone: 'warning',
+        message: 'Please select a restaurant before uploading a menu.',
+      });
+      return;
+    }
+
     setBanner(null);
     setLoading(true);
     setLoadingMode('upload');
     setStage('processing');
 
     try {
-      const uploadResponse = await uploadAndOcrMenu(selectedFile, restaurantId);
+      const uploadResponse = await uploadAndOcrMenu(selectedFile, selectedRestaurantId);
       const nextImportId = uploadResponse?.importId ?? uploadResponse?.id ?? null;
       const nextRawText = String(uploadResponse?.rawOcrText || '').trim();
       const nextFileUrl = String(uploadResponse?.fileUrl || '').trim();
@@ -595,14 +675,42 @@ export default function RestaurantMenuImport() {
           </p>
         </div>
         <div className="menu-import-hero__meta">
-          <span className="menu-import-pill">Restaurant ID: {restaurantId || '—'}</span>
-          {usingFallbackRestaurantId ? <span className="menu-import-pill menu-import-pill--muted">Using fallback ID</span> : null}
+          <span className="menu-import-pill">
+            Importing menu for: {selectedRestaurant?.name || 'Select a restaurant'}
+          </span>
         </div>
       </section>
 
       <section className="menu-import-shell">
         <div className="card menu-import-panel">
           <MenuImportBanner tone={banner?.tone} message={banner?.message} details={banner?.details} />
+          {restaurantsError ? (
+            <MenuImportBanner tone="error" message="Unable to load restaurants. Please try again." />
+          ) : null}
+          {!normalizeRestaurantId(selectedRestaurantId) ? (
+            <MenuImportBanner tone="warning" message="Please select a restaurant before uploading a menu." />
+          ) : null}
+          <label className="form-group">
+            Select Restaurant
+            <select
+              value={selectedRestaurantId}
+              onChange={(event) => {
+                const nextId = event.target.value;
+                setSelectedRestaurantId(nextId);
+                const nextRestaurant = restaurantOptions.find((restaurant) => restaurant.id === nextId);
+                setImportingRestaurantName(nextRestaurant?.name || '');
+                setBanner(null);
+              }}
+              disabled={restaurantsLoading || loading || approving || reparsing}
+            >
+              <option value="">Select Restaurant</option>
+              {restaurantOptions.map((restaurant) => (
+                <option key={restaurant.id} value={restaurant.id}>
+                  {restaurant.name || `Restaurant ${restaurant.id}`}
+                </option>
+              ))}
+            </select>
+          </label>
           <label className="form-group">
             Menu file
             <input
@@ -625,7 +733,7 @@ export default function RestaurantMenuImport() {
             type="button"
             className="primary-btn emphasis"
             onClick={handleUpload}
-            disabled={loading || approving || !selectedFile}
+            disabled={loading || approving || !selectedFile || !normalizeRestaurantId(selectedRestaurantId)}
           >
             {loading ? loadingStep : 'Upload & Scan Menu'}
           </button>
@@ -727,7 +835,9 @@ export default function RestaurantMenuImport() {
           </p>
         </div>
         <div className="menu-import-hero__meta">
-          <span className="menu-import-pill">Import ID: {importId || '—'}</span>
+          <span className="menu-import-pill">
+            Importing menu for: {selectedRestaurant?.name || importingRestaurantName || 'Selected restaurant'}
+          </span>
           <span className="menu-import-pill">Categories: {categoryCount}</span>
           <span className="menu-import-pill">Items: {itemCount}</span>
         </div>
@@ -772,9 +882,12 @@ export default function RestaurantMenuImport() {
 
         <section className="card menu-import-panel menu-import-review">
           <div className="menu-import-review__toolbar">
-            <div>
+            <div className="menu-import-review__heading">
               <p className="eyebrow">Parsed menu</p>
               <h2>Categories and items</h2>
+              <span className="menu-import-chip">
+                Selected restaurant: {selectedRestaurant?.name || importingRestaurantName || 'Select a restaurant'}
+              </span>
             </div>
             <button type="button" className="primary-btn secondary" onClick={addCategory} disabled={approving}>
               Add Category
@@ -916,7 +1029,16 @@ export default function RestaurantMenuImport() {
       </div>
 
       <div className="menu-import-actions">
-        <button type="button" className="primary-btn secondary" onClick={() => navigate(MENU_ROUTE, { replace: true })}>
+        <button
+          type="button"
+          className="primary-btn secondary"
+          onClick={() =>
+            navigate(
+              `${MENU_ROUTE}?restaurantId=${encodeURIComponent(normalizeRestaurantId(selectedRestaurantId))}`,
+              { replace: true },
+            )
+          }
+        >
           View Menu
         </button>
         <button type="button" className="primary-btn emphasis" onClick={resetImport}>

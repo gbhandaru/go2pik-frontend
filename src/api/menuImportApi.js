@@ -1,10 +1,4 @@
 import { apiRequest } from './client.js';
-import { getKitchenRestaurantId } from '../services/authStorage.js';
-
-function resolveRestaurantId(explicitRestaurantId) {
-  const resolved = String(explicitRestaurantId || getKitchenRestaurantId() || '').trim();
-  return resolved || null;
-}
 
 function createUploadPayload(file, restaurantId) {
   const formData = new FormData();
@@ -18,7 +12,7 @@ export function uploadAndOcrMenu(file, restaurantId) {
     throw new Error('file is required');
   }
 
-  const resolvedRestaurantId = resolveRestaurantId(restaurantId);
+  const resolvedRestaurantId = String(restaurantId || '').trim();
   if (!resolvedRestaurantId) {
     throw new Error('restaurantId is required');
   }

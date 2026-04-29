@@ -4248,10 +4248,29 @@ hr {
   flex-wrap: wrap;
 }
 
+.menu-import-review__heading {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
 .menu-import-review__toolbar h2,
 .menu-import-success h1,
 .menu-import-processing h1 {
   margin: 0.1rem 0 0;
+}
+
+.menu-import-chip {
+  display: inline-flex;
+  align-items: center;
+  width: fit-content;
+  padding: 0.38rem 0.7rem;
+  border-radius: 999px;
+  background: #eff6ff;
+  color: #1d4ed8;
+  border: 1px solid #bfdbfe;
+  font-size: 0.84rem;
+  font-weight: 700;
 }
 
 .menu-import-categories {
