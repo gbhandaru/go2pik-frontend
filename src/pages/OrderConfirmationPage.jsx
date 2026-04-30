@@ -7,6 +7,7 @@ import { useAuth } from '../hooks/useAuth.jsx';
 import { formatCurrency } from '../utils/formatCurrency.js';
 import { formatRestaurantAddress, getRestaurantAddressLines } from '../utils/formatRestaurantAddress.js';
 import { getCustomerHomePath, getCustomerOrdersPath } from '../utils/customerFlow.js';
+import { getCustomerOrderStatusLabel, getOrderStatusTone } from '../utils/orderStatus.js';
 import { buildSupportMailtoHref } from '../utils/supportEmail.js';
 import { getRestaurantMenuPath } from '../utils/restaurantRoutes.js';
 import { resolvePromoValidationMessage } from '../utils/promoMessages.js';
@@ -421,6 +422,8 @@ export default function OrderConfirmationPage() {
   }, [orderId]);
 
   const order = currentOrder;
+  const orderStatusLabel = getCustomerOrderStatusLabel(order);
+  const orderStatusTone = getOrderStatusTone(order?.status, order);
 
   useEffect(() => {
     setShowPartialOrderModal(isPartialAcceptance(order));
@@ -484,9 +487,7 @@ export default function OrderConfirmationPage() {
     }
   }
 
-  const heroSubtitle = customerName
-    ? `Thank you, ${customerName}! Your order is being prepared.`
-    : 'Thank you! Your order is being prepared.';
+  const heroSubtitle = getHeroSubtitle({ customerName, orderStatusLabel, orderStatusTone });
 
   const handleBrowseMenu = () => navigate(browseMenuPath);
   const handleBrowseRestaurants = () => navigate(getCustomerHomePath());
@@ -542,6 +543,9 @@ export default function OrderConfirmationPage() {
             </h1>
             <p className="confirmation-lede">{heroSubtitle}</p>
             <p className="muted confirmation-subtext">We'll notify you when your order is ready for pickup.</p>
+            {orderStatusLabel ? (
+              <p className={`order-confirmation-status order-confirmation-status--${orderStatusTone}`}>{orderStatusLabel}</p>
+            ) : null}
           </div>
         </header>
 
@@ -669,6 +673,24 @@ function getItemInstructions(item) {
     item.note ||
     ''
   );
+}
+
+function getHeroSubtitle({ customerName, orderStatusLabel, orderStatusTone }) {
+  const namePrefix = customerName ? `Thank you, ${customerName}! ` : 'Thank you! ';
+
+  if (orderStatusTone === 'ready') {
+    return `${namePrefix}Your order is ${orderStatusLabel}.`;
+  }
+
+  if (orderStatusTone === 'cancelled') {
+    return `${namePrefix}Your order is no longer active.`;
+  }
+
+  if (orderStatusTone === 'past') {
+    return `${namePrefix}Your order is complete.`;
+  }
+
+  return `${namePrefix}Your order is being prepared.`;
 }
 
 function PlateIcon(props) {

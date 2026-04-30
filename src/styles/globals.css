@@ -513,6 +513,11 @@ img {
   color: #4d6f4d;
 }
 
+.customer-order-card__status--ready {
+  background: #e4f5e8;
+  color: #2f6b3d;
+}
+
 .customer-order-card__status--past {
   background: #edf3ef;
   color: #3f5d43;
@@ -2452,6 +2457,50 @@ textarea {
   line-height: 1.45;
   color: #7b8796;
   font-weight: 500;
+}
+
+.order-confirmation-status {
+  display: inline-flex;
+  align-self: center;
+  align-items: center;
+  justify-content: center;
+  margin-top: 0.65rem;
+  padding: 0.35rem 0.75rem;
+  border-radius: 999px;
+  border: 1px solid transparent;
+  font-size: 0.82rem;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+}
+
+.order-confirmation-status--upcoming {
+  background: #eef3ea;
+  color: #4d6f4d;
+  border-color: rgba(77, 111, 77, 0.12);
+}
+
+.order-confirmation-status--ready {
+  background: #e4f5e8;
+  color: #2f6b3d;
+  border-color: rgba(47, 107, 61, 0.14);
+}
+
+.order-confirmation-status--past {
+  background: #edf3ef;
+  color: #3f5d43;
+  border-color: rgba(63, 93, 67, 0.12);
+}
+
+.order-confirmation-status--cancelled {
+  background: #f6ebe9;
+  color: #b4472d;
+  border-color: rgba(180, 71, 45, 0.12);
+}
+
+.order-confirmation-status--partial {
+  background: #fff4db;
+  color: #9a6110;
+  border-color: rgba(154, 97, 16, 0.14);
 }
 
 .pickup-info-card {
