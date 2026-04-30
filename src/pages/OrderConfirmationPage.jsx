@@ -7,7 +7,7 @@ import { useAuth } from '../hooks/useAuth.jsx';
 import { formatCurrency } from '../utils/formatCurrency.js';
 import { formatRestaurantAddress, getRestaurantAddressLines } from '../utils/formatRestaurantAddress.js';
 import { getCustomerHomePath, getCustomerOrdersPath } from '../utils/customerFlow.js';
-import { getCustomerOrderStatusLabel, getOrderStatusTone } from '../utils/orderStatus.js';
+import { getOrderStatusTone } from '../utils/orderStatus.js';
 import { buildSupportMailtoHref } from '../utils/supportEmail.js';
 import { getRestaurantMenuPath } from '../utils/restaurantRoutes.js';
 import { resolvePromoValidationMessage } from '../utils/promoMessages.js';
@@ -422,7 +422,6 @@ export default function OrderConfirmationPage() {
   }, [orderId]);
 
   const order = currentOrder;
-  const orderStatusLabel = getCustomerOrderStatusLabel(order);
   const orderStatusTone = getOrderStatusTone(order?.status, order);
 
   useEffect(() => {
@@ -487,7 +486,7 @@ export default function OrderConfirmationPage() {
     }
   }
 
-  const heroSubtitle = getHeroSubtitle({ customerName, orderStatusLabel, orderStatusTone });
+  const heroSubtitle = getHeroSubtitle({ customerName, orderStatusTone });
 
   const handleBrowseMenu = () => navigate(browseMenuPath);
   const handleBrowseRestaurants = () => navigate(getCustomerHomePath());
@@ -543,9 +542,6 @@ export default function OrderConfirmationPage() {
             </h1>
             <p className="confirmation-lede">{heroSubtitle}</p>
             <p className="muted confirmation-subtext">We'll notify you when your order is ready for pickup.</p>
-            {orderStatusLabel ? (
-              <p className={`order-confirmation-status order-confirmation-status--${orderStatusTone}`}>{orderStatusLabel}</p>
-            ) : null}
           </div>
         </header>
 
@@ -675,11 +671,11 @@ function getItemInstructions(item) {
   );
 }
 
-function getHeroSubtitle({ customerName, orderStatusLabel, orderStatusTone }) {
+function getHeroSubtitle({ customerName, orderStatusTone }) {
   const namePrefix = customerName ? `Thank you, ${customerName}! ` : 'Thank you! ';
 
   if (orderStatusTone === 'ready') {
-    return `${namePrefix}Your order is ${orderStatusLabel}.`;
+    return `${namePrefix}Your order is ready for pickup.`;
   }
 
   if (orderStatusTone === 'cancelled') {
