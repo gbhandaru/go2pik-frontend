@@ -2449,7 +2449,7 @@ function PhoneModal({
           />
           <span className="phone-modal__consent-copy" aria-label="SMS consent">
             <span className="phone-modal__consent-line">
-              I agree to receive SMS messages from Go2Pik, a service provided by Eha Technologies, for order updates including order confirmation, order status, and pickup alerts. Message &amp; data rates may apply. Reply STOP to opt out, HELP for help. Consent is not a condition of purchase.
+              I agree to receive transactional SMS messages from Go2Pik, a service provided by Eha Technologies, for order updates including order confirmation, order status, and pickup alerts. Message frequency varies based on your activity. Message &amp; data rates may apply. Reply STOP to opt out, HELP for help. Consent is not a condition of purchase.
             </span>
             <span className="phone-modal__consent-links">
               <a className="phone-modal__consent-link" href={privacyUrl}>
