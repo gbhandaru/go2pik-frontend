@@ -1,13 +1,5 @@
 import { formatCurrency } from '../../utils/formatCurrency.js';
-
-const STATUS_LABELS = {
-  new: 'New',
-  accepted: 'Accepted',
-  preparing: 'Preparing',
-  ready_for_pickup: 'Ready for Pickup',
-  completed: 'Completed',
-  rejected: 'Rejected',
-};
+import { getOrderStatusLabel } from '../../utils/orderStatus.js';
 
 function actionClassName(variant) {
   if (variant === 'emphasis') {
@@ -51,7 +43,7 @@ export default function KitchenOrderCard({
     typeof order.totalItems === 'number'
       ? order.totalItems
       : visibleItems.reduce((sum, item) => sum + (item.quantity || 1), 0) || 0;
-  const statusLabel = STATUS_LABELS[order.status] || order.status;
+  const statusLabel = getOrderStatusLabel(order.status);
   const pickupTime = order.pickupTime || order.pickupAt || order.scheduledPickupTime || null;
   const totalValue = resolvePayableAmountDisplay(order);
   const hasTotal = totalValue != null;

@@ -9,6 +9,7 @@ import { useFetch } from '../hooks/useFetch.js';
 import { getCustomerHomePath } from '../utils/customerFlow.js';
 import { formatCurrency } from '../utils/formatCurrency.js';
 import { getCustomerDisplayName, getCustomerId } from '../utils/customerIdentity.js';
+import { getCustomerOrderStatusLabel, getOrderStatusTone } from '../utils/orderStatus.js';
 import { getRestaurantMenuPath } from '../utils/restaurantRoutes.js';
 
 export default function OrdersPage() {
@@ -238,7 +239,7 @@ export default function OrdersPage() {
               </div>
             ) : (
               orders.map((order) => {
-                const statusLabel = formatOrderStatusLabel(order.status, order);
+                const statusLabel = getCustomerOrderStatusLabel(order);
                 return (
                   <article className="card customer-order-card" key={order.id}>
                     <div className="customer-order-card__main">
@@ -248,7 +249,7 @@ export default function OrdersPage() {
                           <p>{formatOrderPlacement(order)}</p>
                         </div>
                         <div className="customer-order-card__status-stack">
-                          <span className={`customer-order-card__status customer-order-card__status--${getOrderBucket(order)}`}>
+                          <span className={`customer-order-card__status customer-order-card__status--${getOrderStatusTone(order.status, order)}`}>
                             {statusLabel}
                           </span>
                           {isPendingPartialAcceptance(order) ? (
@@ -334,17 +335,6 @@ function renderOrderItems(order = {}) {
   );
 }
 
-function getOrderBucket(order) {
-  if (isPartialAcceptance(order)) {
-    return 'partial';
-  }
-  const status = String(order?.status || '').trim().toLowerCase();
-  if (status === 'cancelled' || status === 'canceled' || status === 'rejected') {
-    return 'cancelled';
-  }
-  return 'past';
-}
-
 function formatOrderPlacement(order) {
   const pickup =
     order?.customer?.pickupTime ||
@@ -411,17 +401,6 @@ function formatPaymentLabel(order) {
   return 'Unavailable';
 }
 
-function formatOrderStatusLabel(status, order) {
-  if (isPartialAcceptance(order)) {
-    return 'Partially Accepted';
-  }
-  const normalized = String(status || '').trim().toLowerCase();
-  if (normalized === 'cancelled' || normalized === 'canceled' || normalized === 'rejected') {
-    return 'Cancelled';
-  }
-  return 'Completed';
-}
-
 function isPendingPartialAcceptance(order) {
   if (!order) {
     return false;
@@ -433,6 +412,11 @@ function isPendingPartialAcceptance(order) {
   }
 
   return isCustomerActionPending(order);
+}
+
+function isCustomerActionPending(order) {
+  const action = String(order?.customerAction || order?.customer_action || '').trim().toLowerCase();
+  return !action || action === 'pending';
 }
 
 function getVisibleOrderItems(order) {
@@ -458,11 +442,6 @@ function normalizeOrderItems(items) {
 
 function getOrderIdentity(order) {
   return String(order?.id || order?.orderNumber || order?.referenceNumber || order?.reference || order?.createdAt || '');
-}
-
-function isCustomerActionPending(order) {
-  const action = String(order?.customerAction || order?.customer_action || '').trim().toLowerCase();
-  return !action || action === 'pending';
 }
 
 function capitalizeWords(value) {
