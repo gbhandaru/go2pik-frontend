@@ -73,6 +73,10 @@ export default function LandingPage() {
     });
   }
 
+  function handlePlanParty() {
+    navigate('/catering');
+  }
+
   function handleRetryRestaurants() {
     setRetryKey((current) => current + 1);
   }
@@ -141,6 +145,23 @@ export default function LandingPage() {
               <button type="button" className="primary-btn hero-btn hero-btn-secondary" onClick={handleBrowse}>
                 Browse Restaurants
               </button>
+            </div>
+            <div className="mt-5 rounded-[1.6rem] border border-violet-200/70 bg-gradient-to-r from-violet-100 to-fuchsia-50 p-[1px] shadow-sm">
+              <div className="rounded-[1.55rem] bg-white/85 px-4 py-4 backdrop-blur sm:px-5">
+                <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                  <div className="space-y-1">
+                    <p className="text-sm font-semibold uppercase tracking-[0.24em] text-violet-700">Planning a party?</p>
+                    <p className="text-sm leading-6 text-slate-600">Let us handle everything</p>
+                  </div>
+                  <button
+                    type="button"
+                    className="inline-flex items-center justify-center rounded-full bg-gradient-to-r from-violet-600 to-fuchsia-600 px-5 py-3 text-sm font-semibold text-white shadow-sm transition hover:from-violet-500 hover:to-fuchsia-500"
+                    onClick={handlePlanParty}
+                  >
+                    Plan Your Party
+                  </button>
+                </div>
+              </div>
             </div>
             <div className="hero-social-proof">
               <div className="avatar-stack">
